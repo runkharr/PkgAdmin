@@ -1,0 +1,44 @@
+#! /bin/sh
+#
+# $Id: distfile,v 1.1.1.1 2005-07-28 14:16:37 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Licence: GPL(v2)
+
+prog="$0"
+VERSION=`cat VERSION`
+
+usage () {
+    echo "Usage: $prog bindist" 1>&2
+    echo "       $prog srcdist" 1>&2
+    exit 64
+}
+
+if [ $# -lt 1 ]; then usage; fi
+
+case $1 in
+    srcdist)
+	echo -n 'Creating source archive'
+	dir="cfgfile-${VERSION}"; tarfile="$dir.tar"; echo -n ' .'
+	mkdir "../$dir"; echo -n '.'
+	find . -name 'CVS' >excludes; echo excludes >>excludes; echo -n '.'
+	tar cfX - excludes . | (cd "../$dir"; tar xf -); echo -n '.'
+	(cd ..; tar cf "$tarfile" "$dir"; gzip -9f "$tarfile"); echo -n '.'
+	rm -rf excludes "../$dir"
+	echo ". (../$tarfile.gz) done."
+	;;
+    bindist)
+	if [ $# -gt 1 ]; then pfx="PREFIX=$2"; fi
+	echo -n 'Creating binary archive'
+	dir="cfgfile-${VERSION}"; tarfile="$dir.bin.tar"; echo -n ' .'
+	make "DESTDIR=$dir" "$pfx" install >/dev/null 2>&1; echo -n '.'
+	(cd $dir; tar cf "../$tarfile" .); echo -n '.'
+	gzip -9f "$tarfile"; echo -n '.'
+	mv "$tarfile.gz" ..; echo -n '.'
+	rm -rf "$dir"
+	echo ". (../$tarfile.gz) done."
+	;;
+    *)  usage ;;
+esac

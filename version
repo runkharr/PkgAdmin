@@ -1,0 +1,112 @@
+#! /bin/sh
+#
+# $Id: version,v 1.1.1.1 2005-07-28 14:16:37 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Licence: GPL(v2)
+
+newVersion() {
+    local ans new cut
+    echo "The current version is $VERSION ."
+    echo -n "Do you want to change it? "
+    ans=x
+    while [ "$ans" = x ]; do
+	read ans;
+	case $ans in
+	    y|ye|yes|j|ja)    ans=y ;;
+	    n|no|ne|nei|nein) ans=n ;;
+	    *)
+		ans=x
+		echo -n "Do you want to change it? "
+		;;
+	esac
+    done
+    if [ "$ans" = n ]; then return; fi
+    echo
+    echo -n "Please enter the new version number: "
+    ans=x
+    while [ "$ans" = x ]; do
+	read new
+	cut="`echo $new|sed -e 's/\([0-9]\{1,2\}\.[0-9]\{1,2\}\(-[0-9a-zA-Z]\+\)\?\)//'`"
+	if [ -z "$cut" ]; then
+	    ans=
+	else
+	    echo "+++ INVALID version string - please retry!"
+	    echo
+	    echo -n "Please enter the new version number: "
+	    ans=x
+	fi
+    done
+    echo $new >VERSION
+    echo "OK, version number is now: $new"
+}
+
+
+case $1 in
+    directory)
+	VERSION=`cat VERSION`
+	pwd="`pwd`"; wd="`basename $pwd`"
+	if [ "${wd%-$VERSION}" = "$wd" ]; then
+	    echo "`basename $pwd`-$VERSION"
+	else
+	    echo "`basename $pwd`"
+	fi
+	;;
+    get)
+	VERSION=`cat VERSION`
+	echo "$VERSION"
+	;;
+    set)
+	VERSION=`cat VERSION`
+	newVersion
+	;;
+    major)
+	VERSION=`cat VERSION`
+	expr $VERSION : '\([0-9]*\)\..*'
+	;;
+    ostype)
+	ostype=`uname -s`
+	case $ostype in
+	    MINGW32*)
+		echo 'MINGW32' ;;
+	    *)
+		echo $ostype ;;
+	esac
+	;;
+    lxdist)
+	if ! [ -f /etc/issue ]; then echo unknown
+	elif fgrep -i 'Debian' /etc/issue >/dev/null 2>&1; then echo Debian
+	elif fgrep -i 'SuSE' /etc/issue >/dev/null 2>&1; then echo SuSE
+	elif fgrep -i 'Red Hat' /etc/issue >/dev/null 2>&1; then echo RedHat
+	elif fgrep -i 'Trustix' /etc/issue >/dev/null 2>&1; then echo Trustix
+	else echo unknown
+	fi
+	;;
+    header)
+	VERSION=`cat VERSION`
+	if [ $# -lt 2 ]; then
+	    echo "Usage: `basename $0` header <.h-file>" 1>&2; exit 64
+	fi
+	cat >$2 <<-EOT
+		/* version.h
+		**
+		** automatically created file
+		** PLEASE DO NOT EDIT!
+		**
+		*/
+		#ifndef _VERSION_H
+		#define _VERSION_H
+		
+		#define VERSION "${VERSION}"
+		
+		#endif /* defined(_VERSION_H) */
+		EOT
+	;;
+    *)
+	echo -n "Usage: `basename $0`" 1>&2
+	echo " {get|set|directory|major|ostype|lxdist|header <.h-file>}" 1>&2
+	exit 64
+	;;
+esac
