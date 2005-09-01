@@ -1,0 +1,12 @@
+Source: %(SOURCE)
+Section: %(CATEGORY)/%(SUBCATEGORY)
+Priority: optional
+Maintainer: Boris Jakubith <bj@isv-gmbh.de>
+Build-Depends: debhelper (>= 4.0.0)
+Standards-Version: 3.6.1
+
+Package: %(PACKAGE)
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: %(DESCRIPTION)
+ %(DESCRIPTION1)

@@ -1,0 +1,5 @@
+%(PACKAGE) (%(PVER)-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Boris Jakubith <bj@isv-gmbh.de>  %(:date -R)
