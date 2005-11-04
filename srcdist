@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: srcdist,v 1.1.1.1 2005-07-28 14:16:37 bj Exp $
+# $Id: srcdist,v 1.2 2005-11-04 00:36:55 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -61,6 +61,6 @@ if [ -n "$COMPRESS" ]; then
 fi
 echo "  removing directory"
 rm -rf "$DISTDIR"
-echo "  moving arcvive outside of `pwd`"
+echo "  moving archive outside of `pwd`"
 mv "${DISTDIR}$SFX"* ..
 echo "done."
