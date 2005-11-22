@@ -1,6 +1,6 @@
 #! /usr/bin/perl
-
-# $Id: getconf.pl,v 1.1 2005-09-01 00:21:09 bj Exp $
+#
+# $Id: getconf.pl,v 1.2 2005-11-22 08:05:20 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
