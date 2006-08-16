@@ -1,10 +1,10 @@
 #! /usr/bin/perl
 #
-# $Id: hgen.pl,v 1.1.1.1 2005-07-28 14:16:37 bj Exp $
+# $Id: hgen.pl,v 1.2 2006-08-16 08:18:36 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
-# Copyright: 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
 # Licence: GPL(v2)
 
 ## Usage: hgen.pl -o outfile template headerfile...

@@ -1,10 +1,10 @@
 #! /bin/bash
 #
-# $Id: gendeb.sh,v 1.2 2005-11-22 08:05:20 bj Exp $
+# $Id: gendeb.sh,v 1.3 2006-08-16 08:18:36 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
-# Copyright: 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
 # Licence: GPL(v2)
 
 # Get the last version number of the `changelog' file ...
