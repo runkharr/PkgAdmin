@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.6 2008-01-23 18:34:24 bj Exp $
+# $Id: distfile,v 1.7 2008-01-23 23:56:35 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -10,7 +10,9 @@
 prog="$0"
 
 if ! [ -d admin -a -f VERSION ]; then
-    echo 1>&2 "${prog}: you are probably in the wrong directory"
+    cat 1>&2 <<-EOT
+	${prog}: you are probably in the wrong directory.
+    	EOT
     exit 64
 fi
 
