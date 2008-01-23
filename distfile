@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.5 2008-01-23 18:23:39 bj Exp $
+# $Id: distfile,v 1.6 2008-01-23 18:34:24 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -152,4 +152,4 @@ vecho "  removing temporary directory"
 rm -rf "$DISTDIR"
 vecho "  moving archive outside of `pwd`"
 mv "$carcname" ..
-vdone "../$arcname"
+vdone "../$carcname"
