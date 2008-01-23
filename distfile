@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.4 2007-09-20 09:12:03 bj Exp $
+# $Id: distfile,v 1.5 2008-01-23 18:23:39 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -21,108 +21,135 @@ if ! [ -f admin/version -a -f Makefile ]; then
     exit 64
 fi
 
+VERSION=`cat VERSION`
+
 usage () {
-    cat 1>&2 <<-EOT
-	Usage: $prog bindist [bz2|bzip2|gz|gzip|zip] [install-prefix]
-	       $prog srcdist [bz2|bzip2|gz|gzip|zip]
+    cat <<-EOT
+	Usage: $prog [-v] bindist [-<arcmode>] install-prefix" 1>&2
+	       $prog [-v] srcdist [-<arcmode>]" 1>&2
+	       $prog
+
+	arcmode:
+	    gz, gzip
+	       use a combination of 'tar' and 'gzip' for archiving
+	    bz2, bzip2
+	       use a combination of 'tar' and 'bzip2' for archiving
+	    lzma
+	       use a combination of 'tar' and 'lzma' for archiving
+	    zip
+	       use 'zip' for archiving
+	    7z, 7zip
+	       use '7z' for archiving
 	EOT
-    exit 64
+    exit 0
 }
+
+vbegin () {
+    if [ $VERBOSE -ne 0 ]; then
+	echo "Creating $1 archive ($ARCMODE${COMPRESS+, }$COMPRESS)"
+    else
+	echo -n "Creating $1 archive "
+    fi
+}
+
+vecho () {
+    if [ $VERBOSE -ne 0 ]; then
+	echo ${1+"$@"}
+    else
+	echo -n '.'
+    fi
+}
+
+vdone () {
+    if [ $VERBOSE -ne 0 ]; then
+	echo "  archive file = $1"
+	echo "done."
+    else
+	echo ". ($1) done."
+    fi
+}
+
+VERBOSE=0; if [ $# -gt 0 -a "x$1" = "x-v" ]; then VERBOSE=1; shift; fi
 
 if [ $# -lt 1 ]; then usage; fi
 
-mode="$1"; shift
+SFX=.tar; SF2=.gz
+ARCMODE="tar cf"
+COMPRESS="gzip -9f"
 
-SFX=.tar; ARCMODE="tar cf"; COMPRESS="gzip -9f"
+op="$1"; shift
+
 if [ $# -gt 0 ]; then
     case $1 in
-	bz2|bzip2)
-	    SFX=.tar; ARCMODE="tar cf"; COMPRESS="bzip2 -9f"; shift
+        -bz2|-bzip2)
+            SFX=.tar; SF2=.bz2; ARCMODE="tar cf"; COMPRESS="bzip2 -9f"; shift
+            ;;
+        -gz|-gzip)
+            SFX=.tar; SF2=.gz; ARCMODE="tar cf"; COMPRESS="gzip -9f"; shift
+            ;;
+        -zip)
+            SFX=.zip; ARCMODE="zip -9rq"; unset COMPRESS SF2; shift
+            ;;
+	-lzma)
+	    SFX=.tar; SF2=.lzma; ARCMODE="tar cf"; COMPRESS="lzma -9f"; shift
 	    ;;
-	gz|gzip)
-	    SFX=.tar; ARCMODE="tar cf"; COMPRESS="gzip -9f"; shift
+	-7z|-7zip)
+	    SFX=.7z; ARCMODE="7z a -mx=9"; unset COMPRESS SF2
+	    shift
 	    ;;
-	zip)
-	    SFX=.zip; ARCMODE="zip -9rq"; unset COMPRESS; shift
-	    ;;
-	*)
-	    echo 1>&2 "${0##*/}: unknown archive mode '$1'."; exit 64
-	    ;;
+        -*)
+            echo "${0##*/}: unknown archive mode '$1'."; exit 64
+            ;;
+	*) ;;
     esac
 fi
+if [ "$op" = "bindist" -a $# -gt 0 ]; then
+    pfx="PREFIX=$1"; shift
+fi
 
-case $mode in
+
+case $op in
     srcdist)
-	vmode=source
-	DISTDIR=`admin/version source-directory`
-	amode="$ARCMODE${COMPRESS:+, }$COMPRESS"
-	echo -n "Creating source archive ($amode) "
-##	# 0. Cleaning up the source tree ...
-##	make cleanall >/dev/null 2>&1
-	# 1. Creating directory for generating the source distribution ...
-	if ! mkdir "$DISTDIR" >/dev/null 2>&1; then
-	    (echo; echo "${prog}: attempt to create '$DISTDIR' failed") 1>&2
-	    exit 1
-	fi
-	echo -n '.'
-	# 2. Copying files into the new directory ...
+	vbegin 'source'
+	DISTDIR=`admin/version directory`
+	vecho "  creating temporary directory"
+	mkdir "$DISTDIR"
+	vecho "  copying files"
 	find . \( -path '*/CVS/*' -o -path '*/CVS' \) -prune -o \
 	       \( -path "./$DISTDIR/*" -o -path "./$DISTDIR" \) -prune -o \
 	       -print \
 	| cpio -pdm "$DISTDIR" >/dev/null 2>&1
-	echo -n '.'
+	vecho "  cleaning up directory"
+	(cd "$DISTDIR"; make cleanall >/dev/null 2>&1)
+	arcname="${DISTDIR}$SFX"
+	atmp=.; abck=.; adir="$DISTDIR"
 	;;
     bindist)
-	vmode=binary
-	if [ $# -gt 0 ];then PREFIX="PREFIX=$1"; shift; fi
-	DISTDIR=`admin/version binary-directory`
-	amode="$ARCMODE${COMPRESS:+, }$COMPRESS"
-	echo -n "Creating binary archive ($amode) "
-##	# 0. Generating code ...
-##	if ! make all >/dev/null 2>&1; then
-##	    (echo; echo "${prog}: code generation failed") 1>&2
-##	    exit 1
-##	fi
-	# 1. Creating directory for generating the binary distribution ...
-	if ! mkdir "$DISTDIR" >/dev/null 2>&1; then
-	    (echo; echo "${prog}: attempt to create '$DISTDIR' failed") 1>&2
-	    exit 1
+	vbegin 'binary'
+	DISTDIR="`admin/version directory`.bin" 
+	vecho "  creating temporary directory"
+	mkdir "$DISTDIR"
+	vecho "  binary install into temporary directory"
+	if [ -z "$pfx" ]; then
+	    make "DESTDIR=$DISTDIR" install >/dev/null 2>&1
+	else
+	    make "DESTDIR=$DISTDIR" "$pfx" install >/dev/null 2>&1
 	fi
-	echo -n '.'
-	# 2. Installing binary files in the new directory ...
-	if ! make "$PREFIX" DESTDIR="`pwd`/$DISTDIR" install >/dev/null 2>&1
-	then
-	    (echo; echo "${prog}: installing binary files failed") 1>&2
-	    rm -rf "$DISTDIR"
-	    exit 1
-	fi
-	echo -n '.'
+	arcname="${DISTDIR}$SFX"
+	atmp="$DISTDIR"; abck=..; adir="."
 	;;
     *)  usage ;;
 esac
 
-# 3. Generating source archive from the new directory ...
-$ARCMODE "${DISTDIR}$SFX" "$DISTDIR"
-echo -n '.'
-
-# 4. Compressing source archive ...
+vecho "  archiving"
+(cd "$atmp"; $ARCMODE >/dev/null "$abck/$arcname" "$adir")
+carcname="${arcname}$SF2"
 if [ -n "$COMPRESS" ]; then
-    $COMPRESS "${DISTDIR}$SFX"
+    vecho "  compressing"
+    $COMPRESS "$arcname"
 fi
-echo -n '.'
-
-# 5. Removing source code directory ...
+vecho "  removing temporary directory"
 rm -rf "$DISTDIR"
-echo -n '.'
-
-# 6. "Guessing" the name of the archive ...
-files=(`ls "${DISTDIR}$SFX"*`)
-if [ "${#files[@]}" -ne 1 ]; then
-    (echo; echo "${prog}: archive generation failed") 1>&2
-    exit 1
-fi
-archive="${files[0]}"
-
-# 7. Moving source archive out of the source tree ...
-mv "$archive" ..
-echo '. done'
+vecho "  moving archive outside of `pwd`"
+mv "$carcname" ..
+vdone "../$arcname"
