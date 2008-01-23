@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# $Id: check_header,v 1.1 2008-01-23 23:56:35 bj Exp $
+# $Id: check_header,v 1.2 2008-01-23 23:57:37 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -11,7 +11,7 @@ prog="${0##*/}"
 
 usage () {
     cat 1>&2 <<-EOT
-    	Usage: ${prog} <header-filename>
+    	Usage: ${prog} <header-filename> <macroname>
 	EOT
     exit 0
 }
