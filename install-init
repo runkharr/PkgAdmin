@@ -1,0 +1,92 @@
+#! /bin/sh
+#
+# $Id: install-init,v 1.1 2008-01-25 18:22:17 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: © 2008, Boris Jakubith <fbj@blinx.de>
+# Licence: GPL(v2)
+
+PROG=`basename "$0"`
+PPATH=`dirname "$0"`
+top=`expr "$PPATH" : '\(.\+\)/admin'`
+
+cd "top"
+
+if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
+    cat 1>&2 <<-EOT
+	${PROG}: you are probably in the wrong context.
+	EOT
+    exit 64
+fi
+
+LXDIST=`admin/version lxdist`
+
+mode=0755
+OPTS=
+while [ $# -gt 0 ]; do
+    case "$1" in
+	-q|-Q)  OPTS="$OPTS $1"; shift ;;
+	-m*) OPTS="$OPTS $1"
+	     mode=`expr "$1" : '-m\(.*\)'`
+	     if [ "x$mode" = x ]; then
+		 if [ $# -lt 2 ]; then
+		    echo 1>&2 "${PROG}: missing argument for option '-m'"
+		    exit 64
+		 fi
+		 shift; OPTS="$OPTS $1"; mode="$1"
+	     fi
+	     shift
+	     ;;
+	-h)  echo "Usage: ${PROG} [-q] [-m fmask] daemon-path init-path"
+	     echo "       ${PROG} -h"
+	     exit 0
+	     ;;
+	--)  break ;;
+	-*) echo 1>&2 "${PROG}: invalid option '$1'"; exit 64 ;;
+	*)   break ;;
+    esac
+done
+
+if [ $# -lt 2 ]; then
+    echo "${PROG}: missing argument(s); try \"${PROG} -h\" for help, please!"
+    exit 64
+fi
+
+daemon="$1"; shift
+init="$1"; shift
+
+if [ -d "$init" ]; then
+    initname=`basename "$daemon"`
+    init="$init/$initname"
+elif ! [ -d "`dirname \"$init\"`" ]; then
+    pi=`basename "$init"`
+    dn=`dirname "$init"`
+    initname="$pi"
+    mkdir -p "$dn"
+#    n=0; while ! [ -d "$dn" ]; do
+#	n=`expr $n + 1`
+#	pi=`basename "$dn"`
+#	dn=`dirname "$dn"`
+#	eval "pr$n=\"$pi\""
+#    done
+#    while [ $n -gt 0 ]; do
+#	eval "dn=\"\$dn/\$pr$n\""
+#	eval "unset pr$n"
+#	mkdir -m "$mode" "$dn"
+#	n=`expr $n - 1`
+#    done
+fi
+
+name=`basename "$daemon"`
+dmdir=`dirname "$daemon"`
+prefix=`dirname "$dmdir"`
+initp="initd/$LXDIST"
+
+sed <"$initp" >"$init" \
+    -e "s|%NAME%|$name|g; s|%PREFIX%|$prefix|g; s|%DAEMON%|$daemon|g" \
+    -e "s|%INITNAME%|$initname|g; s|%DESC%|service|g" \
+    -e "s|%DATE%|`date +%d-%b-%Y`|g" 
+    
+
+chmod a+x "$init"
