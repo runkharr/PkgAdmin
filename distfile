@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.7 2008-01-23 23:56:35 bj Exp $
+# $Id: distfile,v 1.8 2008-05-16 16:01:41 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -133,9 +133,14 @@ case $op in
 	mkdir "$DISTDIR"
 	vecho "  binary install into temporary directory"
 	if [ -z "$pfx" ]; then
-	    make "DESTDIR=$DISTDIR" install >/dev/null 2>&1
+	    if ! make "DESTDIR=$DISTDIR" install-root >/dev/null 2>&1; then
+		make "DESTDIR=$DISTDIR" install >/dev/null 2>&1
+	    fi
 	else
-	    make "DESTDIR=$DISTDIR" "$pfx" install >/dev/null 2>&1
+	    if ! make "DESTDIR=$DISTDIR" "$pfx" install-root >/dev/null 2>&1
+	    then
+		make "DESTDIR=$DISTDIR" "$pfx" install >/dev/null 2>&1
+	    fi
 	fi
 	arcname="${DISTDIR}$SFX"
 	atmp="$DISTDIR"; abck=..; adir="."
