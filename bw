@@ -1,0 +1,125 @@
+#!/bin/sh
+#
+# $Id: bw,v 1.1 2008-09-07 16:57:05 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: © 2008, Boris Jakubith <bj@isv-gmbh.de>
+# Licence: GPL(v2)
+
+# usage "message"
+#   - prints message to STDERR and exits with code 64 (EX_USAGE)
+#
+# usage
+#   - (w.o. message) prints the usage message to STDOUT and exits with code 0
+#
+usage() {
+    if [ $# -gt 0 ]; then
+	echo 1>&2 "$0:" "$@"
+	exit 64
+    fi
+    cat <<-EOT
+
+	Usage: $0 [-l logfile] [CC=cmd | LD=cmd] outname [command] [cmdargs...]
+	       $0 [-l logfile] outname command cmdargs
+	       $0 [-l logfile] 'unlog'
+	       $0 -h
+
+	command:
+	    one of 'compile', 'link' or a compiler command
+
+	cmdargs:
+	    command options for building the output file
+
+	outname:
+	    name to be printed in the 'Building name ...'
+	    ('Compiling...', 'Linking...') message
+
+	EOT
+    exit 0
+}
+
+# No arguments: ==> usage
+if [ $# -lt 1 ]; then usage; fi
+
+# Default values for `logfile' and `mode'
+#
+logfile=build.log
+mode=
+
+# Read the options and set `logfile' accordingly ...
+#
+while getopts 'hl:' opt; do
+    case $opt in
+	h)  usage ;;
+	l)  logfile="$OPTARG" ;;
+	\?) usage "invalid option: $opt" ;;
+    esac
+done
+
+# Remove the options from the command line arguments ...
+#
+shift `expr $OPTIND - 1`
+
+# Set `CC' and `LD' and `mode' depending on the `CC=val' and `LD=val'
+# arguments (first hits) ...
+#
+while [ "${1#*=}" != "$1" ]; do
+    case "$1" in
+	CC=*) eval "$1"; if [ -z "$mode" ]; then mode=cc; cmd="$CC"; fi ;;
+	LD=*) eval "$1"; if [ -z "$mode" ]; then mode=ld; cmd="$LD"; fi ;;
+    esac
+    shift
+done
+
+# This program needs at least one non-option and non-equation argument ...
+#
+if [ $# -lt 1 ]; then usage "missing argument"; fi
+
+# This argument is the output file ...
+#
+out="$1"; shift
+
+# But if this argument is `unlog', then remove the logfile and exit
+# (with code 0) ...
+#
+if [ "$out" = unlog ]; then
+    echo "Removing $logfile"
+    rm -f "$logfile"; exit 0;
+fi
+
+# Set `cmd' depending on `mode' ...
+#
+case "$mode" in
+    cc) if [ -n "$CC" ]; then cmd="$CC"; fi ;;
+    ld) if [ -n "$LD" ]; then cmd="$LD"; fi ;;
+esac
+
+# If cmd is not already set, then try to set it from the second command
+# (which *MUST* exist in this case); set mode accordingly in this case
+# ...
+#
+if [ -z "$cmd" ]; then
+    if [ $# -lt 1 ]; then usage "missing argument"; fi
+    case "$1" in
+	compile)
+	    mode=cc; if [ -n "$CC" ]; then cmd="$CC"; else cmd=cc; fi ;;
+	link)
+	    mode=ld; if [ -n "$LD" ]; then cmd="$LD"; else cmd=cc; fi ;;
+	*)  cmd="$1" ;;
+    esac
+    shift
+fi
+
+mm=Building
+if [ "$mode" = cc ]; then mm=Compiling; else mm=Linking; fi
+echo -n "$mm $out ..."
+
+echo "\n$mm $out" >>"$logfile" 2>&1
+if $cmd ${1:+"$@"} >>"$logfile" 2>&1; then
+    echo " done."
+    exit 0
+fi
+
+echo " failed."
+exit 1
