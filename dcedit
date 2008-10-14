@@ -2,7 +2,7 @@
 eval 'exec perl -wS $0 ${1+"$@"}'
     if $running_under_some_shell;
 
-# $Id: dcedit,v 1.1 2008-10-14 00:45:01 bj Exp $
+# $Id: dcedit,v 1.2 2008-10-14 07:08:19 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de
@@ -179,7 +179,7 @@ for $e (@CL) {
 }
 close CL;
 
-#unlink 'debian/changelog.OLD';
+unlink 'debian/changelog.OLD';
 
 exit 0;
 
