@@ -1,0 +1,244 @@
+#! /usr/bin/perl
+eval 'exec perl -wS $0 ${1+"$@"}'
+    if $running_under_some_shell;
+
+# $Id: dcedit,v 1.1 2008-10-14 00:45:01 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: fbj@blinx.de
+# Copyright: (c) 2008, Boris Jakubith <fbj@blinx.de>
+# License: GPL (version 2)
+#
+# Small Perl-script for maintaining the debian/changelog file ...
+#
+
+use IO::Handle;
+use POSIX qw(strftime setlocale LC_ALL LC_CTYPE);
+
+sub ppsplit ($;$);
+sub edit ($);
+sub nl_strftime (@);
+
+($prog, $ppath) = ppsplit ($0);
+
+$MAXCLL = 72;
+
+unless (-d 'debian') {
+    die "$prog: 'debian'-directory not found. Did you start me in right".
+	" directory?\n";
+}
+
+open CL, '<debian/changelog' or
+    die "$prog: attempt to open 'debian/changelog' failed - $!\n";
+
+@CL = (); @e = (); $pn = undef; $pv = undef; $pxd = undef;
+while (<CL>) {
+    chomp; s/\r$//;
+    if (/^([\w-]+) \((.+?)\) (\w+; urgency=.+)/) {
+	unless (defined $pn) { $pn = $1; $pv = $2; $pxd = $3; }
+	if (@e) { push @CL, [ @e ]; @e = (); }
+    }
+    push @e, $_;
+}
+if (@e) { push @CL, [ @e ]; @e = (); }
+close CL;
+
+@e = @{$CL[$[]};
+
+$maintainer = undef;
+for $_ (@e) {
+    if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintiner = $1; last; }
+}
+
+if (open MAINTAINER, "<MAINTAINER") {
+    $_ = <MAINTAINER>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
+    if (/^([^\s]+ )+<[^>\@]+\@[^>]+>$/) { $maintainer = $_; }
+    close MAINTAINER;
+}
+
+unless (defined $maintainer) {
+    die "$prog: attempt to detect the package maintainer failed\n";
+}
+
+open VERSION, "<VERSION" or
+    die "$prog: attempt to get the version number failed - $!\n";
+$_ = <VERSION>; chomp; s/\r$//; close VERSION;
+$version = $_;
+
+($v, $dv) = ($pv =~ /^(.+)-([^-]+)$/);
+if ($v eq $version) {
+    my $af = STDIN->autoflush (1);
+    for (;;) {
+	print "The program version and the last entry in the debian changelog".
+	      " match.\nDo you want to change the debian release number".
+	      " (current = $dv) instead ? ";
+	$_ = <STDIN>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
+    last if (/^y(es)?$/ || /^no?$/);
+	print "Please answer only with y[es] or n[o]!\n\n";
+    }
+    if (/^no?$/) { print "Ok ... bye\n"; exit 0; }
+    for (;;) {
+	print "Please enter the debian release number: ";
+	$_ = <STDIN>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
+    last if (/^[^\s-]+$/);
+	print "Wrong format. Please retry!\n\n";
+    }
+    if ($dv eq $_) {
+	print STDERR "$prog: The debian release number equals that of the".
+		     " last entry in the\n".(' ' x length $prog)."  changelog".
+		     " file. I assume you don't really want to change the\n".
+		     (' ' x length $prog)."  debian/changelog.\n";
+	exit 0;
+    }
+    $dv = $_;
+}
+$tf = "debian/tx-$$.in";
+open TX, ">$tf" or
+    die "$prog: attempt to prepare editing failed - $!\n";
+$etext = <<EOT;
+
+##DELETE from here
+# Please enter a text describing the new version. This text is later inserted
+# as a new changelog entry in the form
+# $pn ($version-$dv) $pxd
+#
+#   * <your text>
+#
+#  -- $maintainer  «current date (rfc822)»
+#
+# Each empty line in your text leads to a new line starting with '*' ...
+EOT
+print TX $etext;
+close TX;
+
+$rc = edit ($tf);
+unless (defined $rc) {
+    $err = "$!"; unlink $tf;
+    die "$prog: editing '$tf' failed - $err\n";
+}
+
+if ($rc) {
+    print STDERR "$prog: WARNING! The editor returned a non-zero exit code\n";
+}
+
+open TX, "<$tf" or
+    die "$prog: attempt to read the description failed - $!\n";
+
+@e = ("$pn ($version-$dv) $pxd", ""); @t = ();
+$e = '';
+while (<TX>) {
+    chomp; s/\r$//;
+last if (/^##DELETE/);
+    s/^\s+//; s/\s+$//;
+    if ($_ eq '') {
+	if ($e ne '') { $e =~ s/^ //; push @t, $e; $e = ''; }
+	next;
+    }
+    $e .= ' '.$_;
+}
+$e =~ s/^ //;
+push @t, $e if ($e ne '');
+close TX; unlink $tf;
+
+unless (@t) {
+    print STDERR "$prog: you inserted no non-empty text, so i assume".
+		 " you don't want to\n".(' ' x length $prog).
+		 "  change the changelog.\n";
+    exit 0;
+}
+
+for $t (@t) {
+    @w = split /\s+/, $t;
+    $l = '  *';
+    while (@w) {
+	$w = shift @w;
+	if (length ("$l $w") < $MAXCLL) {
+	    $l .= " $w";
+	} else {
+	    push @e, $l; $l = "   $w";
+	}
+    }
+    if (length ($l) > 3) { push @e, $l; }
+}
+
+$ts = nl_strftime ('%a, %e %b %Y %H:%M:%S %z', (localtime (time ())));
+push @e, "", " -- $maintainer  $ts", "";
+unshift @CL, [ @e ];
+
+unlink 'debian/changelog.OLD';
+rename 'debian/changelog', 'debian/changelog.OLD' or
+    die "$prog: attempt to save current 'debian/changelog' failed - $!\n";
+unless (open CL, ">debian/changelog") {
+    $ec = "$!\n";
+    unlink 'debian/changelog';
+    rename 'debian/changelog.OLD', 'debian/changelog';
+    die "$prog: attempt to write new 'debian/changelog' failed - $!\n";
+}
+for $e (@CL) {
+    for $_ (@{$e}) { print CL "$_\n"; }
+}
+close CL;
+
+#unlink 'debian/changelog.OLD';
+
+exit 0;
+
+sub ppsplit ($;$) {
+    use Cwd;
+    my ($pp, $pdel) = @_;
+    $pdel = '/' unless ($pdel);
+    my @pp = split /$pdel/, $pp;
+    my $pn = pop @pp;
+    unless (@pp && (length $pp[$[]) == 0) {
+	my $cwd = cwd ();
+#	my $cwd = `pwd`; chomp $cwd; $cwd =~ s/\r$//;
+	unshift @pp, (split /$pdel/, $cwd);
+    }
+    my @res = ();
+    while (@pp) {
+	my $x = shift @pp;
+	if ($x eq '..') {
+	    pop @res if (@res > 1);
+	} elsif ($x ne '.') {
+	    push @res, $x;
+	}
+    }
+    ($pn, join ($pdel, @res))
+}
+
+sub check_prog ($) {
+    my $p = shift;
+    for my $path (qw(/bin /usr/bin /usr/local/bin)) {
+	my $pp = "$path/$p";
+	return $pp if (-f $pp && -x $pp);
+    }
+    undef
+}
+
+sub edit ($) {
+    my ($file) = @_;
+    my $editor;
+    if (exists $ENV{EDITOR} && -f $ENV{EDITOR} && -x $ENV{EDITOR}) {
+	$editor = $ENV{EDITOR};
+    }
+    $editor = check_prog ('editor') unless (defined $editor);
+    $editor = check_prog ('le') unless (defined $editor);
+    $editor = check_prog ('vim') unless (defined $editor);
+    $editor = check_prog ('vi') unless (defined $editor);
+    $editor = check_prog ('nano') unless (defined $editor);
+    unless (defined $editor) {
+	print STDERR "$prog: no editor found\n"; undef
+    } else {
+	(system $editor, $file)
+    }
+}
+
+sub nl_strftime (@) {
+    my @args = @_;
+    die "$prog: Not enough arguments for main::nl_strftime\n" if (@args < 7);
+    while (@args < 10) { push @args, -1; }
+    my $lc = setlocale (LC_ALL); setlocale (LC_ALL, "C");
+    my $res = strftime (@args);
+    setlocale ($lc);
+    $res
+}
