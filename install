@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: install,v 1.5 2009-02-21 18:08:53 bj Exp $
+# $Id: install,v 1.6 2009-02-21 18:11:22 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -25,7 +25,7 @@ ask() {
     done
 }
 
-QUERY=0
+QUERY=0; strip=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -49,8 +49,7 @@ while [ $# -gt 0 ]; do
 	    ;;
 	-q) QUERY=1; shift ;;
 	-Q) QUERY=2; shift ;;
-	-s)
-	    strip=1; shift ;;
+	-s) strip=1; shift ;;
 	-z) compress=1; shift ;;
 	-*) printf "%s%s\n%s\n" \
 		"Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] " \
