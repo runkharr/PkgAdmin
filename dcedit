@@ -2,7 +2,7 @@
 eval 'exec perl -wS $0 ${1+"$@"}'
     if $running_under_some_shell;
 
-# $Id: dcedit,v 1.2 2008-10-14 07:08:19 bj Exp $
+# $Id: dcedit,v 1.3 2009-02-24 10:35:09 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de
@@ -47,7 +47,7 @@ close CL;
 
 $maintainer = undef;
 for $_ (@e) {
-    if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintiner = $1; last; }
+    if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintainer = $1; last; }
 }
 
 if (open MAINTAINER, "<MAINTAINER") {
