@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# $Id: gendeb.sh,v 1.3 2006-08-16 08:18:36 bj Exp $
+# $Id: gendeb.sh,v 1.4 2009-02-24 18:33:40 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -63,7 +63,8 @@ cd 'debdir'
 
 # Move the `debian' sub-directory from `admin/' to here ...
 #
-mv admin/debian .
+cp -a ../admin/debian .
+../admin/dcedit
 
 # Use `dpkg-buildpackage' in order to generate the debian packages ...
 #
