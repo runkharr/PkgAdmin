@@ -1,10 +1,10 @@
-This is %(PACKAGE), written and maintained by Boris Jakubith <bj@isv-gmbh.de>
+This is %(PACKAGE), written and maintained by Boris Jakubith <fbj@blinx.de>
 on %(:date -R)
 
 The original source can always be found at:
 	Currently not known ...
 
-Copyright (C) 2005  Boris Jakubith <bj@isv-gmbh.de>
+Copyright (C) 2005  Boris Jakubith <fbj@blinx.de>
 
 License:
 
