@@ -1,0 +1,26 @@
+#! /bin/sh
+#
+# $Id: exclude_list,v 1.1 2009-02-25 20:53:07 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: fbj@blinx.de
+# Copyright: (c) 2009, Boris Jakubith <fbj@blinx.de>
+# License: GPL (version 2)
+#
+# Small `/bin/sh'-wrapper which calls the real `escap
+# a regular expression (including the escaping of characters which are no
+# wildcards but otherwise interpreted as regular expressions) ...
+#
+
+if ! [ -f "$0.bin" ] || [ "$0.c" -nt "$0.bin" ]; then
+    if ! type cc >/dev/null 2>&1; then
+	echo "$0: no C-compiler found ... can't continue!"
+	exit 1
+    fi
+    if ! cc "$0.c" -o "$0.bin" >/dev/null 2>&1; then
+	echo "$0: compiling '$0.c' failed"
+	exit 1
+    fi
+fi
+
+exec "$0.bin" ${1+"$@"}

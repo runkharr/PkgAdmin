@@ -1,0 +1,48 @@
+#! /usr/bin/awk -f
+#
+# escape_rx.awk
+#
+# $Id: escape_rx,v 1.1 2009-02-25 20:53:07 bj Exp $
+#
+# Author: Boris Jakubith
+# E-Mail: fbj@blinx.de
+# Copyright: (c) 2009, Boris Jakubith <fbj@blinx.de>
+# License: GPL (version 2)
+#
+# This small AWK-script converts a pathname with wildcard characters into
+# a regular expression (including the escaping of characters which are no
+# wildcards but otherwise interpreted as regular expressions) ...
+#
+
+BEGIN {
+    res = ""
+    FS = ""
+}
+
+{
+    brctx = 0
+    while (length ($0) > 0) {
+	cc = substr ($0, 1, 1); $0 = substr ($0, 2)
+	if (cc == "\\") {
+	    #res = res cc
+	    if (length ($0) > 0) {
+		cc = substr ($0, 1, 1); $0 = substr ($0, 2)
+		res = res "\\" cc
+		#res = res cc
+	    }
+	} else if (cc == "[") {
+	    res = res cc; brctx = 1
+	} else if (cc == "]") {
+	    res = res cc; brctx = 0
+	} else if (cc == "?") {
+	    res = res (brctx ? cc : ".")
+	} else if (cc == "*") {
+	    res = res (brctx ? cc : ".*")
+	} else if (cc ~ /[$^.{}+\ \t]/) {
+	    res = res (brctx ? cc : ("\\" cc))
+	} else {
+	    res = res cc
+	}
+    }
+}
+END { print res }
