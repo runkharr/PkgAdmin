@@ -1,11 +1,15 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.8 2008-05-16 16:01:41 bj Exp $
+# $Id: distfile,v 1.9 2009-02-25 14:18:13 bj Exp $
 #
 # Author: Boris Jakubith
-# E-Mail: bj@isv-gmbh.de
-# Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
-# Licence: GPL(v2)
+# E-Mail: fbj@blinx.de
+# Copyright: © 2005-2009, Boris Jakubith <fbj@blinx.de>
+# Licence: GPL (version 2)
+#
+# Utility for generating a source-archive from a (CVS-)source-tree of one of
+# my programs ...
+#
 
 prog="$0"
 
@@ -71,6 +75,60 @@ vdone () {
     fi
 }
 
+# Escape the meta-characters used in a regular expression from the argument ...
+#
+escape_rx () {
+    echo "$@" | sed -e 's,\(\[\|\]\|[$^.{}*+? \t]\),\\\1,g'
+}
+
+# Read the files/dirs to be excluded from the source distribution and print
+# a single regular expressions (suitable as argument to the `-regex'-option of
+# the `find'-command) from these files/dirs ...
+#
+exclude_list () {
+    local save_IFS match cl f e res file="$1"
+    if [ -f "$file" ]; then
+	save_IFS="$IFS";
+	IFS=;
+	f="$file"
+	if [ "${f#/}" = "$f" -a "${f#./}" = "$f" -a "${f#../}" = "$f" ]; then
+	    f="./$f"
+	fi
+	res="`escape_rx "$f"`"
+	while read f; do
+	    # Check if the line is a comment line and skip it in this case ...
+	    cl="`echo "$f" | sed -e 's|^[ \t]*#.*$||'`"
+	    if [ -z "$cl" ]; then continue; fi
+
+	    # Prepend a './' if required (find prints pathes in this format) ...
+	    if [ "${f#/}" = "$f" -a "${f#./}" = "$f" -a "${f#../}" = "$f" ]
+	    then
+		f="./$f"
+	    fi
+
+	    # I don't allow reguilar expressions in the configuration file,
+	    # so the meta-characters are escaped here ...
+	    e="`escape_rx "$f"`"
+
+	    # Add a pattern for matching the path of a directory and all of
+	    # it's content ...
+	    if [ -d "$f" ]; then
+		e="`echo "$e" | sed -e 's,$,\\\(/.*\\\)\?,'`"
+	    fi
+
+	    # Append the resulting regular expression to the or'd list of
+	    # regular expressions which were already generated in the previous
+	    # steps ...
+	    res="$res\\|$e"
+	done < "$file"
+	IFS="$saveIFS"
+
+	# Print the or'd list of regular expressions, included in `^\(' and
+	# `$\)' ...
+	echo "^\\($res\\)\$"
+    fi
+}
+
 VERBOSE=0; if [ $# -gt 0 -a "x$1" = "x-v" ]; then VERBOSE=1; shift; fi
 
 if [ $# -lt 1 ]; then usage; fi
@@ -109,7 +167,6 @@ if [ "$op" = "bindist" -a $# -gt 0 ]; then
     pfx="PREFIX=$1"; shift
 fi
 
-
 case $op in
     srcdist)
 	vbegin 'source'
@@ -117,10 +174,22 @@ case $op in
 	vecho "  creating temporary directory"
 	mkdir "$DISTDIR"
 	vecho "  copying files"
-	find . \( -path '*/CVS/*' -o -path '*/CVS' \) -prune -o \
-	       \( -path "./$DISTDIR/*" -o -path "./$DISTDIR" \) -prune -o \
-	       -print \
-	| cpio -pdm "$DISTDIR" >/dev/null 2>&1
+
+	# Get the exclusion list ...
+	EXCLUDE="`exclude_list .srcdist-exclude`"
+	if [ -n "$EXCLUDE" ]; then
+	    # ... and convert it into a `find'-expression segment if it is
+	    # not empty ...
+	    EXCLUDE="-o \\( -regex '$EXCLUDE' \\) -prune"
+	fi
+
+	# Generate the `find'-command ...
+	CMD="find . \( -path '*/CVS/*' -o -path '*/CVS' \) -prune -o \
+	     \( -path './$DISTDIR/*' -o -path './$DISTDIR' \) -prune \
+	     $EXCLUDE -o -print \
+	     | cpio -pdm '$DISTDIR' >/dev/null 2>&1"
+	# and evaluate it ...
+	eval "$CMD"
 	vecho "  cleaning up directory"
 	(cd "$DISTDIR"; make cleanall >/dev/null 2>&1)
 	arcname="${DISTDIR}$SFX"
