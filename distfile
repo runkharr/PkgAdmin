@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.10 2009-02-25 14:24:07 bj Exp $
+# $Id: distfile,v 1.11 2009-02-25 21:18:31 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de
@@ -85,49 +85,49 @@ escape_rx () {
 # a single regular expressions (suitable as argument to the `-regex'-option of
 # the `find'-command) from these files/dirs ...
 #
-exclude_list () {
-    local save_IFS match cl f e res file="$1"
-    if [ -f "$file" ]; then
-	save_IFS="$IFS";
-	IFS=;
-	f="$file"
-	if [ "${f#/}" = "$f" -a "${f#./}" = "$f" -a "${f#../}" = "$f" ]; then
-	    f="./$f"
-	fi
-	res="`escape_rx "$f"`"
-	while read f; do
-	    # Check if the line is a comment line and skip it in this case ...
-	    cl="`echo "$f" | sed -e 's|^[ \t]*#.*$||'`"
-	    if [ -z "$cl" ]; then continue; fi
-
-	    # Prepend a './' if required (find prints pathes in this format) ...
-	    if [ "${f#/}" = "$f" -a "${f#./}" = "$f" -a "${f#../}" = "$f" ]
-	    then
-		f="./$f"
-	    fi
-
-	    # I don't allow reguilar expressions in the configuration file,
-	    # so the meta-characters are escaped here ...
-	    e="`escape_rx "$f"`"
-
-	    # Add a pattern for matching the path of a directory and all of
-	    # it's content ...
-	    if [ -d "$f" ]; then
-		e="`echo "$e" | sed -e 's,$,\\\(/.*\\\)\?,'`"
-	    fi
-
-	    # Append the resulting regular expression to the or'd list of
-	    # regular expressions which were already generated in the previous
-	    # steps ...
-	    res="$res\\|$e"
-	done < "$file"
-	IFS="$saveIFS"
-
-	# Print the or'd list of regular expressions, included in `^\(' and
-	# `$\)' ...
-	echo "^\\($res\\)\$"
-    fi
-}
+#0#exclude_list () {
+#0#    local save_IFS match cl f e res file="$1"
+#0#    if [ -f "$file" ]; then
+#0#	save_IFS="$IFS";
+#0#	IFS=;
+#0#	f="$file"
+#0#	if [ "${f#/}" = "$f" -a "${f#./}" = "$f" -a "${f#../}" = "$f" ]; then
+#0#	    f="./$f"
+#0#	fi
+#0#	res="`escape_rx "$f"`"
+#0#	while read f; do
+#0#	    # Check if the line is a comment line and skip it in this case ...
+#0#	    cl="`echo "$f" | sed -e 's|^[ \t]*#.*$||'`"
+#0#	    if [ -z "$cl" ]; then continue; fi
+#0#
+#0#	    # Prepend a './' if required (find prints pathes in this format) ...
+#0#	    if [ "${f#/}" = "$f" -a "${f#./}" = "$f" -a "${f#../}" = "$f" ]
+#0#	    then
+#0#		f="./$f"
+#0#	    fi
+#0#
+#0#	    # I don't allow reguilar expressions in the configuration file,
+#0#	    # so the meta-characters are escaped here ...
+#0#	    e="`escape_rx "$f"`"
+#0#
+#0#	    # Add a pattern for matching the path of a directory and all of
+#0#	    # it's content ...
+#0#	    if [ -d "$f" ]; then
+#0#		e="`echo "$e" | sed -e 's,$,\\\(/.*\\\)\?,'`"
+#0#	    fi
+#0#
+#0#	    # Append the resulting regular expression to the or'd list of
+#0#	    # regular expressions which were already generated in the previous
+#0#	    # steps ...
+#0#	    res="$res\\|$e"
+#0#	done < "$file"
+#0#	IFS="$saveIFS"
+#0#
+#0#	# Print the or'd list of regular expressions, included in `^\(' and
+#0#	# `$\)' ...
+#0#	echo "^\\($res\\)\$"
+#0#    fi
+#0#}
 
 VERBOSE=0; if [ $# -gt 0 -a "x$1" = "x-v" ]; then VERBOSE=1; shift; fi
 
@@ -176,7 +176,7 @@ case $op in
 	vecho "  copying files"
 
 	# Get the exclusion list ...
-	EXCLUDE="`exclude_list .srcdist-exclude`"
+	EXCLUDE="`admin/exclude_list .srcdist-exclude`"
 	if [ -n "$EXCLUDE" ]; then
 	    # ... and convert it into a `find'-expression segment if it is
 	    # not empty ...

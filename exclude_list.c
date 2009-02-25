@@ -1,6 +1,6 @@
 /* escape_list.cc
 **
-** $Id: exclude_list.c,v 1.1 2009-02-25 20:53:08 bj Exp $
+** $Id: exclude_list.c,v 1.2 2009-02-25 21:18:31 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -181,6 +181,7 @@ static void add_rx (const char *p, char **_buf, size_t *_bufsz)
 		}
 		break;
 	    case '$': case '{': case '}': case '+': case ' ': case '\t':
+	    case '.':
 		if (brctx) {
 		    brctx = 3;
 		} else {
@@ -207,25 +208,36 @@ int is_dir (const char *path)
 
 int main (int argc, char *argv[])
 {
-    char *line = 0, *rx = 0, *p;
+    char *line = 0, *rx = 0, *p, *q;
     size_t linesz = 0, rxsz = 0;
     FILE *file;
     store_prog (argv);
     if (argc < 2) { usage (); }
-    if (!(file = fopen (argv[1], "rb"))) {
-	fprintf (stderr, "%s: %s - %s\n", prog, argv[1], strerror (errno));
+    p = argv[1];
+    if (!(file = fopen (p, "rb"))) {
+	fprintf (stderr, "%s: %s - %s\n", prog, p, strerror (errno));
 	exit (1);
     }
     buf_puts ("^\\(", 3, &rx, &rxsz);
-    add_rx (argv[1], &rx, &rxsz);
+    if (*p != '/' && strncmp (p, "./", 2) != 0 &&  strncmp (p, "../", 3) != 0) {
+	add_rx ("./", &rx, &rxsz);
+    }
+    add_rx (p, &rx, &rxsz);
     while (my_getline (file, &line, &linesz) >= 0) {
 	p = line; while (isws (*p)) { ++p; }
 	if (*p == '\0' || *p == '#') { continue; }
 	buf_puts ("\\|", 2, &rx, &rxsz);
-	add_rx (p, &rx, &rxsz);
+	if (*p != '/' && strncmp (p, "./", 2) != 0
+	&&  strncmp (p, "../", 3) != 0) {
+	    add_rx ("./", &rx, &rxsz);
+	}
 	if (is_dir (p)) {
-	    if (p[strlen (p) - 1] != '/') { buf_puts ("/", 1, &rx, &rxsz); }
+	    q = p + (strlen (p) - 1);
+	    while (q != p && *q == '/') { *q-- = '/'; }
+	    add_rx (p, &rx, &rxsz);
 	    buf_puts ("\\(/.*\\)?", 8, &rx, &rxsz);
+	} else {
+	    add_rx (p, &rx, &rxsz);
 	}
     }
     buf_puts ("\\)$", 3, &rx, &rxsz);
