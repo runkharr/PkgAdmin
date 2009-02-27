@@ -1,6 +1,6 @@
 /* distfile.c
 **
-** $Id: distfile.c,v 1.1 2009-02-26 09:34:33 bj Exp $
+** $Id: distfile.c,v 1.2 2009-02-27 12:33:44 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -21,10 +21,12 @@
 #include <unistd.h>
 #include <string.h>
 /*#include <stdarg.h>*/
+#include <dirent.h>
 #include <regex.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 
 #define LSZ_INITIAL 1024
 #define LSZ_INCREASE 1024
@@ -120,6 +122,20 @@ static void usage (void)
 {
     printf ("Usage: %s filename\n", prog);
     exit (0);
+}
+
+static void buf_clear (char **_buf, size_t *_bufsz)
+{
+    if (!*_buf) {
+	char *buf = 0;
+	size_t bufsz = 1024;
+	if (!(buf = t_alloc (char, bufsz))) {
+	    fprintf (stderr, "%s: %s\n", prog, strerror (errno));
+	    exit (1);
+	}
+	*_buf = buf; *_bufsz = bufsz;
+    }
+    memset (*_buf, 0, *_bufsz);
 }
 
 static void buf_puts (const char *p, size_t pl, char **_buf, size_t *_bufsz)
@@ -252,7 +268,7 @@ static void put_special (char special, int qmode, char **_buf, size_t *_bufsz)
 
 static void unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
 {
-    char cc, *res;
+    char cc;
     int qmode = 0;
     while ((cc = *regex_un++)) {
 	switch ((int) cc & 0xFF) {
@@ -267,7 +283,7 @@ static void unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
 	    case '(': case ')': case '[': case ']': case '{': case '}':
 	    case '*': case '+': case '?': case '|': case '^': case '$':
 	    case '.':
-		put_special ((int) cc & 0xFF, qmode);
+		put_special ((int) cc & 0xFF, qmode, _buf, _bufsz);
 		break;
 	    default:
 		buf_puts (ccharp (cc), 1, _buf, _bufsz);
@@ -285,11 +301,10 @@ struct rxlist_s {
 static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
 {
     int rc;
-    char *buf = 0, errbuf[1024];
-    size_t bufsz = 0;
-    rxlist_t el = t_alloc (rx_list_t, 1);
+    char errbuf[1024];
+    rxlist_t el = t_alloc (rxlist_t, 1);
     if (!el) {
-	fprintf (stderr, "%s: %s - %s\n", prog, regex, sterror (errno));
+	fprintf (stderr, "%s: %s - %s\n", prog, regex, strerror (errno));
 	exit (1);
     }
     if ((rc = regcomp (&el->rx, regex, REG_EXTENDED|REG_NOSUB))) {
@@ -314,9 +329,9 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
     if (*_buf) { **_buf = '\0'; }
     if (*p == '*') {
 	/* Regular expression follows ... */
-	/*buf_puts ("^(", 2, &buf, &bufsz);*/
-	unquote_rx (++p, &buf, &bufsz);
-	/*buf_puts (")$", 2, &buf, &bufsz);*/
+	/*buf_puts ("^(", 2, _buf, _bufsz);*/
+	unquote_rx (++p, _buf, _bufsz);
+	/*buf_puts (")$", 2, _buf, _bufsz);*/
     } else {
 	/* Pathname wildcard ... */
 	if (*p == ':') { ++p; }
@@ -329,11 +344,11 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
 	    q = p + (strlen (p) - 1);
 	    while (q != p && *q == '/') { *q-- = '/'; }
 	    conv_path (p, &rx, &rxsz);
-	    buf_puts ("\\(/.*\\)?", 8, &rx, &rxsz);
+	    buf_puts ("\\(/.*\\)?", 8, _buf, _bufsz);
 	} else {
-	    conv_path (p, &rx, &rxsz);
+	    conv_path (p, _rx, _rxsz);
 	}
-	buf_puts (")$", 2, &buf, &bufsz);
+	buf_puts (")$", 2, _buf, _bufsz);
     }
     return append_regex (buf, _first, _last);
 }
@@ -368,12 +383,14 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
 static int gen_srcdist (rxlist_t exclude_pats,
 			char *gencmd,
 			char *packcmd,
-			char *newdir);
+			char *newdir,
+			char **_package);
 
 static int gen_bindist (rxlist_t exclude_pats,
 			char *gencmd,
 			char *packcmd,
-			char *newdir);
+			char *newdir,
+			char **_package);
 
 int main (int argc, char *argv[])
 {
@@ -497,7 +514,7 @@ static const char *get_template (const char *tplcmd,
 	    /* error: The file couldn't be opened ... */
 	    fprintf (stderr,
 		     "%s: %s - %s\n", prog, tplfname, strerror (errno));
-	    return -1;
+	    return res;
 	}
 	if (rc == 0) {
 	    /* error? The file didn't contain a valid template-line ... */
@@ -524,7 +541,7 @@ static const char *get_template (const char *tplcmd,
 static char *get_version (void)
 {
     const char *novers = "unknown";
-    char *line = 0, *p, *q, *res = 0;
+    char *line = 0, *res = 0;
     size_t linesz = 0;
     FILE *versionfile;
     if ((versionfile = fopen ("VERSION", "r"))) {
@@ -561,12 +578,12 @@ static char *get_thisdir (void)
 	}
 	if (getcwd (pwdbuf, pwdbufsz)) { break; }
 	if (errno != ERANGE) {
-	    fprintf (stderr, "%s: getcwd() failed - %s\n,
+	    fprintf (stderr, "%s: getcwd() failed - %s\n",
 			     prog, strerror (errno));
 	    exit (1);
 	}
     }
-    if ((p = strrchr (pwdbuf, '/'))) { +p; }
+    if ((p = strrchr (pwdbuf, '/'))) { ++p; }
     if (!p || *p == '\0') {
 	fprintf (stderr, "%s: invalid path\n", prog); exit (1);
     }
@@ -597,7 +614,7 @@ static char *get_packdir (const char *packdir)
 }
 
 static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
-			char *newdir, **_package)
+			char *newdir, char **_package)
 {
     long lv = -1;
     int from_file = 0, need_list = 1, rc;
@@ -641,11 +658,14 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
     ** nur referentiell kopiert (`link()'). Nur wenn das nicht funktioniert
     ** werden die Dateien physisch kopiert ...
     */
-    copy_tree (".", packdir, exclude_pats);
-    /* Nun wird im Zielverzeichnis aufgeräumt ... */
-    cleanup (packdir, cluptpl);
-    /* Anschließend wird das Archiv generiert ... */
-    gen_package (packdir, "..", &package);
+    rc = -1;
+    if (copy_tree (".", packdir, exclude_pats) == 0) {
+	/* Nun wird im Zielverzeichnis aufgeräumt ... */
+	cleanup (packdir, cluptpl);
+	/* Anschließend wird das Archiv generiert ... */
+	gen_package (packdir, "..", &package);
+	rc = 0;
+    }
     /* Das Zielverzeichnis wird nun noch weggeräumt ... */
     remove_packdir (packdir);
     /* Zum Schluß wird der Name des erzeugten Archivs an den Ausgabe-parameter
@@ -653,4 +673,215 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
     */
     *_package = package;
     return 0;
+}
+
+typedef struct sdlist_s sdlist_t;
+struct sdlist_s {
+    sdlist_t *next;
+    char *path;
+};
+
+static sdlist_t *sdlist_add (sdlist_t *sdlist, const char *sdpath)
+{
+    sdlist_t *newit = t_alloc (sdlist_t, sizeof(sdlist_t) +
+					 strlen (sdpath) + 1);
+    if (newit) {
+	newit->next = list;
+	newit->path = (char *) newit + sizeof(sdlist_t);
+	strcpy (newit->path, path);
+    }
+    return newit;
+}
+
+static void sdlist_free (sdlist_t **_sdlist)
+{
+    sdlist_t lh;
+    while ((lh = *_sdlist)) {
+	*_sdlist = lh->next; lh->next = 0; free (lh);
+    }
+}
+
+static void copy_xattrs (const char *src, const char *dst)
+{
+#if HAVE_XATTR
+    /* declare the variables here, so i need to enclose it in a block for
+    ** conforming with older C-compilers ...
+    */
+    char *xattrlist = 0, *xattr = 0, *p, *q;
+    size_t xattrlistsz = 0, xattrsz = 0;
+    ssize_t xattrlistlen = 0, xattrlen;
+    int done = 0, rc;
+    while (!done) {
+	xattrsz += 1024;
+	if (!(p = t_realloc (char, xattrlist, xattrlistsz))) { break; }
+	xattr = p; xattrlistlen = llistxattr (src, xattrlist, xattrszlist);
+	done = (xattrlistlen >= 0);
+    }
+    if (done) {
+	p = xattrlist;
+	while ((ssize_t) (p - xattrlist) < xattrlistlen) {
+	    xattrlen = lgetxattr (src, p, xattr, xattrsz);
+	    if (xattrlen < 0) {
+		if (errno != ERANGE) { break; }
+		xattrsz = (size_t) xattrlen;
+		if (!(q = t_realloc (char, xattr, xattrsz))) { break; }
+		xattr = q; xattrlen = lgetxattr (src, p, xattr, xattrsz);
+		if (xattrlen < 0) { break; }
+	    }
+	    if (lsetxattr (dst, p, xattr, (size_t) xattrlen, 0) < 0) {
+		break;
+	    }
+	    p += strlen (p) + 1;
+	}
+    }
+    p = q = 0; cfree (xattr); cfree (xattrlist);
+#else
+    ;
+#endif
+}
+
+/* copy the ownership, the permissions and the extended attributes from
+** a source-file to the destination file ...
+*/
+static void fix_perms (const char *src, const char *dst)
+{
+    struct stat *sb;
+    int mode, mask;
+    uid_t uid;
+    gid_t gid;
+    time_t mtime, atime;
+    struct utimbuf ftimes;
+    if (lstat (src, &sb) == 0) {
+	mask = S_ISUID|S_ISGID|S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO;
+	mode = sb.st_mode;
+	uid = sb.st_uid; gid = sb.st_gid;
+	ftimes.actime = sb.st_atime;
+	ftimes.modtime = sb.st_mtime;
+	copy_xattrs (src, dst);
+#if defined(_BSD_SOURCE) || _XOPEN_SOURCE >= 500
+	lchown (dst, uid, gid);
+	if (!S_ISLNK(mode)) {
+	    chmod (dst, mode & ~ mask);
+	    utime (dst, &ftimes);
+	}
+#else
+	if (!S_ISLNK(mode)) {
+	    chown (dst, uid, gid);
+	    chmod (dst, mode & ~ mask);
+	    utime (dst, &ftimes);
+	}
+#endif
+    }
+}
+
+static int icopy_file (const char *src, const char *dst)
+{
+    struct stat sb;
+    if (link (src, dst) == 0) { return 0; }
+    if (access (dst, F_OK) == 0) { errno = EEXIST; return -1; }
+    if (stat (src, &sb) < 0) { return -1; }
+    if (S_ISLNK (sb.st_mode)) {
+	char *linkpath = 0;
+	size_t linkpathsz = 0;
+	int linkpathlen = 0, rc;
+	if (!(linkpath = t_alloc (char, sb.st_size + 1))) { return -1; }
+	linkpathsz = sb.st_size;
+	linkpathlen = readlink (src, linkpath, linkpathsz);
+	if (linkpathlen < 0) { cfree (linkpath); return -1; }
+	linkpath[linkpathlen] = '\0';
+	rc = symlink (linkpath, dst);
+	cfree (linkpath); if (rc < 0) { return -1; }
+    } else if (!S_ISREG (sb.st_mode)) {
+	if (mknod (dst, sb.st_mode, sb.st_rdev) < 0) { return -1; }
+    } else {
+	FILE *sfp, *dfp;
+	char buf[8192];
+	ssize_t rlen;
+	int done = 1;
+	if (!(sfp = fopen (src, "rb"))) { return -1; }
+	if (!(dfp = fopen (dst, "wb"))) { fclose (sfp); return -1; }
+	while ((rlen = fread (buf, 1, sizeof(buf), sfp)) > 0) {
+	    if (fwrite (buf, 1, (size_t) rlen, dfp) != rlen) {
+		done = 0; break;
+	    }
+	}
+	fclose (dfp); fclose (sfp);
+	if (!done) { return -1; }
+    }
+    fix_perms (srr, dst);
+}
+
+static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
+{
+    char *spath = 0, *dpath = 0, *p;
+    size_t spathsz = 0, dpathsz = 0;
+    struct dirent *de = 0;
+    rxlist_t rx = 0;
+    regmatch_t m_dummy[1];
+    int skip_entry = 0, rc;
+    sdlist_t *sdlist = 0, newsd;
+    DIR *dfp = opendir (srcdir);
+    if (!dfp) {
+	fprintf (stderr, "%s: attempt to read directory '%s' failed - %s\n",
+			 prog, srcdir, strerror (errno));
+	return -1;
+    }
+    while ((de = readdir (dfp))) {
+	if (*de->d_name == '\0') { continue; }
+	if (*de->d_name == '.') {
+	    if (de->d_name[1] == '\0'
+	    ||  (de->d_name[1] == '.' && de->d_name[2] == '\0')) {
+		continue;
+	    }
+	}
+	skip_entry = 0;
+	buf_clear (&spath, &spathsz);
+	buf_puts (srcdir, strlen (srcdir), &spath, &spathsz);
+	p = spath + strlen (spath);
+	while (--p != buf && *p == '/') { *p = '\0'; }
+	if (*p == '/') { *p = '\0'; }
+	buf_puts ("/", 1, &spath, &spathsz);
+	buf_puts (de->d_name, strlen (de->d_name), &spath, &spathsz);
+	for (rx = excl; rx; rx = rx->next) {
+	    if (regexec (&rx, spath, 1, m_dummy, 0) == 0) {
+		skip_entry = 1; break;
+	    }
+	}
+	if (skip_entry) { continue; }
+	if (is_dir (spath)) {
+	    if (!(newsd = sdlist_add (sdlist, spath))) { goto ERROR; }
+	    sdlist = newsd; continue;
+	}
+	buf_clear (&dpath, &dpathsz);
+	buf_puts (dstdir, strlen (dstdir), &dpath, &dpathsz);
+	p = dpath + strlen (dpath);
+	while (p != dpath && *--p == '/') { *p = '\0'; }
+	if (p == '/') { *p = '\0'; }
+	if (*spath != '/') { buf_puts ("/", 1, &dpath, &dpathsz); }
+	but_puts (spath, strlen (spath), &dpath, &dpathsz);
+	if (icopy_file (spath, dpath) < 0) { goto ERROR; }
+    }
+    closedir (dfp); dfp = 0;
+    /* create the sub-directories and call copy_tree() with each of them
+    ** recursively ...
+    */
+    for (newsd = sdlist; newsd; newsd = newsd->next) {
+	buf_clear (&dpath, &dpathsz);
+	buf_puts (dstdir, strlen (dstdir), &dpath, &dpathsz);
+	p = dpath + strlen (dpath);
+	while (p != dpath && *--p == '/') { *p = '\0'; }
+	if (p == '/') { *p = '\0'; }
+	if (*newsd->path != '/') { buf_puts ("/", 1, &dpath, &dpathsz); }
+	buf_puts (newsd->path, strlen (newsd->path), &dpath, &dpathsz);
+	if (mkdir (dpath, 0755) < 0) { goto ERROR; }
+	if (copy_tree (newsd->path, dstdir, excl) < 0) { goto ERROR; }
+	fix_mode (newsd->path, dpath);
+    }
+    sdlist_free (&sdlist);
+    cfree (spath); cfree (dpath);
+    return 0;
+ERROR:
+    closedir (dfp);
+    sdlist_free (&sdlist); cfree (spath); cfree (dpath);
+    return -1;
 }
