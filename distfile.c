@@ -1,6 +1,6 @@
 /* distfile.c
 **
-** $Id: distfile.c,v 1.2 2009-02-27 12:33:44 bj Exp $
+** $Id: distfile.c,v 1.3 2009-03-02 10:16:19 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -9,9 +9,9 @@
 **
 ** C-implementation of my small `admin/distfile' utility.
 **
-** Synopsis: distfile [-x exclude-file] [-g 'cleancmd-template'] \
+** Synopsis: distfile [-x exclude-file] [-c 'cleancmd-template'] \
 **                    [-f 'packcmd-template' ] srcdist [dir]
-**           distfile [-x exclude-file] [-g 'gencmd-template'] \
+**           distfile [-x exclude-file] [-i 'installcmd-template'] \
 **                    [-f 'packcmd-template' ] bindist [dir]
 **
 **
@@ -34,11 +34,32 @@
 #define t_alloc(t, n) ((t *) malloc ((n) * sizeof(t)))
 #define t_realloc(t, p, n) ((t *) realloc ((p), (n) * sizeof(t)))
 #define cfree(p) do { \
-    void **q = &(p); \
+    void **q = &((void)(p)); \
     if (*q) { free (*q); *q = 0; } \
 } while (0)
 
 static char *prog = 0;
+
+static const char *src_excludes = ".srcdist-excludes";
+static const char *bin_excludes = ".bindist-excludes";
+
+static const char *def_insttpls[] = {
+    "make && make DESTDIR=%p install",
+    "make && make DESTDIR=%p install install-man",
+    NULL
+};
+
+static const char *def_cluptpls[] = {
+    "make cleanall",
+    NULL
+};
+
+static const char *def_packtpls[] = {
+    "tar cf '%p.tar' '%p'; gzip -9f '%p.tar'",
+    "tar cf '%p.tar' '%p'; bzip2 -9f '%p.tar'",
+    "zip -9r '%p.zip' '%p'",
+    NULL
+};
 
 #ifndef __GNUC__
 #define __inline__
@@ -111,16 +132,65 @@ static void store_prog (char *argv[])
 {
     char *p = strrchr (argv[0], '/');
     if (p) { ++p; } else { p = argv[0]; }
-    if (prog) { cfree (prog); }
+    cfree (prog); /*if (prog) { cfree (prog); }*/
     if (!(prog = t_alloc (char, strlen (p) + 1))) {
 	fprintf (stderr, "%s: %s\n", p, strerror (errno)); exit (1);
     }
     strcpy (prog, p);
 }
 
-static void usage (void)
+static void usage (const char *fmt, ...)
 {
-    printf ("Usage: %s filename\n", prog);
+    va_list ap;
+    if (fmt) {
+	fprintf (stderr, "%s: ", prog);
+	va_start (ap, prog);
+	vfprintf (stderr, fmt, ap);
+	va_end (ap);
+	exit (64);
+    }
+    printf ("\nUsage: %s [-f 'packcmd' ] [-c 'cleancmd' ] [-x 'excludes']"
+	    " srcdist [dir]"
+	    "\n       %s [-f 'packcmd' ] [-g 'installcmd' ] [-x 'excludes']"
+	    " bindist [dir]"
+	    "\n       %s -h"
+	    "\n       %s -V"
+	    "\n"
+	    "\nOptions:"
+	    "\n  -f 'packcmd'"
+	    "\n     Specify a template for the packing-command. A '%%p' is"
+	    " replaced with the"
+	    "\n     name of the directory to be packed."
+	    "\n     (Default: '%s')"
+	    "\n  -c 'cleancmd'"
+	    "\n     Specify a template for cleaning up (removing files from a"
+	    " previous build-"
+	    "\n     process (like a 'make cleanall')"
+	    "\n     (Default: '%s')"
+	    "\n  -i 'installcmd'"
+	    "\n     Specify a template for the command which installs the"
+	    " binary data to be"
+	    "\n     packed. A '%%p' is replaced with the target directory of"
+	    " the installation."
+	    "\n     (Default: '%s')"
+	    "\n  -x 'excludes'"
+	    "\n     A file which contains pathname-patterns to be excluded"
+	    " from the"
+	    "\n     'srcdist'/'bindist' process."
+	    "\n     (Default: a compiled builtin)"
+	    "\n  dir"
+	    "\n     Specify the target directory for the 'srcdist'/'bindist'"
+	    "process."
+	    "\n     (Default: The basename of the current directory plus a '-'"
+	    " plus the"
+	    "\n     content of (the first line of) the file 'VERSION' which"
+	    " resides in this"
+	    "\n     directory.)",
+	    prog, prog, prog, prog,
+	    def_packtpls[0],
+	    def_cluptpls[0],
+	    def_insttpls[0],
+	    );
     exit (0);
 }
 
@@ -302,7 +372,7 @@ static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
 {
     int rc;
     char errbuf[1024];
-    rxlist_t el = t_alloc (rxlist_t, 1);
+    rxlist_t el = t_alloc (struct rxlist_s, 1);
     if (!el) {
 	fprintf (stderr, "%s: %s - %s\n", prog, regex, strerror (errno));
 	exit (1);
@@ -341,9 +411,9 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
 	    conv_path ("./", _buf, _bufsz);
 	}
 	if (is_dir (p)) {
-	    q = p + (strlen (p) - 1);
+	    char *q = p + (strlen (p) - 1);
 	    while (q != p && *q == '/') { *q-- = '/'; }
-	    conv_path (p, &rx, &rxsz);
+	    conv_path (p, _buf, _bufsz);
 	    buf_puts ("\\(/.*\\)?", 8, _buf, _bufsz);
 	} else {
 	    conv_path (p, _rx, _rxsz);
@@ -397,12 +467,12 @@ int main (int argc, char *argv[])
     int mode;
     char *mname, *exclude_file = 0, *gencmd = 0, *packcmd = 0, *newdir = 0;
     char *pkgname = 0;
-    rxlist_t *exclude_pats = 0;
+    rxlist_t exclude_pats = 0;
     store_prog (argv);
     if (argc < 2) { usage (); }
     /* get the `-f', `-g' and `-x' options */
     if (load_pattern_list (exclude_file, &exclude_pats)) {
-	fprintf (stderr, "%s: errors found in '%s'\n", argv[1]);
+	fprintf (stderr, "%s: errors found in '%s'\n", prog, argv[1]);
 	exit (1);
     }
     /* ... */
@@ -430,24 +500,6 @@ int main (int argc, char *argv[])
     printf ("%s\n", pkgname);
     return 0;
 }
-
-static const char *def_gentpls[] = {
-    "make && make DESTDIR=%s install",
-    "make && make DESTDIR=%s install install-man",
-    NULL
-};
-
-static const char *def_cluptpls[] = {
-    "make cleanall",
-    NULL
-};
-
-static const char *def_packtpls[] = {
-    "tar cf '%s.tar' '%s'; gzip -9f '%s.tar'",
-    "tar cf '%s.tar' '%s'; bzip2 -9f '%s.tar'",
-    "zip -9r '%s.zip' '%s'",
-    NULL
-};
 
 /* Read a template-file (code-generation templates or cleanup-templates or
 ** packing-templates) into a (dynamically allocated) vector of strings which
