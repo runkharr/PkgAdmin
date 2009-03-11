@@ -1,6 +1,6 @@
 #! /usr/bin/env make -f
 #
-# $Id: clean.mk,v 1.1 2009-02-25 21:18:31 bj Exp $
+# $Id: clean.mk,v 1.2 2009-03-11 17:29:58 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de
@@ -14,3 +14,4 @@ CLEAN_LIST = exclude_list.bin
 
 clean:
 	@echo "Cleaning up admin"
+	@rm -f $(CLEAN_LIST)
