@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: distfile,v 1.11 2009-02-25 21:18:31 bj Exp $
+# $Id: distfile,v 1.12 2009-03-11 17:55:24 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de
@@ -11,7 +11,41 @@
 # my programs ...
 #
 
-prog="$0"
+PROG="${0##*/}"
+
+# Try an external binary first (if this file were installed somewhere) ...
+#
+progpath="`which "$PROG" >/dev/null 2>&1`"
+if [ $? -eq 0 ]; then
+    exec "$progpath" ${1+"$@"}
+fi
+
+# Now try to find a local binary version of this file ...
+#
+if [ -f "$0.bin" -a -x "$0.bin" ]; then
+    # binary version of this program exists ...
+    if [ -f "$0.c" ]; then
+	# C-source of the binary program also exists ...
+	if [ "$0.c" -nt "$0.bin" ]; then
+	    # C-source is newer => re-generate binary program ...
+	    rm -f "$0.bin"; cc "$0.c" -o "$0.bin" >/dev/null 2>&1
+	fi
+    else
+	# no C-source and we can't trust a binary only, so the binary is
+	# silently deleted ...
+	rm -f "$0.bin"
+    fi
+elif [ -f "$0.c" ]; then
+    # C-source exists => generate binary program ...
+    cc "$0.c" -o "$0.bin" >/dev/null 2>&1
+fi
+
+# If the local binary (still) exists after all (re-)generating steps above,
+# it will be used for the further work ...
+#
+if [ -f "$0.bin" -a -x "$0.bin" ]; then
+    exec "$0.bin" ${1+"$@"}
+fi
 
 if ! [ -d admin -a -f VERSION ]; then
     cat 1>&2 <<-EOT
