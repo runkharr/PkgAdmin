@@ -1,6 +1,6 @@
 /* distfile.c
 **
-** $Id: distfile.c,v 1.3 2009-03-02 10:16:19 bj Exp $
+** $Id: distfile.c,v 1.4 2009-03-11 17:26:53 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -10,9 +10,9 @@
 ** C-implementation of my small `admin/distfile' utility.
 **
 ** Synopsis: distfile [-x exclude-file] [-c 'cleancmd-template'] \
-**                    [-f 'packcmd-template' ] srcdist [dir]
+**                    [-p 'packcmd-template' ] srcdist [dir]
 **           distfile [-x exclude-file] [-i 'installcmd-template'] \
-**                    [-f 'packcmd-template' ] bindist [dir]
+**                    [-p 'packcmd-template' ] bindist [dir]
 **
 **
 */
@@ -20,13 +20,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-/*#include <stdarg.h>*/
+#include <stdarg.h>
 #include <dirent.h>
 #include <regex.h>
 #include <errno.h>
+#include <utime.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
+
+#define VERSION "0.30"
 
 #define LSZ_INITIAL 1024
 #define LSZ_INCREASE 1024
@@ -34,11 +37,11 @@
 #define t_alloc(t, n) ((t *) malloc ((n) * sizeof(t)))
 #define t_realloc(t, p, n) ((t *) realloc ((p), (n) * sizeof(t)))
 #define cfree(p) do { \
-    void **q = &((void)(p)); \
+    void **q = (void **)&(p); \
     if (*q) { free (*q); *q = 0; } \
 } while (0)
 
-static char *prog = 0;
+static char *prog = 0, *progpath = 0;
 
 static const char *src_excludes = ".srcdist-excludes";
 static const char *bin_excludes = ".bindist-excludes";
@@ -128,6 +131,16 @@ int my_getline (FILE *in, char **_line, size_t *_linesz)
     return (size_t) (p - line);
 }
 
+static char *x_strdup (const char *s)
+{
+    char *res = t_alloc (char, strlen (s) + 1);
+    if (!res) {
+	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
+    }
+    strcpy (res, s);
+    return res;
+}
+
 static void store_prog (char *argv[])
 {
     char *p = strrchr (argv[0], '/');
@@ -137,6 +150,7 @@ static void store_prog (char *argv[])
 	fprintf (stderr, "%s: %s\n", p, strerror (errno)); exit (1);
     }
     strcpy (prog, p);
+    progpath = x_strdup (argv[0]);
 }
 
 static void usage (const char *fmt, ...)
@@ -144,14 +158,14 @@ static void usage (const char *fmt, ...)
     va_list ap;
     if (fmt) {
 	fprintf (stderr, "%s: ", prog);
-	va_start (ap, prog);
+	va_start (ap, fmt);
 	vfprintf (stderr, fmt, ap);
 	va_end (ap);
 	exit (64);
     }
     printf ("\nUsage: %s [-f 'packcmd' ] [-c 'cleancmd' ] [-x 'excludes']"
 	    " srcdist [dir]"
-	    "\n       %s [-f 'packcmd' ] [-g 'installcmd' ] [-x 'excludes']"
+	    "\n       %s [-f 'packcmd' ] [-i 'installcmd' ] [-x 'excludes']"
 	    " bindist [dir]"
 	    "\n       %s -h"
 	    "\n       %s -V"
@@ -189,7 +203,7 @@ static void usage (const char *fmt, ...)
 	    prog, prog, prog, prog,
 	    def_packtpls[0],
 	    def_cluptpls[0],
-	    def_insttpls[0],
+	    def_insttpls[0]
 	    );
     exit (0);
 }
@@ -227,16 +241,17 @@ static void buf_puts (const char *p, size_t pl, char **_buf, size_t *_bufsz)
 
 #define ccharp(c) ((const char *) &(c))
 
-static void conv_path (const char *p, char **_buf, size_t *_bufsz)
+static void conv_path (const char *p, size_t len, char **_buf, size_t *_bufsz)
 {
     char cc;
     int brctx = 0;
-    while ((cc = *p++)) {
+    while (len-- > 0) {
+	cc = *p++;
 	switch ((int) cc & 0xFF) {
 	    case '\\':
 		buf_puts (ccharp (cc), 1, _buf, _bufsz);
-		if (*p) {
-		    buf_puts (p++, 1, _buf, _bufsz);
+		if (len > 0) {
+		    buf_puts (p++, 1, _buf, _bufsz); --len;
 		}
 		if (brctx > 0) { brctx = 3; }
 		break;
@@ -408,19 +423,20 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
 	buf_puts ("^(", 2, _buf, _bufsz);
 	if (*p != '/' && strncmp (p, "./", 2) != 0
 	&&  strncmp (p, "../", 3) != 0) {
-	    conv_path ("./", _buf, _bufsz);
+	    conv_path ("./", 2, _buf, _bufsz);
 	}
 	if (is_dir (p)) {
-	    char *q = p + (strlen (p) - 1);
-	    while (q != p && *q == '/') { *q-- = '/'; }
-	    conv_path (p, _buf, _bufsz);
+	    /* go back  */
+	    const char *q = p + (strlen (p) - 1);
+	    while (q != p && *q == '/') { --q; }
+	    conv_path (p, (size_t) (q - p), _buf, _bufsz);
 	    buf_puts ("\\(/.*\\)?", 8, _buf, _bufsz);
 	} else {
-	    conv_path (p, _rx, _rxsz);
+	    conv_path (p, strlen (p), _buf, _bufsz);
 	}
 	buf_puts (")$", 2, _buf, _bufsz);
     }
-    return append_regex (buf, _first, _last);
+    return append_regex (*_buf, _first, _last);
 }
 
 static int load_pattern_list (const char *filename, rxlist_t *_out)
@@ -430,21 +446,46 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
     char *line = 0, *buf = 0, *p;
     size_t linesz = 0, bufsz = 0;
     rxlist_t first = 0, last = 0;
-    if (!(file = fopen (filename, "rb"))) {
-	fprintf (stderr, "%s: %s - %s\n", prog, p, strerror (errno));
-	exit (1);
-    }
-    /* Add the filename itself to the exclude-list ... */
+
+    /* Start the exclude-list with the program's name ... */
+    buf_clear (&buf, &bufsz);
+    if (*progpath != '/') { buf_puts ("./", 2, &buf, &bufsz); }
+    buf_puts (progpath, strlen (progpath), &buf, &bufsz);
+    p = x_strdup (buf);
+    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
+    cfree (p);
+
+    /* Add the filename of the exclude-list itself ... */
     if (add_pattern (filename, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
-    while (my_getline (file, &line, &linesz) >= 0) {
-	p = line; while (isws (*p)) { ++p; }
-	if (*p == '\0' || *p == '#') { continue; }
-	if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
+
+    /* Add the filename-patterns from the supplied exclude-file ... */
+    if ((file = fopen (filename, "rb"))) {
+	while (my_getline (file, &line, &linesz) >= 0) {
+	    p = line; while (isws (*p)) { ++p; }
+	    if (*p == '\0' || *p == '#') { continue; }
+	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
+	}
+	fclose (file);
     }
-    fclose (file);
+
+    /* Add the filename-patterns from a hard-coded file, too ... */
+    if ((file = fopen ("admin/excludes", "rb"))) {
+	while (my_getline (file, &line, &linesz) >= 0) {
+	    p = line; while (isws (*p)) { ++p; }
+	    if (*p == '\0' || *p == '#') { continue; }
+	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
+	}
+	fclose (file);
+    }
     cfree (line); cfree (buf);
     *_out = first;
     return (errcnt > 0 ? -1 : 0);
+}
+
+static int is_prefix (const char *p, const char *s)
+{
+    size_t pl = strlen (p), sl = strlen (s);
+    return (pl <= sl && strncmp (p, s, pl) == 0);
 }
 
 #define MODE_SRCDIST 0
@@ -464,34 +505,65 @@ static int gen_bindist (rxlist_t exclude_pats,
 
 int main (int argc, char *argv[])
 {
-    int mode;
-    char *mname, *exclude_file = 0, *gencmd = 0, *packcmd = 0, *newdir = 0;
-    char *pkgname = 0;
+    int mode = -1, opt;
+    const char *exclude_file = 0;
+    char *mname, *instcmd = 0, *packcmd = 0, *newdir = 0, *pkgname = 0;
+    char *clupcmd = 0;
     rxlist_t exclude_pats = 0;
     store_prog (argv);
-    if (argc < 2) { usage (); }
-    /* get the `-f', `-g' and `-x' options */
+    if (argc < 2) { usage (0); }
+    /* get the `-c', `-h', `-i', `-p', `-V' and `-x' options */
+    while ((opt = getopt (argc, argv, "c:hi:p:Vx:")) != -1) {
+	switch (opt) {
+	    case 'c':	/* -c 'cleancmd-template' (e.g. -c 'make cleanall') */
+		if (clupcmd) { usage ("ambigeous '-c'-option"); }
+		clupcmd = x_strdup (optarg);
+		break;
+	    case 'h':	/* -h */
+		usage (0);
+	    case 'i':	/* -i 'installcmd-template' (e.g. -i 'make install') */
+		if (instcmd) { usage ("ambigeous '-i'-option"); }
+		instcmd = x_strdup (optarg);
+		break;
+	    case 'p':	/* -p 'packcmd-template' (e.g. -p 'zip -r %p.zip %p') */
+		if (packcmd) { usage ("ambigeous '-p'-option"); }
+		packcmd = x_strdup (optarg);
+		break;
+	    case 'V':	/* -V (version) */
+		printf ("%s %s\n", prog, VERSION); exit (0);
+	    case 'x':	/* -x exclude-file (e.g. -x .srcdist-exclude) */
+		if (exclude_file) { usage ("ambigeous '-x'-option"); }
+		exclude_file = x_strdup (optarg);
+		break;
+	    default:
+		usage ("invalid option '-%c' found", opt);
+	}
+    }
+    if (optind >= argc) {
+	usage ("missing argument(s); Please call `%s -h' for help!", prog);
+    }
+    mname = argv[optind++];
+    if (is_prefix (mname, "srcdist")) {
+	mode = MODE_SRCDIST;
+	if (!exclude_file) { exclude_file = src_excludes; }
+    } else if (is_prefix (mname, "bindist")) {
+	mode = MODE_BINDIST;
+	if (!exclude_file) { exclude_file = bin_excludes; }
+    } else {
+	usage ("invalid mode; use a (prefix of) 'srcdist' or 'bindist'");
+    }
     if (load_pattern_list (exclude_file, &exclude_pats)) {
 	fprintf (stderr, "%s: errors found in '%s'\n", prog, argv[1]);
 	exit (1);
     }
     /* ... */
-    if (optind >= argc) {
-	usage ("missing argument(s); Please call `%s -h' for help!", prog);
-    }
-    mname = argv[optind++];
-    if (strcmp (mname, "srcdist") != 0 && strcmp (mname, "bindist") != 0) {
-	usage ("invalid mode (only 'srcdist' or 'bindist' allowed)");
-    }
-    mode = MODE_SRCDIST;
-    if (strcmp (mname, "bindist") == 0) { mode = MODE_BINDIST; }
     if (optind < argc) { newdir = argv[optind++]; }
     switch (mode) {
 	case MODE_SRCDIST:
-	    gen_srcdist (exclude_pats, gencmd, packcmd, newdir, &pkgname);
+	    gen_srcdist (exclude_pats, clupcmd, packcmd, newdir, &pkgname);
 	    break;
 	case MODE_BINDIST:
-	    gen_bindist (exclude_pats, gencmd, packcmd, newdir, &pkgname);
+	    gen_bindist (exclude_pats, instcmd, packcmd, newdir, &pkgname);
 	    break;
     }
     /* Der (Pfad-)Name des erzeugten Archivs muß nun noch in die Standard-
@@ -544,7 +616,7 @@ static const char *get_template (const char *tplcmd,
 				 const char **def_list)
 {
     long lv = 0;
-    int from_file = 1, rc, ix, jx;
+    int rc, ix, jx;
     const char *res = 0;
     char *p, **tpls = 0;
     if (tplcmd) {
@@ -561,6 +633,7 @@ static const char *get_template (const char *tplcmd,
     }
     rc = read_tplfile (tplfname, &tpls);
     if (rc == -1) { rc = read_tplfile (tpl_altfname, &tpls); }
+    ix = 0;
     if (!tpls) {
 	if (rc == -2) {
 	    /* error: The file couldn't be opened ... */
@@ -575,18 +648,18 @@ static const char *get_template (const char *tplcmd,
 	/* template file not found, but this is no problem - as the compiled
 	** default may be used ...
 	*/
-	tpls = def_list; from_file = 0;
-    }
-    ix = 0;
-    while (lv > 0 && tpls[ix]) { --lv; ++ix; }
-    if (from_file) {
+	while (lv > 0 && def_list[ix]) { --lv; ++ix; }
+	res = def_list[ix];
+    } else {
+	while (lv > 0 && tpls[ix]) { --lv; ++ix; }
 	for (jx = 0; tpls[jx]; ++jx) {
 	    if (jx == ix) { continue; }
 	    cfree (tpls[jx]);
 	}
 	cfree (tpls);
+	res = tpls[ix];
     }
-    if (!(res = tpls[ix])) { errno = EINVAL; }
+    if (!res) { errno = EINVAL; }
     return res;
 }
 
@@ -643,7 +716,7 @@ static char *get_thisdir (void)
 	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
     }
     strcpy (res, p);
-    return (const char *) res;
+    return res;
 }
 
 static char *get_packdir (const char *packdir)
@@ -665,14 +738,19 @@ static char *get_packdir (const char *packdir)
     return res;
 }
 
+static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl);
+static int cleanup (const char *packdir, const char *cluptpl);
+static int gen_package (const char *packcmd, const char *packdir,
+			const char *targetdir, char **_package);
+static int remove_packdir (const char *packdir);
+
 static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
 			char *newdir, char **_package)
 {
-    long lv = -1;
-    int from_file = 0, need_list = 1, rc;
-    char *p, *packdir, *buf = 0, *package = 0;
+    int rc;
+    char *packdir, *buf = 0, *package = 0;
     size_t bufsz = 0;
-    const char *cluptpl = 0, packtpl = 0, *t;
+    const char *cluptpl = 0, *packtpl = 0, *t;
     rxlist_t last_pat = 0;
     cluptpl = get_template (cleanupcmd, ".cleanupcmds", "admin/cleanupcmds",
 			    def_cluptpls);
@@ -699,7 +777,7 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
 			 prog, packdir, strerror (errno));
 	exit (1);
     }
-    t = "*^(\./.*/CVS(/.*)?)$";
+    t = "*^(\\./.*/CVS(/.*)?)$";
     if (add_pattern (t, &exclude_pats, &last_pat, &buf, &bufsz) < 0) {
 	fprintf (stderr, "%s: adding '%s' to exclude-list failed - %s\n",
 			 prog, t+1, strerror (errno));
@@ -715,7 +793,7 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
 	/* Nun wird im Zielverzeichnis aufgeräumt ... */
 	cleanup (packdir, cluptpl);
 	/* Anschließend wird das Archiv generiert ... */
-	gen_package (packdir, "..", &package);
+	gen_package (packcmd, packdir, "..", &package);
 	rc = 0;
     }
     /* Das Zielverzeichnis wird nun noch weggeräumt ... */
@@ -727,25 +805,25 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
     return 0;
 }
 
-typedef struct sdlist_s sdlist_t;
+typedef struct sdlist_s *sdlist_t;
 struct sdlist_s {
-    sdlist_t *next;
+    sdlist_t next;
     char *path;
 };
 
-static sdlist_t *sdlist_add (sdlist_t *sdlist, const char *sdpath)
+static sdlist_t sdlist_add (sdlist_t sdlist, const char *sdpath)
 {
-    sdlist_t *newit = t_alloc (sdlist_t, sizeof(sdlist_t) +
-					 strlen (sdpath) + 1);
+    sdlist_t newit = t_alloc (struct sdlist_s, sizeof(struct sdlist_s) +
+					strlen (sdpath) + 1);
     if (newit) {
-	newit->next = list;
-	newit->path = (char *) newit + sizeof(sdlist_t);
-	strcpy (newit->path, path);
+	newit->next = sdlist;
+	newit->path = (char *) newit + sizeof(struct sdlist_s);
+	strcpy (newit->path, sdpath);
     }
     return newit;
 }
 
-static void sdlist_free (sdlist_t **_sdlist)
+static void sdlist_free (sdlist_t *_sdlist)
 {
     sdlist_t lh;
     while ((lh = *_sdlist)) {
@@ -797,11 +875,10 @@ static void copy_xattrs (const char *src, const char *dst)
 */
 static void fix_perms (const char *src, const char *dst)
 {
-    struct stat *sb;
+    struct stat sb;
     int mode, mask;
     uid_t uid;
     gid_t gid;
-    time_t mtime, atime;
     struct utimbuf ftimes;
     if (lstat (src, &sb) == 0) {
 	mask = S_ISUID|S_ISGID|S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO;
@@ -860,7 +937,8 @@ static int icopy_file (const char *src, const char *dst)
 	fclose (dfp); fclose (sfp);
 	if (!done) { return -1; }
     }
-    fix_perms (srr, dst);
+    fix_perms (src, dst);
+    return 0;
 }
 
 static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
@@ -870,8 +948,8 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
     struct dirent *de = 0;
     rxlist_t rx = 0;
     regmatch_t m_dummy[1];
-    int skip_entry = 0, rc;
-    sdlist_t *sdlist = 0, newsd;
+    int skip_entry = 0;
+    sdlist_t sdlist = 0, newsd;
     DIR *dfp = opendir (srcdir);
     if (!dfp) {
 	fprintf (stderr, "%s: attempt to read directory '%s' failed - %s\n",
@@ -890,12 +968,12 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	buf_clear (&spath, &spathsz);
 	buf_puts (srcdir, strlen (srcdir), &spath, &spathsz);
 	p = spath + strlen (spath);
-	while (--p != buf && *p == '/') { *p = '\0'; }
+	while (--p != spath && *p == '/') { *p = '\0'; }
 	if (*p == '/') { *p = '\0'; }
 	buf_puts ("/", 1, &spath, &spathsz);
 	buf_puts (de->d_name, strlen (de->d_name), &spath, &spathsz);
 	for (rx = excl; rx; rx = rx->next) {
-	    if (regexec (&rx, spath, 1, m_dummy, 0) == 0) {
+	    if (regexec (&rx->rx, spath, 1, m_dummy, 0) == 0) {
 		skip_entry = 1; break;
 	    }
 	}
@@ -908,9 +986,9 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	buf_puts (dstdir, strlen (dstdir), &dpath, &dpathsz);
 	p = dpath + strlen (dpath);
 	while (p != dpath && *--p == '/') { *p = '\0'; }
-	if (p == '/') { *p = '\0'; }
+	if (*p == '/') { *p = '\0'; }
 	if (*spath != '/') { buf_puts ("/", 1, &dpath, &dpathsz); }
-	but_puts (spath, strlen (spath), &dpath, &dpathsz);
+	buf_puts (spath, strlen (spath), &dpath, &dpathsz);
 	if (icopy_file (spath, dpath) < 0) { goto ERROR; }
     }
     closedir (dfp); dfp = 0;
@@ -922,12 +1000,12 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	buf_puts (dstdir, strlen (dstdir), &dpath, &dpathsz);
 	p = dpath + strlen (dpath);
 	while (p != dpath && *--p == '/') { *p = '\0'; }
-	if (p == '/') { *p = '\0'; }
+	if (*p == '/') { *p = '\0'; }
 	if (*newsd->path != '/') { buf_puts ("/", 1, &dpath, &dpathsz); }
 	buf_puts (newsd->path, strlen (newsd->path), &dpath, &dpathsz);
 	if (mkdir (dpath, 0755) < 0) { goto ERROR; }
 	if (copy_tree (newsd->path, dstdir, excl) < 0) { goto ERROR; }
-	fix_mode (newsd->path, dpath);
+	fix_perms (newsd->path, dpath);
     }
     sdlist_free (&sdlist);
     cfree (spath); cfree (dpath);
@@ -936,4 +1014,33 @@ ERROR:
     closedir (dfp);
     sdlist_free (&sdlist); cfree (spath); cfree (dpath);
     return -1;
+}
+
+static int gen_bindist (rxlist_t exclude_pats,
+			char *gencmd,
+			char *packcmd,
+			char *newdir,
+			char **_package)
+{
+#warning 'gen_bindist()' is not yet implemented ...
+    errno = EINVAL; return -1;
+}
+
+static int cleanup (const char *packdir, const char *cluptpl)
+{
+#warning 'cleanup()' is not yet implemented ...
+    errno = EINVAL; return -1;
+}
+
+static int gen_package (const char *packcmd, const char *packdir,
+			const char *targetdir, char **_package)
+{
+#warning 'gen_package()' is not yet implemented ...
+    errno = EINVAL; return -1;
+}
+
+static int remove_packdir (const char *packdir)
+{
+#warning 'remove_packdir()' is not yet implemented ...
+    errno = EINVAL; return -1;
 }

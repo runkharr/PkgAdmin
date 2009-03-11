@@ -1,6 +1,6 @@
 /* escape_list.cc
 **
-** $Id: exclude_list.c,v 1.2 2009-02-25 21:18:31 bj Exp $
+** $Id: exclude_list.c,v 1.3 2009-03-11 17:26:53 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -233,7 +233,7 @@ int main (int argc, char *argv[])
 	}
 	if (is_dir (p)) {
 	    q = p + (strlen (p) - 1);
-	    while (q != p && *q == '/') { *q-- = '/'; }
+	    while (q != p && *q == '/') { *q-- = '\0'; }
 	    add_rx (p, &rx, &rxsz);
 	    buf_puts ("\\(/.*\\)?", 8, &rx, &rxsz);
 	} else {
