@@ -1,6 +1,6 @@
 /* distfile.c
 **
-** $Id: distfile.c,v 1.4 2009-03-11 17:26:53 bj Exp $
+** $Id: distfile.c,v 1.5 2009-03-11 18:03:53 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -1022,25 +1022,25 @@ static int gen_bindist (rxlist_t exclude_pats,
 			char *newdir,
 			char **_package)
 {
-#warning 'gen_bindist()' is not yet implemented ...
+#error 'gen_bindist()' is not yet implemented ...
     errno = EINVAL; return -1;
 }
 
 static int cleanup (const char *packdir, const char *cluptpl)
 {
-#warning 'cleanup()' is not yet implemented ...
+#error 'cleanup()' is not yet implemented ...
     errno = EINVAL; return -1;
 }
 
 static int gen_package (const char *packcmd, const char *packdir,
 			const char *targetdir, char **_package)
 {
-#warning 'gen_package()' is not yet implemented ...
+#error 'gen_package()' is not yet implemented ...
     errno = EINVAL; return -1;
 }
 
 static int remove_packdir (const char *packdir)
 {
-#warning 'remove_packdir()' is not yet implemented ...
+#error 'remove_packdir()' is not yet implemented ...
     errno = EINVAL; return -1;
 }
