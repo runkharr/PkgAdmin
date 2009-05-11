@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# $Id: getconf.pl,v 1.2 2005-11-22 08:05:20 bj Exp $
+# $Id: getconf.pl,v 1.3 2009-05-11 14:10:09 bj Exp $
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
@@ -25,7 +25,7 @@ if (@lines < 1) {
 }
 
 if (@lines > 1) {
-    print STDERR "$prog: ambigeous `$name' in `$file'!\n"; exit 65;
+    print STDERR "$prog: ambiguous `$name' in `$file'!\n"; exit 65;
 }
 
 ($cfval = $lines[$[]) =~ s/^#define\s\Q$name\E\s*//;

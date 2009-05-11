@@ -1,6 +1,6 @@
 /* distfile.c
 **
-** $Id: distfile.c,v 1.5 2009-03-11 18:03:53 bj Exp $
+** $Id: distfile.c,v 1.6 2009-05-11 14:10:08 bj Exp $
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de
@@ -516,23 +516,23 @@ int main (int argc, char *argv[])
     while ((opt = getopt (argc, argv, "c:hi:p:Vx:")) != -1) {
 	switch (opt) {
 	    case 'c':	/* -c 'cleancmd-template' (e.g. -c 'make cleanall') */
-		if (clupcmd) { usage ("ambigeous '-c'-option"); }
+		if (clupcmd) { usage ("ambiguous '-c'-option"); }
 		clupcmd = x_strdup (optarg);
 		break;
 	    case 'h':	/* -h */
 		usage (0);
 	    case 'i':	/* -i 'installcmd-template' (e.g. -i 'make install') */
-		if (instcmd) { usage ("ambigeous '-i'-option"); }
+		if (instcmd) { usage ("ambiguous '-i'-option"); }
 		instcmd = x_strdup (optarg);
 		break;
 	    case 'p':	/* -p 'packcmd-template' (e.g. -p 'zip -r %p.zip %p') */
-		if (packcmd) { usage ("ambigeous '-p'-option"); }
+		if (packcmd) { usage ("ambiguous '-p'-option"); }
 		packcmd = x_strdup (optarg);
 		break;
 	    case 'V':	/* -V (version) */
 		printf ("%s %s\n", prog, VERSION); exit (0);
 	    case 'x':	/* -x exclude-file (e.g. -x .srcdist-exclude) */
-		if (exclude_file) { usage ("ambigeous '-x'-option"); }
+		if (exclude_file) { usage ("ambiguous '-x'-option"); }
 		exclude_file = x_strdup (optarg);
 		break;
 	    default:
