@@ -55,40 +55,39 @@ newVersion() {
 	    ans=x
 	fi
     done
-    echo $new >VERSION
+    echo $new >"$top/VERSION"
     echo "OK, version number is now: $new"
 }
 
-if ! [ -d admin -a -f VERSION ]; then
+if ! [ -d admin -a -f "$top/VERSION" ]; then
     echo 1>&2 "${prog}: you are probably in the wrong directory"
     exit 64
 fi
 
+# Get the version number from the `VERSION´ file in the top-level directory ...
+#
+VERSION="`cat "$top/VERSION"`"
+
 case $1 in
     directory|srcdir|source-directory)
-	VERSION=`cat VERSION`
 	pwd=`pwd`; wd=`basename "$pwd"`
 	VS="`echo \"$VERSION\" | sed -e 's/\([.\\|]\)/\\\\\1/g'`"
 	wd="`echo \"$wd\" | sed -e \"s|-$VS\$||\"`"
 	echo "${wd}-$VERSION"
 	;;
     bindir|binary-directory)
-	VERSION=`cat VERSION`
 	pwd=`pwd`; wd=`basename "$pwd"`
 	VS="`echo \"$VERSION\" | sed -e 's/\([.\\|]\)/\\\\\1/g'`"
 	wd="`echo \"$wd\" | sed -e \"s|-$VS\$||\"`"
 	echo "${wd}-$VERSION-bin"
 	;;
     get)
-	VERSION=`cat VERSION`
 	echo "$VERSION"
 	;;
     set)
-	VERSION=`cat VERSION`
 	newVersion
 	;;
     major)
-	VERSION=`cat VERSION`
 	expr $VERSION : '\([0-9]*\)\..*'
 	;;
     ostype)
@@ -110,7 +109,6 @@ case $1 in
 	fi
 	;;
     header)
-	VERSION=`cat VERSION`
 	if [ $# -lt 2 ]; then
 	    echo "Usage: `basename $0` header <.h-file>" 1>&2; exit 64
 	fi
