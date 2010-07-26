@@ -1,6 +1,6 @@
 #! /usr/bin/env make -f
 #
-# $Id: clean.mk,v 1.3 2009-03-11 18:17:49 bj Exp $
+# $Id$
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de

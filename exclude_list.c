@@ -1,6 +1,6 @@
 /* escape_list.cc
 **
-** $Id: exclude_list.c,v 1.3 2009-03-11 17:26:53 bj Exp $
+** $Id$
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de

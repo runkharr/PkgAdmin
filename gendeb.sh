@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# $Id: gendeb.sh,v 1.4 2009-02-24 18:33:40 bj Exp $
+# $Id$
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de

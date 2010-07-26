@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# $Id: deb-prepare.pl,v 1.1 2009-02-24 18:33:40 bj Exp $
+# $Id$
 #
 # Author: Boris Jakubith
 # E-Mail: fbj@blinx.de

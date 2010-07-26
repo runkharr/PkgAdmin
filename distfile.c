@@ -1,6 +1,6 @@
 /* distfile.c
 **
-** $Id: distfile.c,v 1.6 2009-05-11 14:10:08 bj Exp $
+** $Id$
 **
 ** Author: Boris Jakubith
 ** E-Mail: fbj@blinx.de

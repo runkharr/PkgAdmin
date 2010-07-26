@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 #
-# $Id: hgen.pl,v 1.2 2006-08-16 08:18:36 bj Exp $
+# $Id$
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
