@@ -1,0 +1,48 @@
+#! /usr/bin/perl
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2010, Boris Jakubith <runkharr@googlemail.com>
+# Released under GPL v2.
+#
+
+use strict 'vars';
+
+sub ppsplit ($;$);
+
+my ($pn, $pp) = ppsplit ($0);
+
+unless (@ARGV) {
+    print "Usage: $0 pathname...\n"; exit 64;
+}
+
+for my $path (@ARGV) {
+    my ($bn, $dn) = ppsplit ($path);
+    print "$dn/$bn\n";
+}
+
+exit 0;
+
+sub ppsplit ($;$) {
+    use Cwd;
+    my ($pp, $pdel) = @_;
+    my (@pp, @res, $x, $pn);
+    $pdel = '/' unless ($pdel);
+    $x = qr($pdel); @pp = split /$x/, $pp;
+    $pn = pop @pp;
+    unless (@pp && (length $pp[$[]) == 0) {
+	unshift @pp, (split $pdel, (cwd ()));
+    }
+    @res = ();
+    while (@pp) {
+	$x = shift @pp;
+	if ($x eq '..') {
+	    pop @res if (@res > 1);
+	} elsif ($x ne '.') {
+	    push @res, $x;
+	}
+    }
+    ($pn, join ($pdel, @res))
+}
