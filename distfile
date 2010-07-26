@@ -222,7 +222,8 @@ case $op in
 
 	# Generate the `find'-command ...
 	CMD="find . \( -path '*/CVS/*' -o -path '*/CVS' \) -prune -o \
-	     \( -path './$DISTDIR/*' -o -path './$DISTDIR' \) -prune \
+	     \( -path './$DISTDIR/*' -o -path './$DISTDIR' \) -prune -o \
+	     \( -path '*/.svn/*' -o -path '*/.svn' \) -prune \
 	     $EXCLUDE -o -print \
 	     | cpio -pdm '$DISTDIR' >/dev/null 2>&1"
 	# and evaluate it ...
