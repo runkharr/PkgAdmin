@@ -8,9 +8,9 @@
 # Licence: GPL(v2)
 
 prog="$0"
-##?!? prog=`basename "$0"`
-ppath=`dirname "$0"`
-top=`expr "$PPATH" : '\(.\+\)/admin'`
+fp="${0%/*}/fullpath"
+ppath="`$fp -b1 "$0"`"
+top=`expr "$ppath" : '\(.\+\)/admin'`
 
 cd "$top"
 
