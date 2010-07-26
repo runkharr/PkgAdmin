@@ -15,12 +15,41 @@ sub ppsplit ($;$);
 my ($pn, $pp) = ppsplit ($0);
 
 unless (@ARGV) {
-    print "Usage: $0 pathname...\n"; exit 64;
+    print "Usage: $0 [-b <dir-level>] pathname...\n"; exit 64;
+}
+
+my $level = 0;
+if ($_ = $ARGV[$[], /^-/) {
+    shift; last if ($_ eq '--');
+    if (/^-b(.*)/) {
+	unless ($1 || @ARGV) {
+	    print STDERR "$0: missing argument for option `-b´\n"; exit 64;
+	}
+	$level = ($1 ? $1 : shift);
+	if ($level =~ /\D/) {
+	    print STDERR "$0: `-b´ requires a numeric argument\n"; exit 64;
+	}
+    } else {
+	print STDERR "$0: invalid option `$_´\n"; exit 64;
+    }
+}
+unless (@ARGV) {
+    print STDERR "$0: missing argument(s)\n"; exit 64;
 }
 
 for my $path (@ARGV) {
     my ($bn, $dn) = ppsplit ($path);
-    print "$dn/$bn\n";
+    if ($level > 0) {
+	my @spp = ((split /\//, $dn), $bn);
+	for (my $lvc = $level; $lvc > 0; --$lvc) {
+	    last unless (@spp);
+	    pop @spp;
+	}
+	while (@spp < 2) { push @spp, ''; }
+	print +(join '/', @spp)."\n";
+    } else {
+	print "$dn/$bn\n";
+    }
 }
 
 exit 0;
