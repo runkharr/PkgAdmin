@@ -128,10 +128,14 @@ case $1 in
 		#endif /* defined(_VERSION_H) */
 		EOT
 	;;
-    packagename)
-	sname="${top##*/}"
-	sname="${sname%-${VERSION}}"
-	sname="`echo "$sname"|tr '[A-Z]_' '[a-z]-'`"
+    packagename|pkgname|package|name)
+	if [ -f "$top/PACKAGE" ]; then
+	    sname="`head -1 "$top/PACKAGE" | tr ' [A-Z]_' '-[a-z]-'`"
+	else
+	    sname="${top##*/}"
+	    sname="${sname%-${VERSION}}"
+	    sname="`echo "$sname"|tr ' [A-Z]_' '-[a-z]-'`"
+	fi
 	echo "$sname"
 	;;
     *)
