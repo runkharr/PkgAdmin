@@ -1,4 +1,13 @@
 #! /usr/bin/perl
+##
+## $Id$
+## Author: Boris Jakubith
+## E-Mail: runkharr@googlemail.com
+## Copyright: (c) 2010, Boris Jakubith <runkharr@googlemail.com>
+## License: GPL (version 2)
+##
+## Debisn-changelog manipulator ...
+##
 eval 'exec perl -wS $0 ${1+"$@"}'
     if $running_under_some_shell;
 
@@ -18,18 +27,50 @@ use POSIX qw(strftime setlocale LC_ALL LC_CTYPE);
 sub ppsplit ($;$);
 sub edit ($);
 sub nl_strftime (@);
+sub read_control ($);
+# sub print_r (*$;$);
 
-($prog, $ppath) = ppsplit ($0);
+my ($prog, $ppath) = ppsplit ($0);
+(my $top = $ppath) =~ s(/admin$)();
+my $adm = "$top/admin";
 
-$MAXCLL = 72;
+my $MAXCLL = 72;
 
-unless (-d 'debian') {
-    die "$prog: 'debian'-directory not found. Did you start me in right".
+my $debdir = "$top/debian";
+my $changelog = 'changelog';
+my $clpath = "$debdir/$changelog";
+my $control = "$debdir/control";
+
+my $get_maintainer_only = undef;
+while (@ARGV && ($_ = $ARGV[$[], /^-/)) {
+    shift; last if ($_ eq '--');
+    if (/^-m$|^--maintainer-only$/) {
+	$get_maintainer_only = 1;
+    } else {
+	print STDERR "$prog: invalid option `$_´\n"; exit (64);
+    }
+}
+
+if (@ARGV) {
+    $clpath = shift;
+    unless (-f $clpath) {
+	die "$prog: argument '$clpath' is no regular file\n";
+    }
+    ($changelog = $clpath) =~ s(^.*/)();
+    ($debdir = $clpath) =~ s(/[^/]*$)();
+    $control = "$debdir/control";
+    unless ($debdir =~ m#/debian$|^debian$#) {
+	die "$prog: last path-element of '$debdir' is not 'debian'\n";
+    }
+}
+
+unless (-d $debdir) {
+    die "$prog: '$debdir'-directory not found. Did you start me in right".
 	" directory?\n";
 }
 
-open CL, '<debian/changelog' or
-    die "$prog: attempt to open 'debian/changelog' failed - $!\n";
+open CL, "<$clpath" or
+    die "$prog: attempt to open '$clpath' failed - $!\n";
 
 @CL = (); @e = (); $pn = undef; $pv = undef; $pxd = undef;
 while (<CL>) {
@@ -45,22 +86,44 @@ close CL;
 
 @e = @{$CL[$[]};
 
-$maintainer = undef;
-for $_ (@e) {
-    if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintainer = $1; last; }
-}
-
-if (open MAINTAINER, "<MAINTAINER") {
+# Try to retrieve the maintainer in three steps ...
+#
+# Step 1: Try to read it from a file `MAINTAINERS' in the top-level directory
+#         of the source-tree ...
+#
+my $maintainer = undef;
+if (open MAINTAINER, "<$top/MAINTAINER") {
     $_ = <MAINTAINER>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
     if (/^([^\s]+ )+<[^>\@]+\@[^>]+>$/) { $maintainer = $_; }
     close MAINTAINER;
+}
+#
+#  Step 2: Try to extract it from the `Source'-section of `debian/control' ...
+#
+unless (defined $maintainer) {
+    my ($err, $CTL) = read_control ($control);
+    if (!$err && exists $CTL->{source}{maintainer}) {
+	$maintainer = $CTL->{source}{maintainer};
+    }
+}
+#
+#  Step 3: Try to extract it from the first section of `debian/changelog' ...
+#
+unless (defined $maintainer) {
+    for $_ (@e) {
+	if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintiner = $1; last; }
+    }
 }
 
 unless (defined $maintainer) {
     die "$prog: attempt to detect the package maintainer failed\n";
 }
 
-open VERSION, "<VERSION" or
+if ($get_maintainer_only) {
+    print "$maintainer\n"; exit 0;
+}
+
+open VERSION, "<$top/VERSION" or
     die "$prog: attempt to get the version number failed - $!\n";
 $_ = <VERSION>; chomp; s/\r$//; close VERSION;
 $version = $_;
@@ -85,14 +148,14 @@ if ($v eq $version) {
     }
     if ($dv eq $_) {
 	print STDERR "$prog: The debian release number equals that of the".
-		     " last entry in the\n".(' ' x length $prog)."  changelog".
+		     " last entry in the\n".(' ' x length $prog)."  $changelog".
 		     " file. I assume you don't really want to change the\n".
-		     (' ' x length $prog)."  debian/changelog.\n";
+		     (' ' x length $prog)."  $clpath.\n";
 	exit 0;
     }
     $dv = $_;
 }
-$tf = "debian/tx-$$.in";
+$tf = "$debdir/tx-$$.in";
 open TX, ">$tf" or
     die "$prog: attempt to prepare editing failed - $!\n";
 $etext = <<EOT;
@@ -143,7 +206,7 @@ close TX; unlink $tf;
 unless (@t) {
     print STDERR "$prog: you inserted no non-empty text, so i assume".
 		 " you don't want to\n".(' ' x length $prog).
-		 "  change the changelog.\n";
+		 "  change the $changelog.\n";
     exit 0;
 }
 
@@ -155,7 +218,7 @@ for $t (@t) {
 	if (length ("$l $w") < $MAXCLL) {
 	    $l .= " $w";
 	} else {
-	    push @e, $l; $l = "   $w";
+	    push @e, $l; $l = "    $w";
 	}
     }
     if (length ($l) > 3) { push @e, $l; }
@@ -165,21 +228,21 @@ $ts = nl_strftime ('%a, %e %b %Y %H:%M:%S %z', (localtime (time ())));
 push @e, "", " -- $maintainer  $ts", "";
 unshift @CL, [ @e ];
 
-unlink 'debian/changelog.OLD';
-rename 'debian/changelog', 'debian/changelog.OLD' or
-    die "$prog: attempt to save current 'debian/changelog' failed - $!\n";
-unless (open CL, ">debian/changelog") {
+unlink "$clpath.OLD";
+rename $clpath, "$clpath.OLD" or
+    die "$prog: attempt to save current '$clpath' failed - $!\n";
+unless (open CL, ">$clpath") {
     $ec = "$!\n";
-    unlink 'debian/changelog';
-    rename 'debian/changelog.OLD', 'debian/changelog';
-    die "$prog: attempt to write new 'debian/changelog' failed - $!\n";
+    unlink "$clpath";
+    rename "$clpath.OLD", $clpath;
+    die "$prog: attempt to write new '$clpath' failed - $!\n";
 }
 for $e (@CL) {
     for $_ (@{$e}) { print CL "$_\n"; }
 }
 close CL;
 
-unlink 'debian/changelog.OLD';
+unlink "$clpath.OLD";
 
 exit 0;
 
@@ -242,3 +305,125 @@ sub nl_strftime (@) {
     setlocale ($lc);
     $res
 }
+
+sub read_control ($) {
+    my ($control) = @_;
+    my ($lastitem, $line, $lc, @FILE, %SECTION, %FILE, $err, $section);
+    my ($secname, $item);
+    $lastitem = undef; $line = ''; $lc = 0; %SECTION = (); $err = undef;
+    $section = 0;
+    if ((open my $cfh, '<', $control)) {
+	while (<$cfh>) {
+	    chomp; s/\r$//; ++$lc;
+	    if ($_ eq '') { # (/^\s*$/) {	#}
+		## End of a section ...
+		if ($lastitem) {
+		    if (exists $SECTION{$lastitem}) {
+			print STDERR "ERROR($lc): ambiguous '$lastitem'".
+				     " - skipping ...\n";
+		    } else {
+			$SECTION{$lastitem} = $line;
+		    }
+		}
+		if (%SECTION) { ++$section; push @FILE, +{ %SECTION }; }
+		%SECTION = (); $lastitem = undef; $line = '';
+		next;
+	    }
+	    if (/^\s/) {
+		## Line continuation (from previous line(s)) ...
+		if (! $lastitem) {
+		    print STDERR "ERROR($lc): invalid '$control' file".
+				 " - aborting ...\n";
+		    $err = 1; last;
+		}
+		$line .= $_; next;
+	    }
+	    if (/^([A-Za-z]\w*(-[A-Za-z]\w+)*)\s*:\s*(.*)/) {
+		## New item ...
+		my ($item, $val) = ($1, $3);
+		if ($lastitem) {
+		    ## Try to store the last open line ...
+		    if (exists $SECTION{$lastitem}) {
+			print STDERR "ERROR($lc): ambiguous '$lastitem'".
+				     " - skipping ...\n";
+			next;
+		    }
+		    $SECTION{$lastitem} = $line;
+		}
+		$lastitem = lc $1; $line = $3;
+	    }
+	}
+	close $cfh;
+    }
+    return ($err, undef) if ($err);
+    if ($lastitem) {
+	if (exists $SECTION{$lastitem}) {
+	    print STDERR "ERROR($lc): ambiguous '$lastitem' - skipping ...\n";
+	} else {
+	    $SECTION{$lastitem} = $line;
+	}
+    }
+    if (%SECTION) { ++$section; push @FILE, { %SECTION }; }
+    %FILE = (); $item = 'source'; $lc = 0;
+    for $section (@FILE) {
+	++$lc; $secname = $section->{$item};
+	unless (defined ($secname)) {
+	    print STDERR "ERROR: Section #$lc contains no identification!\n";
+	    next;
+	}
+	if (exists $FILE{$secname}) {
+	    print STDERR "ERROR: Section #${lc}'s identification".
+			 " is ambiguous!\n";
+	    next;
+	}
+	if ($item eq 'source') {
+	    $FILE{source} = $section;
+	} else {
+	    $FILE{$secname} = $section;
+	}
+	$item = 'package';
+    }
+    +(0, { %FILE })
+}
+
+# sub print_r (*$;$) {
+#     local (*FH) = (shift @_);
+#     my ($data, $sw) = @_;
+#     my ($k, $v);
+#     $sw = 0 unless (defined $sw);
+#     if ((ref $data) eq '') {
+# 	print FH "$data\n";
+#     } elsif ((ref $data) eq 'HASH') {
+# 	print FH "{\n";
+# 	for $k (keys %{$data}) {
+# 	    print FH ' ' x ($sw + 4), "$k => ";
+# 	    print_r (FH, $data->{$k}, $sw + 4);
+# 	}
+# 	print FH ' ' x $sw, "}\n";
+#     } elsif ((ref $data) eq 'ARRAY') {
+# 	print FH "[\n";
+# 	for $k (0 .. $#{$data}) {
+# 	    print FH ' ' x ($sw + 4), "[$k] => ";
+# 	    print_r (FH, $data->[$k], $sw + 4);
+# 	}
+# 	print FH ' ' x $sw, "]\n";
+#     } elsif ((ref $data) eq 'SCALAR') {
+# 	print FH '\ '.${$data}."\n";
+#     } elsif (UNIVERSAL::isa ($data, 'HASH')) {
+# 	print FH (ref $data)." = {\n";
+# 	for $k (keys %{$data}) {
+# 	    print FH ' ' x ($sw + 4), "$k => ";
+# 	    print_r (FH, $data->{$k}, $sw + 4);
+# 	}
+# 	print FH ' ' x $sw, "}\n";
+#     } elsif (UNIVERSAL::isa ($data, 'ARRAY')) {
+# 	print FH (ref $data)." = [\n";
+# 	for $k (0 .. $#{$data}) {
+# 	    print FH ' ' x ($sw + 4), "[$k] => ";
+# 	    print_r (FH, $data->[$k], $sw + 4);
+# 	}
+# 	print FH ' ' x $sw, "]\n";
+#     } else {
+# 	print FH "$data\n";
+#     }
+# }
