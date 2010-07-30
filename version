@@ -19,6 +19,7 @@ usage () {
 	Usage: $prog {get|set|major|ostype|lxdist}
 	       $prog [binary-|source]directory
 	       $prog header <.h-file>
+	       $prog packagename
 	EOT
     exit 64
 }
@@ -126,6 +127,12 @@ case $1 in
 		
 		#endif /* defined(_VERSION_H) */
 		EOT
+	;;
+    packagename)
+	sname="${top##*/}"
+	sname="${sname%-${VERSION}}"
+	sname="`echo "$sname"|tr '[A-Z]_' '[a-z]-'`"
+	echo "$sname"
 	;;
     *)
 	usage
