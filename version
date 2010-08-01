@@ -16,7 +16,7 @@ cd "$top"
 
 usage () {
     cat 1>&2 <<-EOT
-	Usage: $prog {get|set|major|minor|ostype|lxdist}
+	Usage: $prog {get|set|major|minor|number|ostype|lxdist}
 	       $prog [binary-|source-]directory
 	       $prog header <.h-file>
 	       $prog packagename
@@ -82,7 +82,7 @@ case $1 in
 	wd="`echo \"$wd\" | sed -e \"s|-$VS\$||\"`"
 	echo "${wd}-$VERSION-bin"
 	;;
-    get)
+    get|number)
 	echo "$VERSION"
 	;;
     set)
