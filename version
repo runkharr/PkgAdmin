@@ -16,7 +16,7 @@ cd "$top"
 
 usage () {
     cat 1>&2 <<-EOT
-	Usage: $prog {get|set|major|minor|number|ostype|lxdist}
+	Usage: $prog {get|set|major|minor|ostype|lxdist}
 	       $prog [binary-|source-]directory
 	       $prog header <.h-file>
 	       $prog packagename
@@ -93,9 +93,6 @@ case $1 in
 	;;
     minor)
 	echo "$VERSION" | sed -e 's/^[0-9]\+\.\(.\+\)/\1/'
-	;;
-    number)
-	echo "$VERSION"
 	;;
     ostype)
 	ostype=`uname -s`
