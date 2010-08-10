@@ -1,0 +1,38 @@
+#! /bin/sh
+#
+# Name: distfile
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2010, Boris Jakubith <runkharr@googlemail.com
+# Released under GPL v2.
+#
+# Compile `distfile.c´ (if required) to `distfile.bin´ in the same directory
+# and then/otherwise execute `distfile.bin´ with the same arguments this
+# shell-script was invoked with ...
+#
+
+PROG="${0##*/}"
+if [ "${0%/*}" = "$0" ]; then
+    fp="./fullpath"
+else
+    fp="${0%/*}/fullpath"
+fi
+
+basedir="$($fp -b1 $0)"
+src="$basedir/${PROG%.sh}.c"
+bin="$basedir/${PROG%.sh}.bin"
+
+if [ ! -e "$bin" ] || [ -f "$bin" -a "$src" -nt "$bin" ]; then
+    cc -o "$bin" "$src"
+elif [ ! -f "$bin" -o ! -x "$bin" ]; then
+    cat <<-EOT
+	${PROG}: The file \`${bin##*/}´ in the directory \`$basedir´ is either
+	    no plain file or not executable. This problem must be fixed manually
+	    before this program can be successfully executed.
+	EOT
+    exit 1
+fi
+exec "$bin" ${1+"$@"}
