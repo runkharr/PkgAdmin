@@ -10,7 +10,7 @@
 # Small "cleanup"-Makefile for the admin directory ...
 #
 
-CLEAN_LIST = exclude_list.bin distfile.bin
+CLEAN_LIST = exclude_list.bin distfile.bin run
 
 clean:
 	@echo -n "Cleaning up admin ..."

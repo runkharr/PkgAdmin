@@ -177,9 +177,9 @@ static void usage (const char *fmt, ...)
 	exit (64);
     }
     printf ("\nUsage: %s [-p 'packcmd' ] [-c 'cleancmd' ] [-x 'excludes']"
-	    " srcdist [suffix [dir]]"
+	    " srcdist \\\n                   [suffix [dir]]"
 	    "\n       %s [-p 'packcmd' ] [-i 'installcmd' ] [-x 'excludes']"
-	    " bindist [prefix [suffix [dir]]]"
+	    " bindist \\\n                   [prefix [suffix [dir]]]"
 	    "\n       %s -h"
 	    "\n       %s -V"
 	    "\n"
