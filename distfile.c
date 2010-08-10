@@ -35,6 +35,7 @@
 #define LSZ_INCREASE 1024
 
 #define t_alloc(t, n) ((t *) malloc ((n) * sizeof(t)))
+#define allocplus(t, n) ((t *) malloc (sizeof(t) + (n)))
 #define t_realloc(t, p, n) ((t *) realloc ((p), (n) * sizeof(t)))
 #define cfree(p) do { \
     void **q = (void **)&(p); \
@@ -54,6 +55,9 @@ static const char *def_insttpls[] = {
 
 static const char *def_cluptpls[] = {
     "make cleanall",
+    "make distclean",
+    "make pristine",
+    "make clean",
     NULL
 };
 
@@ -377,17 +381,34 @@ static void unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
     }
 }
 
+static void quote_rx (const char *s, char **_buf, size_t *_bufsz)
+{
+    while (*s) {
+	switch (*s) {
+	    case '(': case ')': case '[': case ']': case '{': case '}':
+	    case '*': case '+': case '?': case '|': case '^': case '$':
+	    case '.': case '\\':
+		buf_puts ("\\", 1, _buf, _bufsz);
+		break;
+	    default:
+		break;
+	}
+	buf_puts (s++, 1, _buf, _bufsz);
+    }
+}
+
 typedef struct rxlist_s *rxlist_t;
 struct rxlist_s {
     rxlist_t next;
     regex_t rx;
+    char s[1];
 };
 
 static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
 {
     int rc;
     char errbuf[1024];
-    rxlist_t el = t_alloc (struct rxlist_s, 1);
+    rxlist_t el = allocplus (struct rxlist_s, strlen (regex));
     if (!el) {
 	fprintf (stderr, "%s: %s - %s\n", prog, regex, strerror (errno));
 	exit (1);
@@ -397,6 +418,7 @@ static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
 	fprintf (stderr, "%s: %s - %s\n", prog, regex, errbuf);
 	rc = -1;
     } else {
+	strcpy (el->s, regex);
 	el->next = 0;
 	if (!*_first) {
 	    *_first = *_last = el;
@@ -411,12 +433,22 @@ static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
 static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
 			char **_buf, size_t *_bufsz)
 {
-    if (*_buf) { **_buf = '\0'; }
-    if (*p == '*') {
+    buf_clear (_buf, _bufsz); /*##was: if (*_buf) { **_buf = '\0'; } */
+    if (*p == '~') {
 	/* Regular expression follows ... */
 	/*buf_puts ("^(", 2, _buf, _bufsz);*/
 	unquote_rx (++p, _buf, _bufsz);
 	/*buf_puts (")$", 2, _buf, _bufsz);*/
+    } else if (*p == '!') {
+	/* A (sub-)string match */
+	++p; if (*p == '!') {
+	    /* The supplied string must match exactly */
+	    ++p; buf_puts ("^(", 2, _buf, _bufsz);
+	    quote_rx (p, _buf, _bufsz);
+	    buf_puts (")$", 2, _buf, _bufsz);
+	} else {
+	    quote_rx (p, _buf, _bufsz);
+	}
     } else {
 	/* Pathname wildcard ... */
 	if (*p == ':') { ++p; }
@@ -425,15 +457,24 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
 	&&  strncmp (p, "../", 3) != 0) {
 	    conv_path ("./", 2, _buf, _bufsz);
 	}
+#if 0
 	if (is_dir (p)) {
-	    /* go back  */
+	    /* truncate any trailing '/' from the directory name ... */
 	    const char *q = p + (strlen (p) - 1);
 	    while (q != p && *q == '/') { --q; }
+	    /* one step back (towards the end of the pathname), because q
+	    ** must point to the first position behind the last char which
+	    ** was *no* '/' ...
+	    */
+	    if (q != p) { ++q; }
 	    conv_path (p, (size_t) (q - p), _buf, _bufsz);
-	    buf_puts ("\\(/.*\\)?", 8, _buf, _bufsz);
+	    buf_puts ("(/.*)?", 8, _buf, _bufsz);
 	} else {
 	    conv_path (p, strlen (p), _buf, _bufsz);
 	}
+#else
+	conv_path(p, strlen (p), _buf, _bufsz);
+#endif
 	buf_puts (")$", 2, _buf, _bufsz);
     }
     return append_regex (*_buf, _first, _last);
@@ -450,13 +491,21 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
     /* Start the exclude-list with the program's name ... */
     buf_clear (&buf, &bufsz);
     if (*progpath != '/') { buf_puts ("./", 2, &buf, &bufsz); }
+    buf_puts ("!", 1, &buf, &bufsz);
     buf_puts (progpath, strlen (progpath), &buf, &bufsz);
     p = x_strdup (buf);
     if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
     cfree (p);
 
+#if 0
     /* Add the filename of the exclude-list itself ... */
-    if (add_pattern (filename, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
+    buf_clear (&buf, &bufsz);
+    buf_puts ("!", 1, &buf, &bufsz);
+    buf_puts (filename, strlen (filename), &buf, &bufsz);
+    p = x_strdup (buf);
+    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
+    cfree (p);
+#endif
 
     /* Add the filename-patterns from the supplied exclude-file ... */
     if ((file = fopen (filename, "rb"))) {
@@ -466,16 +515,21 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
 	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
 	}
 	fclose (file);
+    } else {
+	fprintf(stderr, "WARNING! %s - %s\n", filename, strerror (errno));
     }
 
     /* Add the filename-patterns from a hard-coded file, too ... */
-    if ((file = fopen ("admin/excludes", "rb"))) {
+    p = "admin/excludes";
+    if ((file = fopen (p, "rb"))) {
 	while (my_getline (file, &line, &linesz) >= 0) {
 	    p = line; while (isws (*p)) { ++p; }
 	    if (*p == '\0' || *p == '#') { continue; }
 	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
 	}
 	fclose (file);
+    } else {
+	fprintf(stderr, "WARNING! %s - %s\n", p, strerror (errno));
     }
     cfree (line); cfree (buf);
     *_out = first;
@@ -765,7 +819,7 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
 	return -1;
     }
     packdir = get_packdir (newdir);
-    if (!mkdir (packdir, 0755)) {
+    if (mkdir (packdir, 0755)) {
 	fprintf (stderr, "%s: %s - %s\n", prog, packdir, strerror (errno));
 	exit (1);
     }
@@ -777,7 +831,7 @@ static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
 			 prog, packdir, strerror (errno));
 	exit (1);
     }
-    t = "*^(\\./.*/CVS(/.*)?)$";
+    t = "~^(\\./(.*/)?(\\.svn|CVS))$";
     if (add_pattern (t, &exclude_pats, &last_pat, &buf, &bufsz) < 0) {
 	fprintf (stderr, "%s: adding '%s' to exclude-list failed - %s\n",
 			 prog, t+1, strerror (errno));
@@ -890,13 +944,13 @@ static void fix_perms (const char *src, const char *dst)
 #if defined(_BSD_SOURCE) || _XOPEN_SOURCE >= 500
 	lchown (dst, uid, gid);
 	if (!S_ISLNK(mode)) {
-	    chmod (dst, mode & ~ mask);
+	    chmod (dst, mode & mask);
 	    utime (dst, &ftimes);
 	}
 #else
 	if (!S_ISLNK(mode)) {
 	    chown (dst, uid, gid);
-	    chmod (dst, mode & ~ mask);
+	    chmod (dst, mode & mask);
 	    utime (dst, &ftimes);
 	}
 #endif
@@ -985,7 +1039,7 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	buf_clear (&dpath, &dpathsz);
 	buf_puts (dstdir, strlen (dstdir), &dpath, &dpathsz);
 	p = dpath + strlen (dpath);
-	while (p != dpath && *--p == '/') { *p = '\0'; }
+	while (--p != dpath && *p == '/') { *p = '\0'; }
 	if (*p == '/') { *p = '\0'; }
 	if (*spath != '/') { buf_puts ("/", 1, &dpath, &dpathsz); }
 	buf_puts (spath, strlen (spath), &dpath, &dpathsz);
@@ -1004,6 +1058,7 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	if (*newsd->path != '/') { buf_puts ("/", 1, &dpath, &dpathsz); }
 	buf_puts (newsd->path, strlen (newsd->path), &dpath, &dpathsz);
 	if (mkdir (dpath, 0755) < 0) { goto ERROR; }
+	if (chmod (dpath, 0755) < 0) { goto ERROR; }
 	if (copy_tree (newsd->path, dstdir, excl) < 0) { goto ERROR; }
 	fix_perms (newsd->path, dpath);
     }
@@ -1022,25 +1077,33 @@ static int gen_bindist (rxlist_t exclude_pats,
 			char *newdir,
 			char **_package)
 {
+#if 0
 #error 'gen_bindist()' is not yet implemented ...
+#endif
     errno = EINVAL; return -1;
 }
 
 static int cleanup (const char *packdir, const char *cluptpl)
 {
+#if 0
 #error 'cleanup()' is not yet implemented ...
+#endif
     errno = EINVAL; return -1;
 }
 
 static int gen_package (const char *packcmd, const char *packdir,
 			const char *targetdir, char **_package)
 {
+#if 0
 #error 'gen_package()' is not yet implemented ...
+#endif
     errno = EINVAL; return -1;
 }
 
 static int remove_packdir (const char *packdir)
 {
+#if 0
 #error 'remove_packdir()' is not yet implemented ...
+#endif
     errno = EINVAL; return -1;
 }
