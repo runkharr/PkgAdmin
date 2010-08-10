@@ -1,0 +1,13 @@
+# admin/excludes
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2010, Boris Jakubith <runkharr@googlemail.com>
+# License: GPL (version 2)
+#
+# The default-exclusion list to be used for the `srcdist´ package generation
+# of `admin/distclean´ ...
+
+:admin/*.bin
