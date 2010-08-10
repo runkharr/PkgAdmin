@@ -236,7 +236,7 @@ static void usage (const char *fmt, ...)
 	    "\n      of the source tree or `admin/cleanupcmds´,"
 	    "\n  -i it is either `.installcmds´ (again at top-level) or"
 	    " `admin/installcmds´,"
-	    "\n  -p it is either `.packcmds´ or `admin/packcmds´.",
+	    "\n  -p it is either `.packcmds´ or `admin/packcmds´.\n\n",
 	    prog, prog, prog, prog,
 	    def_cluptpls[0],
 	    def_insttpls[0],
