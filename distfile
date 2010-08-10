@@ -16,12 +16,11 @@
 
 PROG="${0##*/}"
 if [ "${0%/*}" = "$0" ]; then
-    fp="./fullpath"
+    basedir="."
 else
-    fp="${0%/*}/fullpath"
+    basedir="${0%/*}"
 fi
 
-basedir="$($fp -b1 $0)"
 src="$basedir/${PROG%.sh}.c"
 bin="$basedir/${PROG%.sh}.bin"
 
