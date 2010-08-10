@@ -10,9 +10,9 @@
 ** C-implementation of my small `admin/distfile' utility.
 **
 ** Synopsis: distfile [-x exclude-file] [-c 'cleancmd-template'] \
-**                    [-p 'packcmd-template' ] srcdist [dir]
+**                    [-p 'packcmd-template' ] srcdist [suffix [dir]]
 **           distfile [-x exclude-file] [-i 'installcmd-template'] \
-**                    [-p 'packcmd-template' ] bindist [dir]
+**                    [-p 'packcmd-template' ] bindist [prefix [suffix [dir]]]
 **
 **
 */
@@ -854,7 +854,8 @@ static char *get_thisdir (void)
 
 static char *get_packdir (const char *packdir)
 {
-    char *res = 0, *wd, *vers;
+    char *res = NULL, *wd, *vers, *p;
+    size_t pl, resl;
     if (packdir) {
 	if (!(res = t_alloc (char, strlen (packdir)))) {
 	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
@@ -865,7 +866,14 @@ static char *get_packdir (const char *packdir)
 	if (!(res = t_alloc (char, strlen (wd) + strlen (vers) + 2))) {
 	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
 	}
-	strcpy (res, wd); strcat (res, "-"); strcat (res, vers);
+	strcpy (res, wd);
+	resl = strlen (res);
+	pl = strlen (vers) + 1;
+	if (resl < pl
+	||  (p = &res[resl - pl], *p != '-')
+	||  strcmp (&p[1], vers)) {
+	    strcat (res, "-"); strcat (res, vers);
+	}
 	cfree (wd); cfree (vers);
     }
     return res;
