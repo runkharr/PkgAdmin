@@ -608,7 +608,7 @@ int main (int argc, char *argv[])
     store_prog (argv);
     if (argc < 2) { usage (NULL); }
     /* get the `-c', `-h', `-i', `-p', `-V' and `-x' options */
-    while ((opt = getopt (argc, argv, "c:hi:p:Vx:")) != -1) {
+    while ((opt = getopt (argc, argv, "+c:hi:p:Vx:")) != -1) {
 	switch (opt) {
 	    case 'c':	/* -c 'cleancmd-template' (e.g. -c 'make cleanall') */
 		if (clupcmd) { usage ("ambiguous '-c'-option"); }
