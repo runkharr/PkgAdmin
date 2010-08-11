@@ -532,16 +532,6 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
     if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
     cfree (p);
 
-#if 0
-    /* Add the filename of the exclude-list itself ... */
-    buf_clear (&buf, &bufsz);
-    buf_puts ("!", 1, &buf, &bufsz);
-    buf_puts (filename, strlen (filename), &buf, &bufsz);
-    p = x_strdup (buf);
-    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
-    cfree (p);
-#endif
-
     /* Add the filename-patterns from the supplied exclude-file ... */
     if ((file = fopen (filename, "rb"))) {
 	while (my_getline (file, &line, &linesz) >= 0) {
@@ -776,7 +766,7 @@ static char *get_packdir (const char *packdir)
     return res;
 }
 
-/*#### general list handling ####*/
+/*#### list basetype plus removal function ####*/
 typedef struct list_s *list_t;
 struct list_s { list_t next; };
 
@@ -788,7 +778,7 @@ void distfile_list_free (list_t *_list)
     }
 }
 #define list_free(l) (distfile_list_free ((list_t *) &(l)))
-/*#### end of general list handling ####*/
+/*#### end of list basetype plus removal function ####*/
 
 /*#### copy_tree #### */
 typedef struct sdlist_s *sdlist_t;
@@ -808,18 +798,6 @@ static sdlist_t sdlist_add (sdlist_t sdlist, const char *sdpath)
     }
     return newit;
 }
-
-#if 0
-static void sdlist_free (sdlist_t *_sdlist)
-{
-    sdlist_t lh;
-    while ((lh = *_sdlist)) {
-	*_sdlist = lh->next; lh->next = 0; free (lh);
-    }
-}
-#else
-#define sdlist_free(l) (distfile_list_free ((list_t *) (l)))
-#endif
 
 static void copy_xattrs (const char *src, const char *dst)
 {
@@ -938,7 +916,7 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
     struct dirent *de = NULL;
     rxlist_t rx = NULL;
     regmatch_t m_dummy[1];
-    int skip_entry = 0;
+    int skip_entry = 0, ec;
     sdlist_t sdlist = NULL, newsd;
     DIR *dfp = opendir (srcdir);
     if (!dfp) {
@@ -981,7 +959,8 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	buf_puts (spath, strlen (spath), &dpath, &dpathsz);
 	if (icopy_file (spath, dpath) < 0) { goto ERROR; }
     }
-    closedir (dfp); dfp = 0;
+    closedir (dfp); dfp = NULL;
+    buf_delete (&spath, &spathsz);
     /* create the sub-directories and call copy_tree() with each of them
     ** recursively ...
     */
@@ -1000,12 +979,15 @@ static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 	fix_perms (newsd->path, dpath);
 	cfree (newsd);
     }
-    buf_delete (&spath, &spathsz);
     buf_delete (&dpath, &dpathsz);
     return 0;
 ERROR:
-    closedir (dfp);
-    sdlist_free (&sdlist); cfree (spath); cfree (dpath);
+    ec = errno;
+    if (dfp) { closedir (dfp); dfp = NULL; }
+    list_free (sdlist);
+    buf_delete (&spath, &spathsz);
+    buf_delete (&dpath, &dpathsz);
+    errno = ec;
     return -1;
 }
 /*#### end copy_tree #### */
@@ -1209,7 +1191,7 @@ static int remove_tree (const char *dir, char **_buf, size_t *_bufsz)
 ERROR:
     rc = errno;
     if (dfp) { closedir (dfp); dfp = NULL; }
-    sdlist_free (&sdlist);
+    list_free (sdlist);
     errno = rc;
     return -1;
 }
@@ -1396,7 +1378,7 @@ static int collect_excludes (const char *dir, rxlist_t excl, flist_t *_xl,
 	    sdlist = newsd; continue;
 	}
     }
-    closedir (dfp); dfp = 0;
+    closedir (dfp); dfp = NULL;
     /* create the sub-directories and call copy_tree() with each of them
     ** recursively ...
     */
@@ -1411,7 +1393,7 @@ static int collect_excludes (const char *dir, rxlist_t excl, flist_t *_xl,
 ERROR:
     ec = errno;
     if (dfp) { closedir (dfp); dfp = NULL; }
-    sdlist_free (&sdlist);
+    list_free (sdlist);
     errno = ec;
     return -1;
 }
@@ -1525,7 +1507,8 @@ static int gen_bindist (rxlist_t exclude_pats,
 static char *subst_version (const char *path)
 {
     int rc;
-    char *buf = NULL, *version = get_version (), *res = NULL;
+    char *buf = NULL, *version = get_version ();
+    char *res = NULL;
     size_t bufsz = 0;
     struct rplc_struct r1[2];
 
@@ -1534,7 +1517,7 @@ static char *subst_version (const char *path)
 
     buf_clear (&buf, &bufsz);
     rc = pf_subst (r1, path, &buf, &bufsz);
-    res = (rc > 0 ? x_strdup (buf) : path);
+    res = x_strdup ((rc > 0 ? buf : path));
     buf_delete (&buf, &bufsz);
     cfree (version);
     return res;
