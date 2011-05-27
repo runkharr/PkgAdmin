@@ -1,0 +1,96 @@
+#! /bin/sh
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2011, Boris Jakubith <runkharr@googlemail.com>
+# Released under GPL v2.
+#
+# Install or remove a symbolic link controlled ...
+#
+
+
+PROG="${0##*/}"
+
+if [ $# -eq 0 ]; then
+    cat <<-EOF
+	Usage: $PROG -i source link-path
+	       $PROG -r source link-path
+	       $PROG -c source link-path
+
+	  Options:
+	    -i (alt: --install, install, set)
+	      install the symbolic link \`link-path´ (point to \`source´), but
+	      only if \`link-path´ not already exists (as symbolic link or any
+	      other type of file)
+
+	    -r (alt: --remove, remove, rm)
+	      remove \`link-path´, but only if it points to \`source´d$ ...
+
+	    -c (alt: --check, check)
+	      check if \`link-path´ points to \`source´ (result is returned
+	      via ${PROG}'s return code
+	EOF
+fi
+
+if [ $# -lt 3 ]; then
+    echo 1>&2 "${PROG}: missing argument(s)"
+    exit 64
+fi
+
+case $1 in
+    -i|--install|install|set)
+	op=install; shift
+	;;
+    -r|--remove|remove|rm)
+	op=remove; shift
+	;;
+    -c|--check|check)
+	op=check; shift
+	;;
+    *)
+	echo 1>&2 "${PROG}: invalid operation \`$1´"
+	exit 64
+	;;
+esac
+
+src="$1"; shift
+lnk="$1"; shift
+
+case $op in
+    check)
+	if [ -h "$lnk" -a "`readlink "$lnk"`" = "$src" ]; then exit 0; fi
+	exit 1
+	;;
+    install)
+	if [ -e "$lnk" ]; then
+	    if [ "`readlink "$lnk"`" != "$src" ]; then 
+		echo 1>&2 -n "${PROG}: there is already another file installed"
+		echo 1>&2 " as \`$lnk´"
+		exit 1
+	    else
+		echo 1>&2 "${PROG}: WARNING! \`$lnk´ is already installed"
+	    fi
+	else
+	    ln -s "$src" "$lnk"
+	fi
+	;;
+    remove)
+#	if [ ! -e "$lnk" ]; then
+#	    echo 1>&2 "${PROG}: \`$lnk´ does not exist"; exit 1
+#	fi
+#	if [ ! -h "$lnk" ]; then
+#	    echo 1>&2 "${PROG}: \`$lnk´ is no symbolic link"; exit 1
+#	fi
+#	if [ "`readlink "$lnk"`" != "$src" ]; then
+#	    echo 1>&2 "${PROG}: \`$lnk´ does not match \`$src´"; exit 1
+#	fi
+#	rm -f "$lnk"
+	if [ -h "$lnk" -a "`readlink "$lnk"`" = "$src" ]; then
+	    rm -f "$lnk"
+	fi
+	;;
+esac
+
+exit 0
