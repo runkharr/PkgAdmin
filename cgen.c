@@ -90,9 +90,10 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#define MODE_CLEAN 1
-#define MODE_COMPILE 2
-#define MODE_LINK 4
+#define OPT_CLEAN 1
+#define OPT_COMPILE 2
+#define OPT_HELP 3
+#define OPT_LINK 4
 
 #ifndef DEFAULT_COMPILER
 # define DEFAULT_COMPILER "cc"
@@ -102,14 +103,28 @@
 # define DEFAULT_LINKER "cc"
 #endif
 
+typedef struct action_s action_t;
+
+static int do_clean (action_t *act, const char *prog, int argc, char **argv);
+static int do_generate (action_t *act, const char *prog, int argc, char **argv);
+static int do_help (action_t *act, const char *prog, int argc, char **argv);
+
+typedef int (*actionproc_t) (action_t *act, const char *prog, int argc, char **argv);
+
 struct action_s {
-    const char *pfx_name, *eq_name, *env_cmd, *default_cmd, *env_opts, *env_flags;
+    const char *pfx_name, *eq_name;
+    actionproc_t proc;
+    int min_args, max_args;
+    bool display_topics;
+    const char *env_cmd, *default_cmd, *env_opts, *env_flags;
     const char *synopsis, *prog_desc, *prog_args, *short_msg, *prog_help;
 } actions[] = {
-    { "clean", NULL, NULL, NULL, NULL, NULL,
+    { "clean", NULL, do_clean, 1, 0, false, NULL, NULL, NULL, NULL,
       "[-v] [-c <new-directory>] %s%s %s",
       "", "<clean-args>",
       "Cleaning up in %s ...",
+      "\n\nArguments/Options:"
+      "\n"
       "\n  clean"
       "\n    Remove any files and (recursively) directories specified in <clean-args>;"
       "\n    errors during the removal process are ignored; if `-v´ is specified, display"
@@ -118,11 +133,21 @@ struct action_s {
       "\n    `Cleaning up in <cwd>´ is (<cwd> is the current working directory) displayed"
       "\n    either ` done´ or ` failed´ depending on whether all specified files and/or"
       "\n    directories could be removed or not."
+      "\n"
+      "\n  -c <new-directory> (alt, --cd, --chdir)"
+      "\n    chdir into <new-directory> before performing the removal"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    Display each file/directory to be removed (in a shell-alike manner) and it's"
+      "\n    the success status thereafter (` done´ or `failed´)."
     },
-    { "compile", "cc", "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",
+    { "compile", "cc", do_generate, 2, 0, false,
+      "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",
       "[-v] [-s] %s=%s <target> %s"
       "<compiler-program>", "<compiler-args>",
       "Compiling %s ...",
+      "\n\nArguments/Options:"
+      "\n"
       "\n  compile[=<compiler-program>] (alt: cc[=<compiler-program>])"
       "\n    Execute the program <compiler-program> (default: cc) with <compiler-args> as"
       "\n    it's arguments; if `-v´ is specified, display the complete command to be"
@@ -130,12 +155,38 @@ struct action_s {
       "\n    only a text line `Compiling <target> ...´,  followed by either ` done´ or"
       "\n    ` failed´ - depending on whether the programm succeeded or terminated"
       "\n    abnormally. Any prefix of the word `compile´ can be specified here, such as"
-      "\n    `co´, `comp´ and the like."
+      "\n    `co´, `comp´ and the like.",
+      "\n"
+      "\n  <target>"
+      "\n    The name to be displayed in the short (non-verbose) message"
+      "\n    `Compiling <target> ...´; additionally it can be inserted anywhere into"
+      "\n    <compiler-args> (by using the place-holder `%t´ as argument"
+      "\n"
+      "\n  <compiler-args>"
+      "\n    The additional arguments to be supplied to the command being executed."
+      "\n    Any argument `%t´ is replaced by <target>"
+      "\n"
+      "\n  -s (alt: --split-prog)"
+      "\n    Assume <compiler-command> being an incomplete command line (split it)"
+      "\n    according to shell-rules"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    Display each command line generated before it's executed instead of the"
+      "\n    short message `Compiling target ...´; also, allow the executed command"
+      "\n    to display it's messages (stdout/stderr)."
     },
-    { "link", "ld", "LINKER", DEFAULT_LINKER, "LOPTS", "LFLAGS",
+    { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL,
+      "%s [%s%s]", "", "<topic>", "",
+      "\n\nDisplay usage information on the different topics"
+      "\n\nValid topics are:"
+    },
+    { "link", "ld", do_generate, 2, 0, false,
+      "LINKER", DEFAULT_LINKER, "LOPTS", "LFLAGS",
       "[-v] [-s] %s=%s <target> %s"
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
+      "\n\nArguments/Options:"
+      "\n"
       "\n  link=<linker-program> (alt: ld[=<linker-program>])"
       "\n    Execute the program <linker-program> (default: cc) with <linker-args> as"
       "\n    it's arguments; if `-v´ is specified, display the complete command to be"
@@ -144,8 +195,26 @@ struct action_s {
       "\n    ` failed´ - depending on whether the program succeeded or terminated"
       "\n    abnormally. Any prefix of the word `link´ can be specified here, such as"
       "\n    `l´, `li´ and the like."
+      "\n"
+      "\n  <target>"
+      "\n    The name to be displayed in the short (non-verbose) message"
+      "\n    `Linking <target> ...´; additionally it can be inserted anywhere into"
+      "\n    <linker-args> (by using the place-holder `%t´ as argument"
+      "\n"
+      "\n  <linker-args>"
+      "\n    The additional arguments to be supplied to the command being executed."
+      "\n    Any argument `%t´ is replaced by <target>"
+      "\n"
+      "\n  -s (alt: --split-prog)"
+      "\n    Assume <linker-command> being an incomplete command line (split it)"
+      "\n    according to shell-rules"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    Display each command line generated before it's executed instead of the"
+      "\n    short message `Linking target ...´; also, allow the executed command"
+      "\n    to display it's messages (stdout/stderr)."
     },
-    { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+    { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 /* Module-internal global variable holding the name of the program.
@@ -179,17 +248,25 @@ void usage (const char *fmt, ...)
 	    va_end (av);
 	    if (!acname) { goto GENERAL_DESC; }
 	    for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
-		if (is_prefix (acname, act->pfx_name) || !strcmp (acname, act->eq_name)) {
-		    break;
-		}
+		if (is_prefix (acname, act->pfx_name)) { break; }
+		if (act->eq_name && !strcmp (acname, act->eq_name)) { break; }
 	    }
-	    if (!act) {
+	    if (!act->pfx_name) {
 		fprintf (stderr, "%s: no topic for `%s´ available\n", progname, acname);
 		exit (64);
 	    }
 	    printf ("Usage: %s ", progname);
 	    printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
-	    printf ("\n\nArguments/Options:%s\n", act->prog_help);
+	    printf ("%s", act->prog_help);
+	    if (act->display_topics) {
+		for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
+		    printf ("\n    %s", act->pfx_name);
+		    if (act->eq_name) {
+			printf (" (alt: %s)", act->eq_name);
+		    }
+		}
+	    }
+	    puts ("\n");
 	    exit (0);
 	}
 	fprintf (stderr, "%s: ", progname);
@@ -554,7 +631,7 @@ char *mycwd()
 ** reason).
 */
 static
-int do_cleanup (FILE *out, bool verbose, int nfiles, char **files)
+int cleanup (FILE *out, bool verbose, int nfiles, char **files)
 {
     int rc, errs = 0, ix = 0;
     struct action_s *act;
@@ -762,25 +839,41 @@ int spawn (FILE *out, bool verbose, bool split_prog,
     return -1;
 }
 
-
-/* Main program
-**
-*/
-int main (int argc, char *argv[])
+static void check_args (action_t *act, int argc)
 {
-    bool verbose = false, split_prog = false;
-    int mode, ix, rc;
-    char *newdir = NULL, *p, *prog, *target;
-    struct action_s *act;
+    if (argc - 1 < act->min_args) {
+	usage ("missing argument(s) for %s; see `%s help´ for more, please!",
+	       act->pfx_name, progname);
+    }
+    if (act->max_args > act->min_args && argc - 1 > act->max_args) {
+	usage ("too many arguments for %s; see `%s help´ for more, please!",
+	       act->pfx_name, progname);
+    }
+}
 
-    if ((progname = strrchr (argv[0], '/'))) { ++progname; } else { progname = argv[0]; }
+static
+int do_help (action_t *act, const char *prog, int argc, char **argv)
+{
+    char *topic = NULL;
+    if (prog) { usage ("%s=<program> not allowed here", act->pfx_name); }
+    check_args (act, argc);
+    if (argc > 1) { topic = argv[1]; }
+    usage ("help", topic);
+    return 0;
+}
+
+static
+int do_clean (action_t *act, const char *prog, int argc, char **argv)
+{
+    int ix;
+    bool verbose = false;
+    char *newdir = NULL;
+
+    if (prog) { usage ("%s=<program> not allowed here", act->pfx_name); }
 
     for (ix = 1; ix < argc; ++ix) {
 	if (!strcmp (argv[ix], "-v") || !strcmp (argv[ix], "--verbose")) {
 	    verbose = true; continue;
-	}
-	if (!strcmp (argv[ix], "-s") || !strcmp (argv[ix], "--split-prog")) {
-	    split_prog = true; continue;
 	}
 	if (!strncmp (argv[ix], "-c", 2)) {
 	    if (newdir) { usage ("ambiguous option `-c´"); }
@@ -817,33 +910,64 @@ int main (int argc, char *argv[])
 	if (*argv[ix] != '-') { break; }
 	usage ("invalid option `%s´", argv[ix]);
     }
-    if (ix >= argc) {
-	usage ("missing argument(s); see `%s help´ for more", progname);
-    }
-    if (is_prefix (argv[ix], "help")) { usage (NULL); }
+
+    check_args (act, argc - ix);
+
     if (newdir && chdir (newdir)) {
-	fprintf (stderr, "%s: chdir() - %s\n", progname, strerror (errno)); exit (1);
+	fprintf (stderr, "%s %s: failed to chdir into `%s´ - %s\n",
+			 progname, act->pfx_name, newdir, strerror (errno));
+	exit (1);
     }
-    if (is_prefix (argv[ix], "clean")) {
-	mode = MODE_CLEAN;
-	if (++ix >= argc) {
-	    usage ("missing argument(s); see `%s help´ for more", progname);
+    cleanup (stdout, verbose, argc - ix, &argv[ix]);
+    return 0;
+}
+
+static
+int do_generate (action_t *act, const char *prog, int argc, char **argv)
+{
+    int ix, rc;
+    bool verbose = false, split_prog = false;
+    char *target = NULL;
+
+    for (ix = 1; ix < argc; ++ix) {
+	if (!strcmp (argv[ix], "-v") || !strcmp (argv[ix], "--verbose")) {
+	    verbose = true; continue;
 	}
-	rc = do_cleanup (stdout, verbose, argc - ix, &argv[ix]);
-	return 0;
+	if (!strcmp (argv[ix], "-s") || !strcmp (argv[ix], "--split-prog")) {
+	    split_prog = true; continue;
+	}
+	if (*argv[ix] != '-') { break; }
+	usage ("invalid option `%s´", argv[ix]);
     }
-    if (ix + 3 >= argc) {
-	usage ("missing argument(s); see `%s help´ for more", progname);
+
+    check_args (act, argc - ix);
+    rc = spawn (stdout, verbose, split_prog, act, prog, target, argc - ix, &argv[ix]);
+    return (rc ? 1 : 0);
+}
+
+/* Main program
+**
+*/
+int main (int argc, char *argv[])
+{
+    int mode;
+    char *p, *prog;
+    action_t *act;
+
+    if ((progname = strrchr (argv[0], '/'))) { ++progname; } else { progname = argv[0]; }
+
+    if (argc < 2) {
+	usage ("missing argument(s); see `%s help´ for more, please!", progname);
     }
-    p = argv[ix++];
+    p = argv[1];
     if ((prog = strchr (p, '='))) {
 	*prog++ = '\0'; if (!*prog) { prog = NULL; }
     }
     for (mode = 0; (act = &actions[mode], act->pfx_name); ++mode) {
-	if (is_prefix (p, act->pfx_name) || !strcmp (p, act->eq_name)) { break; }
+	if (is_prefix (p, act->pfx_name)) { break; }
+	if (act->eq_name && !strcmp (p, act->eq_name)) { break; }
     }
     if (!act->pfx_name) { usage ("invalid action `%s´", p); }
-    target = argv[ix++];
-    rc = spawn (stdout, verbose, split_prog, act, prog, target, argc - ix, &argv[ix]);
-    return (rc ? 1 : 0);
+
+    return act->proc (act, prog, argc - 1, &argv[1]);
 }
