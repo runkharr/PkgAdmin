@@ -102,9 +102,214 @@
 # define DEFAULT_LINKER "cc"
 #endif
 
+struct action_s {
+    const char *pfx_name, *eq_name, *env_cmd, *default_cmd, *env_opts, *env_flags;
+    const char *synopsis, *prog_desc, *prog_args, *short_msg, *prog_help;
+} actions[] = {
+    { "clean", NULL, NULL, NULL, NULL, NULL,
+      "[-v] [-c <new-directory>] %s%s %s",
+      "", "<clean-args>",
+      "Cleaning up in %s ...",
+      "\n  clean"
+      "\n    Remove any files and (recursively) directories specified in <clean-args>;"
+      "\n    errors during the removal process are ignored; if `-v´ is specified, display"
+      "\n    each file (directory) to be removed before it's removal and display the"
+      "\n    success-status thereafter; otherwise, only a shore text-line"
+      "\n    `Cleaning up in <cwd>´ is (<cwd> is the current working directory) displayed"
+      "\n    either ` done´ or ` failed´ depending on whether all specified files and/or"
+      "\n    directories could be removed or not."
+    },
+    { "compile", "cc", "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",
+      "[-v] [-s] %s=%s <target> %s"
+      "<compiler-program>", "<compiler-args>",
+      "Compiling %s ...",
+      "\n  compile[=<compiler-program>] (alt: cc[=<compiler-program>])"
+      "\n    Execute the program <compiler-program> (default: cc) with <compiler-args> as"
+      "\n    it's arguments; if `-v´ is specified, display the complete command to be"
+      "\n    executed and also this program's output (stdout/stderr); otherwise, display"
+      "\n    only a text line `Compiling <target> ...´,  followed by either ` done´ or"
+      "\n    ` failed´ - depending on whether the programm succeeded or terminated"
+      "\n    abnormally. Any prefix of the word `compile´ can be specified here, such as"
+      "\n    `co´, `comp´ and the like."
+    },
+    { "link", "ld", "LINKER", DEFAULT_LINKER, "LOPTS", "LFLAGS",
+      "[-v] [-s] %s=%s <target> %s"
+      "<linker-program>", "<linker-args>",
+      "Linking %s ...",
+      "\n  link=<linker-program> (alt: ld[=<linker-program>])"
+      "\n    Execute the program <linker-program> (default: cc) with <linker-args> as"
+      "\n    it's arguments; if `-v´ is specified, display the complete command to be"
+      "\n    executed and also this program's output (stdout/stderr); otherwise, display"
+      "\n    only a text line `Linking <target> ...´, followed by either ` done´ or"
+      "\n    ` failed´ - depending on whether the program succeeded or terminated"
+      "\n    abnormally. Any prefix of the word `link´ can be specified here, such as"
+      "\n    `l´, `li´ and the like."
+    },
+    { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
 /* Module-internal global variable holding the name of the program.
 */
 static char *progname = NULL;
+
+/* Return true if the first argument (string) is a prefix of the second one (or equals
+** the second argument) and false otherwise.
+*/
+static
+bool is_prefix (const char *s1, const char *s2)
+{
+    size_t l1 = strlen (s1), l2 = strlen (s2);
+    return (l1 > 0 && l1 <= l2 && strncmp (s1, s2, l1) == 0);
+}
+
+/* Display either the usage message and terminate (exit-code = 0)
+** or an error message concerning the usage and abort the program (exit-code = 64).
+*/
+static
+void usage (const char *fmt, ...)
+{
+    int ix;
+    struct action_s *act;
+    if (fmt) {
+	va_list av;
+	if (!strcmp (fmt, "help")) {
+	    char *acname;
+	    va_start (av, fmt);
+	    acname = va_arg (av, char *);
+	    va_end (av);
+	    if (!acname) { goto GENERAL_DESC; }
+	    for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
+		if (is_prefix (acname, act->pfx_name) || !strcmp (acname, act->eq_name)) {
+		    break;
+		}
+	    }
+	    if (!act) {
+		fprintf (stderr, "%s: no topic for `%s´ available\n", progname, acname);
+		exit (64);
+	    }
+	    printf ("Usage: %s ", progname);
+	    printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
+	    printf ("\n\nArguments/Options:%s\n", act->prog_help);
+	    exit (0);
+	}
+	fprintf (stderr, "%s: ", progname);
+	va_start (av, fmt); vfprintf (stderr, fmt, av); va_end (av);
+	fputs ("\n", stderr);
+	exit (64);
+    }
+GENERAL_DESC:
+    act = &actions[0];
+    printf ("\nUsage: %s ", progname);
+    printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
+    for (ix = 1; (act = &actions[ix])->pfx_name; ++ix) {
+	printf ("\n       %s", progname);
+	printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
+    }
+    printf ("\n\nFor further help issue `%s help <topic>´, where topic is one of\n(",
+	    progname);
+    for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
+	if (ix > 0) { printf (", "); }
+	printf ("%s", act->pfx_name);
+    }
+    printf (")\n\n");
+    exit (0);
+#if 0
+    printf ("\nUsage: %s [-v] [-s] compile[=<compiler-program>] <target> <compiler-args>"
+	    "\n       %s [-v] [-s] link[=<linker-program>] <target> <linker-args>"
+	    "\n       %s [-v] [-c <directory>] clean <clean-args>"
+	    "\n       %s help"
+	    "\n"
+	    "\nArguments/Options:"
+	    "\n"
+	    "\n  -c <directory> (alt: --chdir, --cd)"
+	    "\n    change into <directory> before performing the clean-action."
+	    "\n  -s (alt: --split-prog)"
+	    "\n    split <compiler-program> or <linker-program> shell-alike instead of"
+	    " using them as"
+	    "\n    a single program name"
+	    "\n"
+	    "\n  -v (alt: --verbose)"
+	    "\n    display the complete command to be executed, together with all of"
+	    " it's output;"
+	    "\n    otherwise, only a short message concerning the action, the <target>"
+	    " and the"
+	    "\n    action's success-status is displayed."
+	    "\n"
+	    "\n  compile[=<compiler-program>] (alt: cc[=<compiler-program>])"
+	    "\n    Execute the program <compiler-program> (default: cc) with <compiler-"
+	    "args> as"
+	    "\n    it's arguments; if `-v´ is specified, display the complete command to"
+	    " be"
+	    "\n    executed and also this program's output (stdout/stderr); otherwise,"
+	    " display"
+	    "\n    only a text line `Compiling <target> ...´,  followed by either"
+	    " ` done´ or"
+	    "\n    ` failed´ - depending on the program's termination code. Any prefix"
+	    " of the"
+	    "\n    word `compile´ can be specified here, such as `c´ `co´, `comp´ and"
+	    " the like."
+	    "\n"
+	    "\n  help"
+	    "\n    display a short synopsis of cgen's arguments and terminate; any"
+	    " prefix of the"
+	    "\n    word `help´ can be used."
+	    "\n"
+	    "\n  link=<linker-program> (alt: ld[=<linker-program>])"
+	    "\n    Execute the program <linker-program> (default: cc) with <linker-args>"
+	    " as it's"
+	    "\n    arguments; the option `-v´ has the same effect as described above,"
+	    " with the"
+	    "\n    exception that `Linking <target> ...´ is displayed. Again, instead of"
+	    " the word"
+	    "\n    `link´, each of it's prefixes can be used."
+	    "\n"
+	    "\n  clean"
+	    "\n    Remove any files and (recursively) directories specified in <clean-"
+	    "args>; errors"
+	    "\n    during the removal process are ignored; if `-v´ is specified, display"
+	    " each file"
+	    "\n    (directory) to be removed before it's removal and display the success"
+	    "-status"
+	    "\n    thereafter; otherwise, only a shore text-line `Cleaning up in <cwd>´"
+	    " is"
+	    "\n    (<cwd> is the current working directory) displayed either ` done´ or"
+	    " ` failed´"
+	    "\n    depending on whether all specified files/directories could be removed"
+	    " or not."
+	    "\n"
+	    "\n  <target>"
+	    "\n    the name of the target to be displayed if `-v´ was not specified; any"
+	    " argument"
+	    "\n    of the form `%%t´ in the <compiler-args> and <linker-args> will be"
+	    " replaced with"
+	    "\n    this (file-)name"
+	    "\n"
+	    "\n  <compiler-args>"
+	    "\n    The arguments which (together with the name of the compiler program)"
+	    " form the"
+	    "\n    command to be executed"
+	    "\n"
+	    "\n  <linker-args>"
+	    "\n    The arguments which (together with the name of the linker program)"
+	    " form the"
+	    "\n    command to be executed"
+	    "\n"
+	    "\n  <clean-args>"
+	    "\n    the names of files and directories to be removed"
+	    "\n"
+	    "\nEnvironment variables:"
+	    "\n  `%s´ recognizes the the environment variables COMPILER and LINKER and"
+	    " uses the"
+	    "\n  stored in these variables instead of the defaults for the `compile´-"
+	    " and `link´-"
+	    "\n  actions. Additionally the variables COPTS (or CFLAGS) and LOPTS"
+	    " (LFLAGS) are"
+	    "\n  recognized; the corresponding value is (shell-splitted) inserted before"
+	    "\n  <compiler-args> (respectively <linker-args>) ...\n\n",
+	    progname, progname, progname, progname, progname);
+    exit (0);
+#endif
+}
 
 /* Duplicate a string
 */
@@ -128,16 +333,6 @@ char *x_sdup (const char *s)
     return res;
 }
 #endif
-
-/* Return true if the first argument (string) is a prefix of the second one (or equals
-** the second argument) and false otherwise.
-*/
-static
-bool is_prefix (const char *s1, const char *s2)
-{
-    size_t l1 = strlen (s1), l2 = strlen (s2);
-    return (l1 > 0 && l1 <= l2 && strncmp (s1, s2, l1) == 0);
-}
 
 /* Return true if the argument is either a blank or a TAB-character and false otherwise.
 */
@@ -235,25 +430,6 @@ void print_command (FILE *out, char **cmd)
 	}
     }
     fputs ("\n", out);
-}
-
-/* Write the short (non-verbose) message corresponding the requested action to the
-** specified output channel.
-*/
-static
-void print_mode (FILE *out, int mode, const char *target)
-{
-    switch (mode) {
-	case MODE_CLEAN:
-	    fputs ("Cleaning up in", out); break;
-	case MODE_COMPILE:
-	    fputs ("Compiling", out); break;
-	case MODE_LINK:
-	    fputs ("Linking", out); break;
-	default:
-	    return;
-    }
-    fputc (' ', out); fputs (target, out); fputs (" ...", out);
 }
 
 /* Write either " failed\n" or " done\n" (depending on the value of `exitstate´) to the
@@ -381,10 +557,16 @@ static
 int do_cleanup (FILE *out, bool verbose, int nfiles, char **files)
 {
     int rc, errs = 0, ix = 0;
+    struct action_s *act;
     char *workdir = NULL;
     if (!verbose) {
 	if (!(workdir = mycwd ())) { return -1; }
-	print_mode (out, MODE_CLEAN, workdir);
+	for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
+	    if (!strcmp (act->pfx_name, "clean")) { break; }
+	}
+	if (act->pfx_name) {
+	    fprintf (out, "%s %s ...",  act->short_msg, workdir);
+	}
 	free (workdir); workdir = NULL;
 	for (ix = 0; ix < nfiles; ++ix) {
 	    rc = rmfsentry (files[ix], NULL);
@@ -400,57 +582,81 @@ int do_cleanup (FILE *out, bool verbose, int nfiles, char **files)
     return (errs ? 1 : 0);
 }
 
-/* Determine the program to be executed by using either the first argument (probably the
-** value specified on the command line) of the value of the corresponding environment
-** variable or the (hard-coded) default (in this order).
-*/
-static
-const char *get_command (const char *cmdarg, const char *envvar, const char *defcmd)
-{
-    char *envval;
-    if (cmdarg) { return cmdarg; }
-    if ((envval = getenv (envvar))) { return envval; }
-    return defcmd;
-}
-
 /* Generate the command from the program (cmd), the value of the environment variable
 ** (envvar) and a list of arguments.
 */
-char **gen_cmd (const char *cmd, const char *target,
-		const char *envvar, int argc, char **argv)
+char **gen_cmd (const char *prog, bool split_prog, struct action_s *act,
+		const char *target, int argc, char **argv)
 {
-    int cmdc = 0, optc = 0, ix, jx;
-    char *envval, **optv = NULL, **cmdv = NULL;
-    if ((envval = getenv (envvar))) {
-	if (!(optv = shsplit (envval))) { return NULL; }
+    int ix, jx;
+    char *envval;
+    char **progv = NULL; int progc = 0;
+    char **optv = NULL; int optc = 0;
+    char **cmdv = NULL; int cmdc = 0;
+    if (prog) {
+	if (split_prog) {
+	    if (!(progv = shsplit (prog))) { return NULL; }
+	    progc = 0; while (progv[progc]) { ++progc; }
+	} else {
+	    progc = 1;
+	    if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
+	    *progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
+	}
+    } else {
+	if (act->env_cmd) {
+	    prog = getenv (act->env_cmd);
+	    if (prog && !*prog) { prog = NULL; }
+	} else {
+	    prog = act->default_cmd;
+	}
+	if (!prog) {
+	    usage ("no valid program specified; see `%s help´ for help, please!",
+	    progname);
+	}
+	progc = 1;
+	if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
+	*progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
     }
-    if (optv) {
-	while (optv[optc]) { ++optc; }
+    if (!(envval = getenv (act->env_opts)) || !*envval) {
+	envval = getenv (act->env_flags);
+    }
+    if (envval && *envval) {
+	if (!(optv = shsplit (envval))) { goto ERREXIT; }
+	optc = 0; while (optv[optc]) { ++optc; }
     }
     cmdc = optc + argc + 1;
-    if ((cmdv = (char **) malloc ((cmdc + 1) * sizeof(char *)))) {
-	ix = 0; if (!(cmdv[ix++] = sdup (cmd))) { goto ERREXIT; }
-	for (jx = 0; jx < optc; ++jx) { cmdv[ix++] = optv[jx]; optv[jx] = NULL; }
-	for (jx = 0; jx < argc; ++jx) {
-	    if (!strcmp (argv[jx], "%t")) {
-		if (!(cmdv[ix++] = sdup (target))) { goto ERREXIT; }
-	    } else {
-		if (!(cmdv[ix++] = sdup (argv[jx]))) { goto ERREXIT; }
-	    }
+    if (!(cmdv = (char **) malloc ((cmdc + 1) * sizeof(char *)))) { goto ERREXIT; }
+    ix = 0;
+    for (jx = 0; jx < progc; ++jx) { cmdv[ix++] = progv[jx]; progv[jx] = NULL; }
+    for (jx = 0; jx < optc; ++jx) { cmdv[ix++] = optv[jx]; optv[jx] = NULL; }
+    for (jx = 0; jx < argc; ++jx) {
+	if (!strcmp (argv[jx], "%t")) {
+	    if (!(cmdv[ix++] = sdup (target))) { goto ERREXIT; }
+	} else {
+	    if (!(cmdv[ix++] = sdup (argv[jx]))) { goto ERREXIT; }
 	}
-	cmdv[ix] = NULL;
     }
-    if (optv) { free (optv); }
+    cmdv[ix] = NULL;
+    if (progv) { free (progv); progv = NULL; }
+    if (optv) { free (optv); optv = NULL; }
     return cmdv;
 ERREXIT:
+    if (progv) {
+	for (jx = 0; jx < progc; ++jx) {
+	    if (progv[jx]) { free (progv[jx]); progv[jx] = NULL; }
+	}
+	free (progv); progv = NULL;
+    }
     if (optv) {
 	for (jx = 0; jx < optc; ++jx) {
 	    if (optv[jx]) { free (optv[jx]); optv[jx] = NULL; }
 	}
 	free (optv); optv = NULL;
     }
-    for (jx = 0; jx < ix; ++jx) { free (cmdv[jx]); }
-    free (cmdv);
+    if (cmdv) {
+	for (jx = 0; jx < ix; ++jx) { free (cmdv[jx]); cmdv[jx] = 0; }
+	free (cmdv); cmdv = NULL;
+    }
     return NULL;
 }
 
@@ -511,56 +717,25 @@ char *which (const char *cmd)
     return res;
 }
 
-/* Return the name of an environment variable (depending on the requested action)
-** either for the program to be executed or one of the two possible option-vars
-*/
-static
-const char *mode_envvar (int mode, int opts)
-{
-    switch (mode) {
-	case MODE_COMPILE:
-	    return (opts == 0 ? "COMPILER" : (opts == 1 ? "CFLAGS" : "COMPILER"));
-	case MODE_LINK:
-	    return (opts == 0 ? "LINKER" : (opts == 1 ? "LFLAGS" : "LOPTS"));
-	default:
-	    return NULL;
-    }
-}
-
-/* Return the default program to be executed depending on the requested action
-** (operation-mode).
-*/
-static
-const char *mode_cmddefault (int mode)
-{
-    switch (mode) {
-	case MODE_COMPILE: return DEFAULT_COMPILER;
-	case MODE_LINK:    return DEFAULT_LINKER;
-	default:           return NULL;
-    }
-}
-
 /* Perform the requested action (`compile´ or `link´) by executing the corresponding
 ** command in a sub-process. Display the output depending on the `verbose´ argument.
 */
-int spawn (FILE *out, bool verbose,
-	   int mode, const char *prog,
+int spawn (FILE *out, bool verbose, bool split_prog,
+	   struct action_s *act, const char *prog,
 	   const char *target, int argc, char **argv)
 {
     extern char **environ;
-    char **cmdv, *envval;
-    const char *cmd, *env_cmd, *env_opts;
+    char **cmdv;
+    const char *cmd;
     pid_t child;
     int out_fd, waitstat, excode;
-    env_cmd = mode_envvar (mode, 0);
-    env_opts = mode_envvar (mode, 2);
-    if (!(envval = getenv (env_opts)) || *envval == '\0') {
-	env_opts = mode_envvar (mode, 1);
-    }
-    cmd = get_command (prog, env_cmd, mode_cmddefault (mode));
-    if (!(cmdv = gen_cmd (cmd, target, env_opts, argc, argv))) { return -1; }
+    if (!(cmdv = gen_cmd (prog, split_prog, act, target, argc, argv))) { return -1; }
     if (!(cmd = which (cmdv[0]))) { return -1; }
-    if (verbose) { print_command (out, cmdv); } else { print_mode (out, mode, target); }
+    if (verbose) {
+	print_command (out, cmdv);
+    } else {
+	fprintf (out, "%s %s ...",  act->short_msg, target);
+    }
     if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }
     fflush (stdout); fflush (stderr);
     switch (child = fork ()) {
@@ -587,126 +762,25 @@ int spawn (FILE *out, bool verbose,
     return -1;
 }
 
-/* Display either the usage message and terminate (exit-code = 0)
-** or an error message concerning the usage and abort the program (exit-code = 64).
-*/
-static
-void usage (const char *fmt, ...)
-{
-    if (fmt) {
-	va_list av;
-	fprintf (stderr, "%s: ", progname);
-	va_start (av, fmt); vfprintf (stderr, fmt, av); va_end (av);
-	fputs ("\n", stderr);
-	exit (64);
-    }
-    printf ("\nUsage: %s [-v] compile[=<compiler-program>] <target> <compiler-args>"
-	    "\n       %s [-v] link[=<linker-program>] <target> <linker-args>"
-	    "\n       %s [-v] [-c <directory>] clean <clean-args>"
-	    "\n       %s help"
-	    "\n"
-	    "\nArguments/Options:"
-	    "\n"
-	    "\n  -c <directory>"
-	    "\n    change into <directory> before performing the clean-action."
-	    "\n"
-	    "\n  -v"
-	    "\n    display the complete command to be executed, together with all of"
-	    " it's output;"
-	    "\n    otherwise, only a short message concerning the action, the <target>"
-	    " and the"
-	    "\n    action's success-status is displayed."
-	    "\n"
-	    "\n  compile[=<compiler-program>] (alt: cc[=<compiler-program>])"
-	    "\n    Execute the program <compiler-program> (default: cc) with <compiler-"
-	    "args> as"
-	    "\n    it's arguments; if `-v´ is specified, display the complete command to"
-	    " be"
-	    "\n    executed and also this program's output (stdout/stderr); otherwise,"
-	    " display"
-	    "\n    only a text line `Compiling <target> ...´,  followed by either"
-	    " ` done´ or"
-	    "\n    ` failed´ - depending on the program's termination code. Any prefix"
-	    " of the"
-	    "\n    word `compile´ can be specified here, such as `c´ `co´, `comp´ and"
-	    " the like."
-	    "\n"
-	    "\n  help"
-	    "\n    display a short synopsis of cgen's arguments and terminate; any"
-	    " prefix of the"
-	    "\n    word `help´ can be used."
-	    "\n"
-	    "\n  link=<linker-program> (alt: ld[=<linker-program>])"
-	    "\n    Execute the program <linker-program> (default: cc) with <linker-args>"
-	    " as it's"
-	    "\n    arguments; the option `-v´ has the same effect as described above,"
-	    " with the"
-	    "\n    exception that `Linking <target> ...´ is displayed. Again, instead of"
-	    " the word"
-	    "\n    `link´, each of it's prefixes can be used."
-	    "\n"
-	    "\n  clean"
-	    "\n    Remove any files and (recursively) directories specified in <clean-"
-	    "args>; errors"
-	    "\n    during the removal process are ignored; if `-v´ is specified, display"
-	    " each file"
-	    "\n    (directory) to be removed before it's removal and display the success"
-	    "-status"
-	    "\n    thereafter; otherwise, only a shore text-line `Cleaning up in <cwd>´"
-	    " is"
-	    "\n    (<cwd> is the current working directory) displayed either ` done´ or"
-	    " ` failed´"
-	    "\n    depending on whether all specified files/directories could be removed"
-	    " or not."
-	    "\n"
-	    "\n  <target>"
-	    "\n    the name of the target to be displayed if `-v´ was not specified; any"
-	    " argument"
-	    "\n    of the form `%%t´ in the <compiler-args> and <linker-args> will be"
-	    " replaced with"
-	    "\n    this (file-)name"
-	    "\n"
-	    "\n  <compiler-args>"
-	    "\n    The arguments which (together with the name of the compiler program)"
-	    " form the"
-	    "\n    command to be executed"
-	    "\n"
-	    "\n  <linker-args>"
-	    "\n    The arguments which (together with the name of the linker program)"
-	    " form the"
-	    "\n    command to be executed"
-	    "\n"
-	    "\n  <clean-args>"
-	    "\n    the names of files and directories to be removed"
-	    "\n"
-	    "\nEnvironment variables:"
-	    "\n  `%s´ recognizes the the environment variables COMPILER and LINKER and"
-	    " uses the"
-	    "\n  stored in these variables instead of the defaults for the `compile´-"
-	    " and `link´-"
-	    "\n  actions. Additionally the variables COPTS (or CFLAGS) and LOPTS"
-	    " (LFLAGS) are"
-	    "\n  recognized; the corresponding value is (shell-splitted) inserted before"
-	    "\n  <compiler-args> (respectively <linker-args>) ...\n\n",
-	    progname, progname, progname, progname, progname);
-    exit (0);
-}
-
 
 /* Main program
 **
 */
 int main (int argc, char *argv[])
 {
-    bool verbose = false;
+    bool verbose = false, split_prog = false;
     int mode, ix, rc;
     char *newdir = NULL, *p, *prog, *target;
+    struct action_s *act;
 
     if ((progname = strrchr (argv[0], '/'))) { ++progname; } else { progname = argv[0]; }
 
     for (ix = 1; ix < argc; ++ix) {
 	if (!strcmp (argv[ix], "-v") || !strcmp (argv[ix], "--verbose")) {
 	    verbose = true; continue;
+	}
+	if (!strcmp (argv[ix], "-s") || !strcmp (argv[ix], "--split-prog")) {
+	    split_prog = true; continue;
 	}
 	if (!strncmp (argv[ix], "-c", 2)) {
 	    if (newdir) { usage ("ambiguous option `-c´"); }
@@ -765,14 +839,11 @@ int main (int argc, char *argv[])
     if ((prog = strchr (p, '='))) {
 	*prog++ = '\0'; if (!*prog) { prog = NULL; }
     }
-    if (is_prefix (p, "compile") || !strcmp (p, "cc")) {
-	mode = MODE_COMPILE;
-    } else if (is_prefix (p, "link") || !strcmp (p, "ld")) {
-	mode = MODE_LINK;
-    } else {
-	usage ("invalid action `%s´", p);
+    for (mode = 0; (act = &actions[mode], act->pfx_name); ++mode) {
+	if (is_prefix (p, act->pfx_name) || !strcmp (p, act->eq_name)) { break; }
     }
+    if (!act->pfx_name) { usage ("invalid action `%s´", p); }
     target = argv[ix++];
-    rc = spawn (stdout, verbose, mode, prog, target, argc - ix, &argv[ix]);
+    rc = spawn (stdout, verbose, split_prog, act, prog, target, argc - ix, &argv[ix]);
     return (rc ? 1 : 0);
 }
