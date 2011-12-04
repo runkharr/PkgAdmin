@@ -120,7 +120,7 @@ struct action_s {
     const char *synopsis, *prog_desc, *prog_args, *short_msg, *prog_help;
 } actions[] = {
     { "clean", NULL, do_clean, 1, 0, false, NULL, NULL, NULL, NULL,
-      "[-v] [-c <new-directory>] %s%s %s",
+      "%s%s [-v] [-c <new-directory>] %s",
       "", "<clean-args>",
       "Cleaning up in %s ...",
       "\n\nArguments/Options:"
@@ -141,9 +141,9 @@ struct action_s {
       "\n    Display each file/directory to be removed (in a shell-alike manner) and it's"
       "\n    the success status thereafter (` done´ or `failed´)."
     },
-    { "compile", "cc", do_generate, 2, 0, false,
+    { "compile", "cc", do_generate, 1, 0, false,
       "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",
-      "[-v] [-s] %s=%s <target> %s"
+      "%s=%s [-v] [-s] <target> %s",
       "<compiler-program>", "<compiler-args>",
       "Compiling %s ...",
       "\n\nArguments/Options:"
@@ -155,7 +155,7 @@ struct action_s {
       "\n    only a text line `Compiling <target> ...´,  followed by either ` done´ or"
       "\n    ` failed´ - depending on whether the programm succeeded or terminated"
       "\n    abnormally. Any prefix of the word `compile´ can be specified here, such as"
-      "\n    `co´, `comp´ and the like.",
+      "\n    `co´, `comp´ and the like."
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
@@ -176,13 +176,13 @@ struct action_s {
       "\n    to display it's messages (stdout/stderr)."
     },
     { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL,
-      "%s [%s%s]", "", "<topic>", "",
+      "%s%s [%s]", "", "<topic>", "",
       "\n\nDisplay usage information on the different topics"
       "\n\nValid topics are:"
     },
-    { "link", "ld", do_generate, 2, 0, false,
+    { "link", "ld", do_generate, 1, 0, false,
       "LINKER", DEFAULT_LINKER, "LOPTS", "LFLAGS",
-      "[-v] [-s] %s=%s <target> %s"
+      "%s=%s [-v] [-s] <target> %s",
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
       "\n\nArguments/Options:"
@@ -238,7 +238,7 @@ static
 void usage (const char *fmt, ...)
 {
     int ix;
-    struct action_s *act;
+    action_t *act;
     if (fmt) {
 	va_list av;
 	if (!strcmp (fmt, "help")) {
@@ -279,7 +279,7 @@ GENERAL_DESC:
     printf ("\nUsage: %s ", progname);
     printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
     for (ix = 1; (act = &actions[ix])->pfx_name; ++ix) {
-	printf ("\n       %s", progname);
+	printf ("\n       %s ", progname);
 	printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
     }
     printf ("\n\nFor further help issue `%s help <topic>´, where topic is one of\n(",
@@ -634,7 +634,7 @@ static
 int cleanup (FILE *out, bool verbose, int nfiles, char **files)
 {
     int rc, errs = 0, ix = 0;
-    struct action_s *act;
+    action_t *act;
     char *workdir = NULL;
     if (!verbose) {
 	if (!(workdir = mycwd ())) { return -1; }
@@ -642,7 +642,7 @@ int cleanup (FILE *out, bool verbose, int nfiles, char **files)
 	    if (!strcmp (act->pfx_name, "clean")) { break; }
 	}
 	if (act->pfx_name) {
-	    fprintf (out, "%s %s ...",  act->short_msg, workdir);
+	    fprintf (out, act->short_msg, workdir);
 	}
 	free (workdir); workdir = NULL;
 	for (ix = 0; ix < nfiles; ++ix) {
@@ -659,10 +659,51 @@ int cleanup (FILE *out, bool verbose, int nfiles, char **files)
     return (errs ? 1 : 0);
 }
 
+/* Replace each occurrence of `pat´ (except when prefixed with `\´) in `where´
+** with `subst´.
+*/
+static
+char *rplc (const char *pat, const char *where, const char *subst)
+{
+    const char *w; size_t pl = strlen (pat);
+    char *res, *r; size_t ressz = 1;
+    size_t sl = strlen (subst);
+
+    /* 1. Calculate the size of the result */
+    w = where;
+    while (*w) {
+	if (*w == '\\' && !strncmp (&w[1], pat, pl)) {
+	    ressz += pl; w += pl + 1;
+	} else if (!strncmp (w, pat, pl)) {
+	    ressz += sl; w += pl;
+	} else {
+	    ++ressz; ++w; 
+	}
+    }
+
+    /* 2. Allocate enough memory for the result and fill it with `where´ (with each
+    **    occurrence of `pat´ replaced with `subst´) ...
+    */
+    if ((res = malloc (ressz))) {
+	w = where; r = res;
+	while (*w) {
+	    if (*w == '\\' && !strncmp (&w[1], pat, pl)) {
+		memcpy (r, &w[1], pl); r += pl; w += pl + 1;
+	    } else if (!strncmp (w, pat, pl)) {
+		memcpy (r, subst, sl); r += sl; w += pl;
+	    } else {
+		*r++ = *w++;
+	    }
+	}
+	*r = '\0';
+    }
+    return res;
+}
+
 /* Generate the command from the program (cmd), the value of the environment variable
 ** (envvar) and a list of arguments.
 */
-char **gen_cmd (const char *prog, bool split_prog, struct action_s *act,
+char **gen_cmd (const char *prog, bool split_prog, action_t *act,
 		const char *target, int argc, char **argv)
 {
     int ix, jx;
@@ -680,12 +721,9 @@ char **gen_cmd (const char *prog, bool split_prog, struct action_s *act,
 	    *progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
 	}
     } else {
-	if (act->env_cmd) {
-	    prog = getenv (act->env_cmd);
-	    if (prog && !*prog) { prog = NULL; }
-	} else {
-	    prog = act->default_cmd;
-	}
+	if (act->env_cmd) { prog = getenv (act->env_cmd); }
+	if (!prog || !*prog) { prog = act->default_cmd; }
+	if (prog && !*prog) { prog = NULL; }
 	if (!prog) {
 	    usage ("no valid program specified; see `%s help´ for help, please!",
 	    progname);
@@ -707,11 +745,7 @@ char **gen_cmd (const char *prog, bool split_prog, struct action_s *act,
     for (jx = 0; jx < progc; ++jx) { cmdv[ix++] = progv[jx]; progv[jx] = NULL; }
     for (jx = 0; jx < optc; ++jx) { cmdv[ix++] = optv[jx]; optv[jx] = NULL; }
     for (jx = 0; jx < argc; ++jx) {
-	if (!strcmp (argv[jx], "%t")) {
-	    if (!(cmdv[ix++] = sdup (target))) { goto ERREXIT; }
-	} else {
-	    if (!(cmdv[ix++] = sdup (argv[jx]))) { goto ERREXIT; }
-	}
+	if (!(cmdv[ix++] = rplc ("%t", argv[jx], target))) { goto ERREXIT; }
     }
     cmdv[ix] = NULL;
     if (progv) { free (progv); progv = NULL; }
@@ -798,7 +832,7 @@ char *which (const char *cmd)
 ** command in a sub-process. Display the output depending on the `verbose´ argument.
 */
 int spawn (FILE *out, bool verbose, bool split_prog,
-	   struct action_s *act, const char *prog,
+	   action_t *act, const char *prog,
 	   const char *target, int argc, char **argv)
 {
     extern char **environ;
@@ -811,7 +845,7 @@ int spawn (FILE *out, bool verbose, bool split_prog,
     if (verbose) {
 	print_command (out, cmdv);
     } else {
-	fprintf (out, "%s %s ...",  act->short_msg, target);
+	fprintf (out, act->short_msg, target);
     }
     if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }
     fflush (stdout); fflush (stderr);
@@ -941,6 +975,7 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
     }
 
     check_args (act, argc - ix);
+    target = argv[ix++];
     rc = spawn (stdout, verbose, split_prog, act, prog, target, argc - ix, &argv[ix]);
     return (rc ? 1 : 0);
 }
