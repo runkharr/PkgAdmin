@@ -11,38 +11,24 @@
 **
 ** Synopsis:
 **
-**    cgen [-v] compile[=<compiler-program>] <target> <compiler-args>
-**    cgen [-v] link[=<linker-program>] <target> <linker-args>
-**    cgen [-v] [-c <directory>] clean <clean-args>
-**    cgen help
+**    cgen clean [-v] [-c <directory>] <clean-args>
+**    cgen compile[=<compiler-program>] [-v] [-s] <target> <compiler-args>
+**    cgen help [<topic>]
+**    cgen link[=<linker-program>] [-v] [-s] <target> <linker-args>
 **
 ** Arguments/Options:
 **
-**    -c <directory>
+**    -c <directory> (alt: --cd, --chdir)
 **       change into <directory> before performing the clean-action.
 **
+**    -s (alt: --split-prog)
+**       Assume <compiler-program> or <linker-program> being a command line prefix
+**       instead of a path-name and split it shell-alike.
+
 **    -v
 **       display the complete command to be executed, together with all of it's output;
 **       otherwise, only a short message concerning the action, the <target> and the
 **       action's success-status is displayed.
-**
-**    compile[=<compiler-program>]
-**       Execute the program <compiler-program> (default: cc) with <compiler-args> as
-**       it's arguments; if `-v´ is specified, display the complete command to be
-**       executed and also this program's output (stdout/stderr); otherwise, display
-**       only a text line `Compiling <target> ...´,  followed by either ` done´ or
-**       ` failed´ - depending on the program's termination code. Any prefix of the
-**       word `compile´ can be specified here, such as `c´ `co´, `comp´ and the like.
-**
-**    help
-**       display a short synopsis of cgen's arguments and terminate; any prefix of the
-**       word `help´ can be used.
-**
-**    link=<linker-program>
-**       Execute the program <linker-program> (default: cc) with <linker-args> as it's
-**       arguments; the option `-v´ has the same effect as described above, with the
-**       exception that `Linking <target> ...´ is displayed. Again, instead of the word
-**       `link´, each of it's prefixes can be used.
 **
 **    clean
 **       Remove any files and (recursively) directories specified in <clean-args>; errors
@@ -52,10 +38,31 @@
 **       (<cwd> is the current working directory) displayed either ` done´ or ` failed´
 **       depending on whether all specified files/directories could be removed or not.
 **
+**    compile[=<compiler-program>]
+**       Execute the program <compiler-program> (default: cc) with <compiler-args> as
+**       it's arguments; if `-v´ is specified, display the complete command to be
+**       executed and also this program's output (stdout/stderr); otherwise, display
+**       only a text line `Compiling <target> ...´,  followed by either ` done´ or
+**       ` failed´ - depending on the program's termination code. Any prefix of the
+**       word `compile´ can be specified here, such as `c´ `co´, `comp´ and the like.
+**
+**    link=<linker-program>
+**       Execute the program <linker-program> (default: cc) with <linker-args> as it's
+**       arguments; the option `-v´ has the same effect as described above, with the
+**       exception that `Linking <target> ...´ is displayed. Again, instead of the word
+**       `link´, each of it's prefixes can be used.
+**
+**    help
+**       display a short synopsis of cgen's arguments and terminate; any prefix of the
+**       word `help´ can be used.
+**
 **    <target>
 **       the name of the target to be displayed if `-v´ was not specified; any argument
 **       of the form `%t´ in the <compiler-args> and <linker-args> will be replaced with
 **       this (file-)name
+**
+**    <topic>
+**       One of `clean´, `compile´, `help´ or `link`
 **
 **    <compiler-args>
 **       The arguments which (together with the name of the compiler program) form the
