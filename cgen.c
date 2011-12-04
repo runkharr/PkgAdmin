@@ -142,11 +142,14 @@ struct action_s {
       "\n    directories could be removed or not."
       "\n"
       "\n  -c <new-directory> (alt, --cd, --chdir)"
-      "\n    chdir into <new-directory> before performing the removal"
+      "\n    Chdir into <new-directory> before performing the removal."
       "\n"
       "\n  -v (alt: --verbose)"
       "\n    Display each file/directory to be removed (in a shell-alike manner) and it's"
       "\n    the success status thereafter (` done´ or `failed´)."
+      "\n"
+      "\n  <clean-args>"
+      "\n    The list of files and directories to be removed."
     },
     { "compile", "cc", do_generate, 1, 0, false,
       "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",

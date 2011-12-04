@@ -14,10 +14,10 @@
 PROG="${0##*/}"
 PPATH="${0%/*}"; if [ -z "$PATH" ]; then PATH=.; fi
 
-if [ ! -x "$PPATH/run" ]; then
+if [ ! -x "$PPATH/run" -o "$PPATH/run.c" -nt "$PPATH/run" ]; then
     cc "$PPATH/run.c" -o "$PPATH/run"
 fi
-if [ ! -x "$PPATH/cgen.bin" ]; then
+if [ ! -x "$PPATH/cgen.bin" -o "$PPATH/cgen.c" -nt "$PPATH/cgen.bin" ]; then
     cc "$PPATH/cgen.c" -o "$PPATH/cgen.bin"
 fi
 
