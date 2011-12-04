@@ -749,7 +749,7 @@ char **gen_cmd (const char *prog, bool split_prog, action_t *act,
 	if (!(optv = shsplit (envval))) { goto ERREXIT; }
 	optc = 0; while (optv[optc]) { ++optc; }
     }
-    cmdc = optc + argc + 1;
+    cmdc = progc + optc + argc + 1;
     if (!(cmdv = (char **) malloc ((cmdc + 1) * sizeof(char *)))) { goto ERREXIT; }
     ix = 0;
     for (jx = 0; jx < progc; ++jx) { cmdv[ix++] = progv[jx]; progv[jx] = NULL; }
@@ -760,7 +760,6 @@ char **gen_cmd (const char *prog, bool split_prog, action_t *act,
     cmdv[ix] = NULL;
     if (progv) { free (progv); progv = NULL; }
     if (optv) { free (optv); optv = NULL; }
-for(jx=0;jx<ix;++jx)fprintf(stderr,"##0: [%d] \"%s\"\n",jx,cmdv[jx]);
     return cmdv;
 ERREXIT:
     if (progv) {
