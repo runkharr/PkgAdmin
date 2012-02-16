@@ -11,20 +11,23 @@
 **
 ** Synopsis:
 **
-**    cgen clean [-v] [-c <directory>] <clean-args>
-**    cgen compile[=<compiler-program>] [-v] [-s] <target> <compiler-args>
+**    cgen clean [-v] [-C <directory>] <clean-args>
+**    cgen compile[=<compiler-program>] [-c <rcfile>] [-v] [-s] <target> <compiler-args>
 **    cgen help [<topic>]
-**    cgen link[=<linker-program>] [-v] [-s] <target> <linker-args>
+**    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> <linker-args>
 **
 ** Arguments/Options:
 **
-**    -c <directory> (alt: --cd, --chdir)
+**    -c <rcfile>
+**       load compiler/linker and extra options from the configuration file <rcfile>
+**
+**    -C <directory> (alt: --cd, --chdir)
 **       change into <directory> before performing the clean-action.
 **
 **    -s (alt: --split-prog)
 **       Assume <compiler-program> or <linker-program> being a command line prefix
 **       instead of a path-name and split it shell-alike.
-
+**
 **    -v
 **       display the complete command to be executed, together with all of it's output;
 **       otherwise, only a short message concerning the action, the <target> and the
@@ -88,6 +91,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -116,6 +120,13 @@ static int do_clean (action_t *act, const char *prog, int argc, char **argv);
 static int do_generate (action_t *act, const char *prog, int argc, char **argv);
 static int do_help (action_t *act, const char *prog, int argc, char **argv);
 
+typedef struct {
+    const char *acname;
+    char *prog, *popts;
+} pdesc_t;
+
+typedef pdesc_t *cdesc_t;
+
 typedef int (*actionproc_t) (action_t *act, const char *prog, int argc, char **argv);
 
 struct action_s {
@@ -127,7 +138,7 @@ struct action_s {
     const char *synopsis, *prog_desc, *prog_args, *short_msg, *prog_help;
 } actions[] = {
     { "clean", NULL, do_clean, 1, 0, false, NULL, NULL, NULL, NULL,
-      "%s%s [-v] [-c <new-directory>] %s",
+      "%s%s [-v] [-C <new-directory>] %s",
       "", "<clean-args>",
       "Cleaning up in %s ...",
       "\n\nArguments/Options:"
@@ -141,7 +152,7 @@ struct action_s {
       "\n    either ` done´ or ` failed´ depending on whether all specified files and/or"
       "\n    directories could be removed or not."
       "\n"
-      "\n  -c <new-directory> (alt, --cd, --chdir)"
+      "\n  -C <new-directory> (alt, --cd, --chdir)"
       "\n    Chdir into <new-directory> before performing the removal."
       "\n"
       "\n  -v (alt: --verbose)"
@@ -151,9 +162,9 @@ struct action_s {
       "\n  <clean-args>"
       "\n    The list of files and directories to be removed."
     },
-    { "compile", "cc", do_generate, 1, 0, false,
+    { "compile", "cc", do_generate, 0, 0, false,
       "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",
-      "%s=%s [-v] [-s] <target> %s",
+      "%s=[%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<compiler-program>", "<compiler-args>",
       "Compiling %s ...",
       "\n\nArguments/Options:"
@@ -176,6 +187,9 @@ struct action_s {
       "\n    The additional arguments to be supplied to the command being executed."
       "\n    Any argument `%t´ is replaced by <target>"
       "\n"
+      "\n  -c <rcfile>"
+      "\n    load compiler and additional options from a configuration file"
+      "\n"
       "\n  -s (alt: --split-prog)"
       "\n    Assume <compiler-command> being an incomplete command line (split it)"
       "\n    according to shell-rules"
@@ -190,9 +204,9 @@ struct action_s {
       "\n\nDisplay usage information on the different topics"
       "\n\nValid topics are:"
     },
-    { "link", "ld", do_generate, 1, 0, false,
+    { "link", "ld", do_generate, 0, 0, false,
       "LINKER", DEFAULT_LINKER, "LOPTS", "LFLAGS",
-      "%s=%s [-v] [-s] <target> %s",
+      "%s=[%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
       "\n\nArguments/Options:"
@@ -215,6 +229,9 @@ struct action_s {
       "\n    The additional arguments to be supplied to the command being executed."
       "\n    Any argument `%t´ is replaced by <target>"
       "\n"
+      "\n  -c <rcfile>"
+      "\n    load compiler and additional options from a configuration file"
+      "\n"
       "\n  -s (alt: --split-prog)"
       "\n    Assume <linker-command> being an incomplete command line (split it)"
       "\n    according to shell-rules"
@@ -235,11 +252,22 @@ static char *progname = NULL;
 ** the second argument) and false otherwise.
 */
 static
-bool is_prefix (const char *s1, const char *s2)
+bool is_prefix (const char *p, const char *s)
 {
-    size_t l1 = strlen (s1), l2 = strlen (s2);
-    return (l1 > 0 && l1 <= l2 && strncmp (s1, s2, l1) == 0);
+    int c;
+    while ((c = *p++) == *s++ && c);
+    return !c;
 }
+
+#if 0
+static
+bool is_lcprefix (const char *p, const char *s)
+{
+    int c;
+    while ((c = tolower (*p++)) == tolower (*s++) && c);
+    return !c;
+}
+#endif
 
 /* Display either the usage message and terminate (exit-code = 0)
 ** or an error message concerning the usage and abort the program (exit-code = 64).
@@ -409,6 +437,33 @@ char *sdup (const char *s)
 }
 
 #if 0
+static
+char *conc (const char *s, ...)
+{
+    const char *el;
+    char *res = NULL, *p;
+    size_t ell, resl;
+    va_list rargs;
+    if (s) {
+	resl = strlen (s) + 1;
+	va_start (rargs, s);
+	while ((el = va_arg (rargs, const char *))) { resl += strlen (el) + 1; }
+	va_end (rargs);
+	if ((res = (char *) malloc (resl))) {
+	    p = res; --p; el = s;
+	    while ((*++p = *el++));
+	    va_start (rargs, s);
+	    while ((el = va_arg (rargs, const char *))) {
+		while ((*++p = *el++));
+	    }
+	    va_end (rargs);
+	}
+    }
+    return res;
+}
+#endif
+
+#if 0
 /* duplicate a string but catch the error, write the corresponding message to stderr and
 ** return the (copy of) the string.
 */
@@ -429,17 +484,26 @@ __inline__ bool isws (char c)
     return (c == ' ' || c == '\t');
 }
 
+/* return true if the argument is neither '\0' nor a blank nor a TAB-character and false
+** otherwise ...
+*/
+static
+__inline__ bool nows (char c)
+{
+    return (c != '\0' && c != ' ' && c != '\t');
+}
+
 /* Split a string into a vector of strings using shell-alike word-detection.
 */
 static
-char **shsplit (const char *s)
+int shsplit (const char *s, char ***_out, int *_outlen)
 {
     const char *p;
     char *buf, *r, **rv, quote = 0, c;
     int wc = 0, ix;
     bool word_open = false;
 
-    if (!(buf = malloc (strlen (s) + 1))) { return NULL; }
+    if (!(buf = malloc (strlen (s) + 1))) { return -1; }
     r = buf; p = s;
     while ((c = *p++)) {
 	if (isws (c)) {
@@ -480,7 +544,216 @@ char **shsplit (const char *s)
 	if (rv) { rv[ix] = NULL; }
     }
     free (buf);
-    return rv;
+    if (rv) { *_out = rv; *_outlen = ix; return 0; }
+    return -1;
+}
+
+static
+void _argv_free (char ***_argv)
+{
+    int ix;
+    char **argv = *_argv;
+    for (ix = 0; argv[ix]; ++ix) {
+	/*memset (argv[ix], 0, strlen (argv[ix]));*/
+	argv[ix] = NULL;
+    }
+    free (argv); argv = NULL;
+    *_argv = argv;
+}
+
+#define argv_free(argv) (_argv_free (&(argv)))
+
+#if 0
+static
+char **path_split (const char *path)
+{
+    int ix;
+    char **res = NULL;
+    size_t vecsz = 1, ressz = 0;
+
+    const char *p, *q;
+    char *r;
+
+    p = path;
+    if (*p == '/') { ++vecsz; ++p; }
+    while ((q = strchr (p, '/'))) {
+	if (q > p) {
+	    ++vecsz; ressz += (size_t) (q - p) + 1;
+	}
+	p = q + 1;
+    }
+    if (*p) { ++vecsz; ressz += strlen (p); }
+
+    ressz += (vecsz) * sizeof(char *);
+    if (!(res = (char **) malloc (ressz))) { return res; }
+
+    ix = 0; r = (char *) res + (vecsz) * sizeof(char *);
+    p = path; if (*p == '/') { res[ix++] = r; *r++ = '\0'; ++p; }
+    while ((q = strchr (p, '/'))) {
+	if (q > p) {
+	    res[ix++] = r; memcpy (r, p, (size_t) (q - p)); r[q - p] = '\0';
+	    r += (q - p) + 1;
+	}
+	p = q + 1;
+    }
+    if (*p) { res[ix++] = r; strcpy (r, p); }
+    res[ix] = NULL;
+    return res;
+}
+#endif
+
+#if 1
+static
+int lccmp (const char *l, const char *r)
+{
+    int lc, rc;
+    while ((lc = tolower (*l++)) == (rc = tolower (*r++)) && lc && rc);
+    return lc - rc;
+#if 0
+    for (;;) {
+	lc = tolower (*l++); rc = tolower (*r++);
+	if (lc != rc) { return lc - rc; }
+    }
+    return 0;
+#endif
+}
+#endif
+
+typedef struct { const char *acname, *cfname; int isopt, len; } rcdef_t;
+
+static
+rcdef_t rcdefs[] = {
+    { "compile", "compiler", 0, 8 }, { "compile", "cc", 0, 2 },
+    { "link", "linker", 0, 6 }, { "link", "ld", 0, 2 },
+    { "compile", "compiler_options", 1, 16 }, { "compile", "ccopts", 1, 6 },
+    { "compile", "copts", 1, 5 },
+    { "link", "linker_options", 1, 14 }, { "link", "ldopts", 1, 6 },
+    { "link", "lopts", 1, 5 },
+    { NULL, NULL, -1, 0 }
+};
+
+static
+int cuteol (char *buf)
+{
+    char *p = &buf[strlen (buf)];
+    if (p > buf) {
+	if (*--p == '\r') { *p = '\0'; return 1; }
+	if (*p == '\n') {
+	    *p = '\0'; if (p > buf && *--p == '\r') { *p = '\0'; return 3; }
+	    return 2;
+	}
+    }
+    return 0;
+}
+
+static
+int get_ident (char *p, char *q, char **_r)
+{
+    if (!isalpha (*p) && *p != '_') { return -1; }
+    while (p < q && (isalnum (*++p) || *p == '_'));
+    if (p < q && nows (*p)) { return -1; }
+    *p = '\0'; *_r = ++q;
+    return 0;
+}
+
+/* Parse a configuration file (returning the names and options for a compiler/linker via
+** the last argument). A return value of -1 indicates an opening failure, 0 a success and
+** a positive value the number of errors found during the parsing process ...
+*/
+static
+int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
+{
+    int lc = 0, errc = 0, ix, ndesc = 0;
+    FILE *fp;
+    rcdef_t *rcdef;
+    cdesc_t out = NULL, o1 = NULL;
+    char buf[1024], rem[1024], *p, *q, *v;
+    if (!(fp = fopen (cgenrc, "r"))) { return -1; }
+    while (fgets (buf, sizeof(buf), fp)) {
+	++lc;
+	if (!cuteol (buf)) {
+	    while (fgets (rem, sizeof(rem), fp) && !cuteol (rem));
+	}
+	p = buf; while (isws (*p)) { ++p; }
+	if (!*p || *p == '#') { continue; }
+	if (*p == '=') {
+	    ++errc; fprintf (stderr, "%s(line %d): expecting a cfname\n", cgenrc, lc);
+	    continue;
+	}
+	if (!(q = strchr (p, '='))) {
+	    ++errc; fprintf (stderr, "%s(line %d): expecting `=´\n", cgenrc, lc);
+	    continue;
+	}
+	if (get_ident (p, q, &q)) {
+	    ++errc; fprintf (stderr, "%s(line %d): invalid identifier\n", cgenrc, lc);
+	    continue;
+	}
+
+	/* Try to find the identifier in the list of valid cfnames ... */
+	for (ix = 0; (rcdef = &rcdefs[ix])->cfname; ++ix) {
+	    if (!lccmp (rcdef->cfname, p)) { break; }
+	}
+
+	/* It is an error if the identifier is not in this list ... */
+	if (!rcdef->cfname) {
+	    ++errc; fprintf (stderr, "%s(line %d): invalid variable\n", cgenrc, lc);
+	    continue;
+	}
+
+	/* Set p to point behind the position of the `=´ ... */
+	p = q;
+
+	/* Search for `acname´ in the list of the already loaded values ... */
+	for (ix = 0; ix < ndesc; ++ix) {
+	    if (!strcmp (rcdef->acname, out[ix].acname)) { break; }
+	}
+
+	/* If the `acname´-configuration was not already loaded, then generate a
+	** new one ...
+	*/
+	if (ix >= ndesc) {
+	    if (!(o1 = (cdesc_t) realloc (out, ++ndesc * sizeof(*out)))) {
+		fprintf (stderr, "%s: %s\n", progname, strerror (errno)); exit (1);
+	    }
+	    out = o1;
+	    out[ix].acname = rcdef->acname;
+	}
+
+	/* It is an error if this configuration was already loaded ... */
+	if ((rcdef->isopt && out[ix].popts) || (!rcdef->isopt && out[ix].prog)) {
+	    ++errc;
+	    fprintf (stderr, "%s(line %d): ambiguous `%s´\n", cgenrc, lc, rcdef->cfname);
+	    continue;
+	}
+
+	/* Extract the configuration value ... */
+	while (isws (*p)) { ++p; }
+	q = p + strlen (p); while (q > p && isws (*--q));
+	++q; if (isws (*q)) { *q = '\0'; }
+	if (!(v = sdup (p))) {
+	    fprintf (stderr, "%s: %s\n", progname, strerror (errno)); exit (1);
+	}
+
+	/* Insert the configuration value ... */
+	if (rcdef->isopt) { out[ix].popts = v; } else { out[ix].prog = v; }
+    }
+    fclose (fp);
+
+    /* If the configuration file was correct, the configuration list (and it's length)
+    ** are returned (through the last two parameters); otherwise, release all items
+    ** allocated to this point ...
+    */
+    if (errc == 0) {
+	*_out = out; *_outlen = ndesc;
+    } else {
+	for (ix = 0; ix < ndesc; ++ix) {
+	    out[ix].acname = NULL;
+	    free (out[ix].prog); out[ix].prog = NULL;
+	    free (out[ix].popts); out[ix].popts = NULL;
+	}
+	free (out);
+    }
+    return errc;
 }
 
 /* Print a command in shell-format to the specified output channel.
@@ -669,6 +942,44 @@ int cleanup (FILE *out, bool verbose, int nfiles, char **files)
     return (errs ? 1 : 0);
 }
 
+static
+size_t sfx_subst (const char *w, const char *subst, size_t sl,
+		  const char **_w, char **_out)
+{
+    size_t xl;
+    const char *sx, *w1;
+    if (*w != '[') { goto NOSFXSUBST; }
+    w1 = strchr (w, ']');
+    if (!w1) { goto NOSFXSUBST; }
+    sx = w; while (sx < w1 && *sx != '/') { ++sx; }
+    if (sx == w1) { goto NOSFXSUBST; }
+#if 1
+    xl = (size_t) (w1 - ++sx);
+    if (sl <= xl || strncmp (subst + sl - xl, sx, xl)) {
+	/* %t[Y/X] found bust subst is too short ... */
+	w = ++w1; goto NOSFXSUBST;
+    }
+    sl -= xl; if (_out) { memcpy (*_out, subst, sl); *_out += sl; }
+    ++w; xl = (size_t) (--sx - w);
+    sl += xl; if (_out) { memcpy (*_out, w, xl); *_out += xl; }
+#else
+    ++w; xl = (size_t) (sx - w);
+    if (sl <= xl || strncmp (subst + sl - xl, w, xl)) {
+	/* %t[X/Y] found but subst is too short ... */
+	w = ++w1; goto NOSFXSUBST;
+    }
+    sl -= xl; if (_out) { memcpy (*_out, subst, sl); *_out += sl; }
+    ++sx; xl = (size_t) (w1 - sx); sl += xl;
+    if (_out) { memcpy (*_out, sx, xl); *_out += xl; }
+#endif
+    *_w = ++w1;
+    return sl;
+NOSFXSUBST:
+    if (_out) { memcpy (*_out, subst, sl); *_out += sl; }
+    *_w = w;
+    return sl;
+}
+
 /* Replace each occurrence of `pat´ (except when prefixed with `\´) in `where´
 ** with `subst´.
 */
@@ -685,7 +996,7 @@ char *rplc (const char *pat, const char *where, const char *subst)
 	if (*w == '\\' && !strncmp (&w[1], pat, pl)) {
 	    ressz += pl; w += pl + 1;
 	} else if (!strncmp (w, pat, pl)) {
-	    ressz += sl; w += pl;
+	    w += pl; ressz += sfx_subst (w, subst, sl, &w, NULL);
 	} else {
 	    ++ressz; ++w; 
 	}
@@ -700,7 +1011,7 @@ char *rplc (const char *pat, const char *where, const char *subst)
 	    if (*w == '\\' && !strncmp (&w[1], pat, pl)) {
 		memcpy (r, &w[1], pl); r += pl; w += pl + 1;
 	    } else if (!strncmp (w, pat, pl)) {
-		memcpy (r, subst, sl); r += sl; w += pl;
+		w += pl; sfx_subst (w, subst, sl, &w, &r);
 	    } else {
 		*r++ = *w++;
 	    }
@@ -713,71 +1024,113 @@ char *rplc (const char *pat, const char *where, const char *subst)
 /* Generate the command from the program (cmd), the value of the environment variable
 ** (envvar) and a list of arguments.
 */
-char **gen_cmd (const char *prog, bool split_prog, action_t *act,
+char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *act,
 		const char *target, int argc, char **argv)
 {
-    int ix, jx;
-    char *envval;
-    char **progv = NULL; int progc = 0;
-    char **optv = NULL; int optc = 0;
-    char **cmdv = NULL; int cmdc = 0;
+    int ix, jx, optc, cmdc = 0, aviix;
+    const char *sv, *envval;
+    char **progv = NULL, **optv = NULL, **cmdv = NULL;
+
+    /* If the compiler program was explicitely set ... */
     if (prog) {
+	/* ... and the `-s´-option was one of the options to `compile´ or `link´ ... */
 	if (split_prog) {
-	    if (!(progv = shsplit (prog))) { return NULL; }
-	    progc = 0; while (progv[progc]) { ++progc; }
+	    /* ... then split `prog´ into a vector of arguments (e.g. special calling
+	    ** of gcc)
+	    */
+	    if (shsplit (prog, &progv, &optc)) { return NULL; }
+	    /* Increase the number of arguments by the length of the `prog´-vector ... */
+	    cmdc += optc;
 	} else {
-	    progc = 1;
 	    if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
 	    *progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
+	    /* Increase the number of arguments by the length of the `prog´-vector ... */
+	    ++cmdc;
 	}
     } else {
+	sv = prog;
 	if (act->env_cmd) { prog = getenv (act->env_cmd); }
+	if (!prog || !*prog) { prog = sv; }
 	if (!prog || !*prog) { prog = act->default_cmd; }
 	if (prog && !*prog) { prog = NULL; }
 	if (!prog) {
 	    usage ("no valid program specified; see `%s help´ for help, please!",
 	    progname);
 	}
-	progc = 1;
+	/* Increase the number of arguments by the length of the `prog´-vector ... */
 	if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
 	*progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
+	++cmdc;
     }
     if (!(envval = getenv (act->env_opts)) || !*envval) {
 	envval = getenv (act->env_flags);
     }
+    if (!envval || !*envval) { envval = popts; }
     if (envval && *envval) {
-	if (!(optv = shsplit (envval))) { goto ERREXIT; }
-	optc = 0; while (optv[optc]) { ++optc; }
+	if (shsplit (envval, &optv, &optc)) { goto ERREXIT; }
+	/* Increase the number of arguments by the length of the options-vector ... */
+	cmdc += optc;
     }
-    cmdc = progc + optc + argc + 1;
+    /* Increase the number of arguments by the number of the remaining arguments ... */
+    cmdc += argc;
+
+    /* Allocate enough memory for the command vector ... */
     if (!(cmdv = (char **) malloc ((cmdc + 1) * sizeof(char *)))) { goto ERREXIT; }
+    memset (cmdv, 0, (cmdc + 1) * sizeof(char *));
+
+    /* Now fill the command vector piece by piece ... */
     ix = 0;
-    for (jx = 0; jx < progc; ++jx) { cmdv[ix++] = progv[jx]; progv[jx] = NULL; }
-    for (jx = 0; jx < optc; ++jx) { cmdv[ix++] = optv[jx]; optv[jx] = NULL; }
-    for (jx = 0; jx < argc; ++jx) {
-	if (!(cmdv[ix++] = rplc ("%t", argv[jx], target))) { goto ERREXIT; }
-    }
-    cmdv[ix] = NULL;
-    if (progv) { free (progv); progv = NULL; }
-    if (optv) { free (optv); optv = NULL; }
-    return cmdv;
-ERREXIT:
-    if (progv) {
-	for (jx = 0; jx < progc; ++jx) {
-	    if (progv[jx]) { free (progv[jx]); progv[jx] = NULL; }
-	}
-	free (progv); progv = NULL;
-    }
+
+    /* 1. the program vector (splitted? `prog´-argument ... */
+    for (jx = 0; progv[jx]; ++jx) { cmdv[ix++] = progv[jx]; progv[jx] = NULL; }
+
+    /* 2. the options retrieved either from the environment or from the
+    ** configuration file, until either the end of this list or until an argument
+    ** @ARGV was found ...
+    */
+    aviix = -1;
     if (optv) {
-	for (jx = 0; jx < optc; ++jx) {
-	    if (optv[jx]) { free (optv[jx]); optv[jx] = NULL; }
+fprintf(stderr,"##A0: aviix = %di,optv = %p\n", aviix, optv);
+	for (jx = 0; optv[jx]; ++jx) {
+	    if (!strcmp (optv[jx], "@ARGV")) { aviix = jx + 1; break; }
+	    cmdv[ix++] = optv[jx]; optv[jx] = NULL;
 	}
-	free (optv); optv = NULL;
     }
-    if (cmdv) {
-	for (jx = 0; jx < ix; ++jx) { free (cmdv[jx]); cmdv[jx] = 0; }
-	free (cmdv); cmdv = NULL;
+
+    /* 3. the remaining command line arguments ... */
+    for (jx = 0; jx < argc; ++jx) {
+	if (!(cmdv[ix++] = sdup (argv[jx]))) { goto ERREXIT; }
     }
+
+    /* 4. if there are remaining options (after the `@ARGV´ placeholder) ... */
+    if (aviix > 0) {
+	/* ... then these options ... */
+	while (optv[aviix]) { cmdv[ix++] = optv[aviix++]; }
+    }
+
+    /* End of the command vector */
+    cmdv[ix] = NULL;
+
+    /* After the command vector was filled, each argument is modifier by substituting
+    ** each `%t´ with `target´ ...
+    */
+    for (jx = 0; jx < ix; ++jx) {
+	char *sv = rplc ("%t", cmdv[jx], target);
+	if (!sv) { goto ERREXIT; }
+	free (cmdv[jx]); cmdv[jx] = sv;
+    }
+
+    /* Remove the (no longer used) `progv´ and `optv´ vectors ... */
+    if (progv) { argv_free (progv); progv = NULL; }
+    if (optv) { argv_free (optv); optv = NULL; }
+
+    /* Return the command vector ... */
+    return cmdv;
+
+ERREXIT:
+    if (progv) { argv_free (progv); }
+    if (optv) { argv_free (optv); }
+    if (cmdv) { argv_free (cmdv); }
     return NULL;
 }
 
@@ -842,7 +1195,7 @@ char *which (const char *cmd)
 ** command in a sub-process. Display the output depending on the `verbose´ argument.
 */
 int spawn (FILE *out, bool verbose, bool split_prog,
-	   action_t *act, const char *prog,
+	   action_t *act, const char *prog, const char *popts,
 	   const char *target, int argc, char **argv)
 {
     extern char **environ;
@@ -850,7 +1203,8 @@ int spawn (FILE *out, bool verbose, bool split_prog,
     const char *cmd;
     pid_t child;
     int out_fd, waitstat, excode;
-    if (!(cmdv = gen_cmd (prog, split_prog, act, target, argc, argv))) { return -1; }
+    cmdv = gen_cmd (prog, popts, split_prog, act, target, argc, argv);
+    if (!cmdv) { return -1; }
     if (!(cmd = which (cmdv[0]))) { return -1; }
     if (verbose) {
 	print_command (out, cmdv);
@@ -919,8 +1273,8 @@ int do_clean (action_t *act, const char *prog, int argc, char **argv)
 	if (!strcmp (argv[ix], "-v") || !strcmp (argv[ix], "--verbose")) {
 	    verbose = true; continue;
 	}
-	if (!strncmp (argv[ix], "-c", 2)) {
-	    if (newdir) { usage ("ambiguous option `-c´"); }
+	if (!strncmp (argv[ix], "-C", 2)) {
+	    if (newdir) { usage ("ambiguous option `-C´"); }
 	    if (argv[ix][2]) {
 		newdir = &argv[ix][2];
 	    } else if (ix + 1 < argc) {
@@ -969,24 +1323,51 @@ int do_clean (action_t *act, const char *prog, int argc, char **argv)
 static
 int do_generate (action_t *act, const char *prog, int argc, char **argv)
 {
-    int ix, rc;
+    int optx, ix, rc, cdesclen = 0, ac;
     bool verbose = false, split_prog = false;
-    char *target = NULL;
+    char *target = NULL, *cf = NULL, *opt, **av;
+    const char *popts = NULL;
+    cdesc_t cdesc = NULL;
 
-    for (ix = 1; ix < argc; ++ix) {
-	if (!strcmp (argv[ix], "-v") || !strcmp (argv[ix], "--verbose")) {
-	    verbose = true; continue;
+    for (optx = 1; optx < argc; ++optx) {
+	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
+	if (is_prefix ("-c", opt)) {
+	    if (cf) { usage ("ambiguous `-c´-option"); }
+	    if (opt[2]) {
+		cf = &opt[2];
+	    } else {
+		if (optx >= argc - 1) { usage ("missing argument for option `-c´"); }
+		cf = argv[++optx];
+	    }
+	    continue;
 	}
-	if (!strcmp (argv[ix], "-s") || !strcmp (argv[ix], "--split-prog")) {
+	if (!strcmp (opt, "-s") || !strcmp (opt, "--split-prog")) {
 	    split_prog = true; continue;
 	}
-	if (*argv[ix] != '-') { break; }
-	usage ("invalid option `%s´", argv[ix]);
+	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
+	    verbose = true; continue;
+	}
+
+	usage ("invalid option `%s´", opt);
     }
 
-    check_args (act, argc - ix);
-    target = argv[ix++];
-    rc = spawn (stdout, verbose, split_prog, act, prog, target, argc - ix, &argv[ix]);
+    rc = read_cgenrc (cf, &cdesc, &cdesclen);
+    if (rc > 0) {
+	fprintf (stderr, "%s: errors in configuration file\n", progname); exit (1);
+    }
+    if (cdesc) {
+	for (ix = 0; ix < cdesclen; ++ix) {
+	    if (!strcmp (act->pfx_name, cdesc[ix].acname)) {
+		popts = cdesc[ix].popts; if (!prog) { prog = cdesc[ix].prog; }
+		break;
+	    }
+	}
+    }
+
+    check_args (act, argc - optx);
+    target = argv[optx++];
+    ac = argc - optx; av = &argv[optx];
+    rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av);
     return (rc ? 1 : 0);
 }
 
@@ -996,23 +1377,29 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
 int main (int argc, char *argv[])
 {
     int mode;
-    char *p, *prog;
+    char *p, *prog = NULL;
     action_t *act;
 
     if ((progname = strrchr (argv[0], '/'))) { ++progname; } else { progname = argv[0]; }
 
-    if (argc < 2) {
+    if (argc - 1 < 1) {
 	usage ("missing argument(s); see `%s help´ for more, please!", progname);
     }
+
+    /* Argument: compile=<prog> | link=<prog> | clean | help */
     p = argv[1];
     if ((prog = strchr (p, '='))) {
+	/* Get the program name */
 	*prog++ = '\0'; if (!*prog) { prog = NULL; }
     }
+
+    /* Select the action routine from the command-parameter `p´ ...
+    */
     for (mode = 0; (act = &actions[mode], act->pfx_name); ++mode) {
 	if (is_prefix (p, act->pfx_name)) { break; }
 	if (act->eq_name && !strcmp (p, act->eq_name)) { break; }
     }
-    if (!act->pfx_name) { usage ("invalid action `%s´", p); }
+    if (!act->pfx_name) { usage ("invalid command `%s´", p); }
 
     return act->proc (act, prog, argc - 1, &argv[1]);
 }
