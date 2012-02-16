@@ -1090,7 +1090,6 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
     */
     aviix = -1;
     if (optv) {
-fprintf(stderr,"##A0: aviix = %di,optv = %p\n", aviix, optv);
 	for (jx = 0; optv[jx]; ++jx) {
 	    if (!strcmp (optv[jx], "@ARGV")) { aviix = jx + 1; break; }
 	    cmdv[ix++] = optv[jx]; optv[jx] = NULL;
