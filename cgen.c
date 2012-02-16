@@ -11,7 +11,7 @@
 **
 ** Synopsis:
 **
-**    cgen clean [-v] [-C <directory>] <clean-args>
+**    cgen clean [-s|-v] [-C <directory>] <clean-args>
 **    cgen compile[=<compiler-program>] [-c <rcfile>] [-v] [-s] <target> <compiler-args>
 **    cgen help [<topic>]
 **    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> <linker-args>
@@ -138,7 +138,7 @@ struct action_s {
     const char *synopsis, *prog_desc, *prog_args, *short_msg, *prog_help;
 } actions[] = {
     { "clean", NULL, do_clean, 1, 0, false, NULL, NULL, NULL, NULL,
-      "%s%s [-v] [-C <new-directory>] %s",
+      "%s%s [-s|-v] [-C <new-directory>] %s",
       "", "<clean-args>",
       "Cleaning up in %s ...",
       "\n\nArguments/Options:"
@@ -147,13 +147,17 @@ struct action_s {
       "\n    Remove any files and (recursively) directories specified in <clean-args>;"
       "\n    errors during the removal process are ignored; if `-v´ is specified, display"
       "\n    each file (directory) to be removed before it's removal and display the"
-      "\n    success-status thereafter; otherwise, only a shore text-line"
-      "\n    `Cleaning up in <cwd>´ is (<cwd> is the current working directory) displayed"
-      "\n    either ` done´ or ` failed´ depending on whether all specified files and/or"
-      "\n    directories could be removed or not."
+      "\n    success-status thereafter; if `-s´ is specified, display nothing; otherwise,"
+      "\n    display only a shore text-line `Cleaning up in <cwd>´ is (<cwd> is the"
+      "\n    current working directory) displayed followed by either ` done´ or ` failed´"
+      "\n    depending on whether all specified files and/or directories could be removed"
+      "\n    or not."
       "\n"
       "\n  -C <new-directory> (alt, --cd, --chdir)"
       "\n    Chdir into <new-directory> before performing the removal."
+      "\n"
+      "\n  -s (alt: --silent)"
+      "\n    Suppress the `Cleaning up in ...´ message"
       "\n"
       "\n  -v (alt: --verbose)"
       "\n    Display each file/directory to be removed (in a shell-alike manner) and it's"
@@ -230,7 +234,7 @@ struct action_s {
       "\n    Any argument `%t´ is replaced by <target>"
       "\n"
       "\n  -c <rcfile>"
-      "\n    load compiler and additional options from a configuration file"
+      "\n    load linker and additional options from a configuration file"
       "\n"
       "\n  -s (alt: --split-prog)"
       "\n    Assume <linker-command> being an incomplete command line (split it)"
@@ -914,17 +918,17 @@ char *mycwd()
 ** reason).
 */
 static
-int cleanup (FILE *out, bool verbose, int nfiles, char **files)
+int cleanup (FILE *out, int verbose, int nfiles, char **files)
 {
     int rc, errs = 0, ix = 0;
     action_t *act;
     char *workdir = NULL;
-    if (!verbose) {
+    if (verbose < 2) {
 	if (!(workdir = mycwd ())) { return -1; }
 	for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
 	    if (!strcmp (act->pfx_name, "clean")) { break; }
 	}
-	if (act->pfx_name) {
+	if (act->pfx_name && verbose) {
 	    fprintf (out, act->short_msg, workdir);
 	}
 	free (workdir); workdir = NULL;
@@ -932,7 +936,7 @@ int cleanup (FILE *out, bool verbose, int nfiles, char **files)
 	    rc = rmfsentry (files[ix], NULL);
 	    if (rc) { ++errs; }
 	}
-	print_exitstate (out, (errs ? 1 : 0));
+	if (verbose) { print_exitstate (out, (errs ? 1 : 0)); }
     } else {
 	for (ix = 0; ix < nfiles; ++ix) {
 	    rc = rmfsentry (files[ix], out);
@@ -1238,7 +1242,7 @@ int spawn (FILE *out, bool verbose, bool split_prog,
 
 static void check_args (action_t *act, int argc)
 {
-    if (argc - 1 < act->min_args) {
+    if (argc < act->min_args) {
 	usage ("missing argument(s) for %s; see `%s help´ for more, please!",
 	       act->pfx_name, progname);
     }
@@ -1263,14 +1267,17 @@ static
 int do_clean (action_t *act, const char *prog, int argc, char **argv)
 {
     int ix;
-    bool verbose = false;
+    bool verbose = false, silent = false;
     char *newdir = NULL;
 
     if (prog) { usage ("%s=<program> not allowed here", act->pfx_name); }
 
     for (ix = 1; ix < argc; ++ix) {
 	if (!strcmp (argv[ix], "-v") || !strcmp (argv[ix], "--verbose")) {
-	    verbose = true; continue;
+	    verbose = true; silent = false; continue;
+	}
+	if (!strcmp (argv[ix], "-s") || !strcmp (argv[ix], "--silent")) {
+	    verbose = false; silent = true; continue;
 	}
 	if (!strncmp (argv[ix], "-C", 2)) {
 	    if (newdir) { usage ("ambiguous option `-C´"); }
@@ -1315,7 +1322,7 @@ int do_clean (action_t *act, const char *prog, int argc, char **argv)
 			 progname, act->pfx_name, newdir, strerror (errno));
 	exit (1);
     }
-    cleanup (stdout, verbose, argc - ix, &argv[ix]);
+    cleanup (stdout, (verbose ? 2 : (silent ? 0 : 1)), argc - ix, &argv[ix]);
     return 0;
 }
 
