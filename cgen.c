@@ -18,7 +18,7 @@
 **
 ** Arguments/Options:
 **
-**    -c <rcfile>
+**    -c <rcfile> (alt: -f <rcfile>)
 **       load compiler/linker and extra options from the configuration file <rcfile>
 **
 **    -C <directory> (alt: --cd, --chdir)
@@ -191,7 +191,7 @@ struct action_s {
       "\n    The additional arguments to be supplied to the command being executed."
       "\n    Any argument `%t´ is replaced by <target>"
       "\n"
-      "\n  -c <rcfile>"
+      "\n  -c <rcfile> (alt: -f <rcfile>)"
       "\n    load compiler and additional options from a configuration file"
       "\n"
       "\n  -s (alt: --split-prog)"
@@ -233,7 +233,7 @@ struct action_s {
       "\n    The additional arguments to be supplied to the command being executed."
       "\n    Any argument `%t´ is replaced by <target>"
       "\n"
-      "\n  -c <rcfile>"
+      "\n  -c <rcfile> (alt: -f <rcfile>)"
       "\n    load linker and additional options from a configuration file"
       "\n"
       "\n  -s (alt: --split-prog)"
@@ -332,102 +332,6 @@ GENERAL_DESC:
     }
     printf (")\n\n");
     exit (0);
-#if 0
-    printf ("\nUsage: %s [-v] [-s] compile[=<compiler-program>] <target> <compiler-args>"
-	    "\n       %s [-v] [-s] link[=<linker-program>] <target> <linker-args>"
-	    "\n       %s [-v] [-c <directory>] clean <clean-args>"
-	    "\n       %s help"
-	    "\n"
-	    "\nArguments/Options:"
-	    "\n"
-	    "\n  -c <directory> (alt: --chdir, --cd)"
-	    "\n    change into <directory> before performing the clean-action."
-	    "\n  -s (alt: --split-prog)"
-	    "\n    split <compiler-program> or <linker-program> shell-alike instead of"
-	    " using them as"
-	    "\n    a single program name"
-	    "\n"
-	    "\n  -v (alt: --verbose)"
-	    "\n    display the complete command to be executed, together with all of"
-	    " it's output;"
-	    "\n    otherwise, only a short message concerning the action, the <target>"
-	    " and the"
-	    "\n    action's success-status is displayed."
-	    "\n"
-	    "\n  compile[=<compiler-program>] (alt: cc[=<compiler-program>])"
-	    "\n    Execute the program <compiler-program> (default: cc) with <compiler-"
-	    "args> as"
-	    "\n    it's arguments; if `-v´ is specified, display the complete command to"
-	    " be"
-	    "\n    executed and also this program's output (stdout/stderr); otherwise,"
-	    " display"
-	    "\n    only a text line `Compiling <target> ...´,  followed by either"
-	    " ` done´ or"
-	    "\n    ` failed´ - depending on the program's termination code. Any prefix"
-	    " of the"
-	    "\n    word `compile´ can be specified here, such as `c´ `co´, `comp´ and"
-	    " the like."
-	    "\n"
-	    "\n  help"
-	    "\n    display a short synopsis of cgen's arguments and terminate; any"
-	    " prefix of the"
-	    "\n    word `help´ can be used."
-	    "\n"
-	    "\n  link=<linker-program> (alt: ld[=<linker-program>])"
-	    "\n    Execute the program <linker-program> (default: cc) with <linker-args>"
-	    " as it's"
-	    "\n    arguments; the option `-v´ has the same effect as described above,"
-	    " with the"
-	    "\n    exception that `Linking <target> ...´ is displayed. Again, instead of"
-	    " the word"
-	    "\n    `link´, each of it's prefixes can be used."
-	    "\n"
-	    "\n  clean"
-	    "\n    Remove any files and (recursively) directories specified in <clean-"
-	    "args>; errors"
-	    "\n    during the removal process are ignored; if `-v´ is specified, display"
-	    " each file"
-	    "\n    (directory) to be removed before it's removal and display the success"
-	    "-status"
-	    "\n    thereafter; otherwise, only a shore text-line `Cleaning up in <cwd>´"
-	    " is"
-	    "\n    (<cwd> is the current working directory) displayed either ` done´ or"
-	    " ` failed´"
-	    "\n    depending on whether all specified files/directories could be removed"
-	    " or not."
-	    "\n"
-	    "\n  <target>"
-	    "\n    the name of the target to be displayed if `-v´ was not specified; any"
-	    " argument"
-	    "\n    of the form `%%t´ in the <compiler-args> and <linker-args> will be"
-	    " replaced with"
-	    "\n    this (file-)name"
-	    "\n"
-	    "\n  <compiler-args>"
-	    "\n    The arguments which (together with the name of the compiler program)"
-	    " form the"
-	    "\n    command to be executed"
-	    "\n"
-	    "\n  <linker-args>"
-	    "\n    The arguments which (together with the name of the linker program)"
-	    " form the"
-	    "\n    command to be executed"
-	    "\n"
-	    "\n  <clean-args>"
-	    "\n    the names of files and directories to be removed"
-	    "\n"
-	    "\nEnvironment variables:"
-	    "\n  `%s´ recognizes the the environment variables COMPILER and LINKER and"
-	    " uses the"
-	    "\n  stored in these variables instead of the defaults for the `compile´-"
-	    " and `link´-"
-	    "\n  actions. Additionally the variables COPTS (or CFLAGS) and LOPTS"
-	    " (LFLAGS) are"
-	    "\n  recognized; the corresponding value is (shell-splitted) inserted before"
-	    "\n  <compiler-args> (respectively <linker-args>) ...\n\n",
-	    progname, progname, progname, progname, progname);
-    exit (0);
-#endif
 }
 
 /* Duplicate a string
@@ -1337,12 +1241,12 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
 
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
-	if (is_prefix ("-c", opt)) {
-	    if (cf) { usage ("ambiguous `-c´-option"); }
+	if (is_prefix ("-c", opt) || is_prefix ("-f", opt)) {
+	    if (cf) { usage ("ambiguous `-c/-f´-option"); }
 	    if (opt[2]) {
 		cf = &opt[2];
 	    } else {
-		if (optx >= argc - 1) { usage ("missing argument for option `-c´"); }
+		if (optx >= argc - 1) { usage ("missing argument for option `-c/-f´"); }
 		cf = argv[++optx];
 	    }
 	    continue;
