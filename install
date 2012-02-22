@@ -25,7 +25,27 @@ ask() {
     done
 }
 
-QUERY=0; strip=0
+vecho() {
+    if [ -n "$verbose" ] && [ $verbose -ne 0 ]; then
+	echo ${1+"$@"}
+    fi
+}
+
+eecho() {
+    echo 1>&2 ${1+"$@"}
+}
+
+veecho() {
+    if [ -n "$verbose" ] && [ $verbose -ne 0 ]; then
+	eecho ${1+"$@"}
+    fi
+}
+
+veshift() {
+    local cc="$1"; shift; while [ $cc -gt 0 ]; do veecho -n " "; cc=$((cc - 1)); done
+}
+
+QUERY=0; strip=0; verbose=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -50,6 +70,7 @@ while [ $# -gt 0 ]; do
 	-q) QUERY=1; shift ;;
 	-Q) QUERY=2; shift ;;
 	-s) strip=1; shift ;;
+	-v) verbose=1; shift ;;
 	-z) compress=1; shift ;;
 	-*) printf "%s%s\n%s\n" \
 		"Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] " \
@@ -71,10 +92,13 @@ if [ -n "$mkdir" ]; then
 	    1>&2
 	exit 1
     fi
-    mkdir -p "$mkdir" || exit 1
+    vecho -n "Creating directory '$mkdir' ..."
+    em="$(mkdir -p "$mkdir")"
+    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
     if [ -n "$owner" ]; then chown "$owner" "$mkdir"; fi
     if [ -n "$group" ]; then chgrp "$group" "$mkdir"; fi
     if [ -n "$mode" ]; then chmod "$mode" "$mkdir"; fi
+    vecho " done."
     exit 0
 fi
 
@@ -107,12 +131,18 @@ if [ ! -d "$OUT" ]; then
 	fi
     fi
     if [ $nodel -eq 0 ]; then
-	rm -f "$OUT" || (echo 1>&2 "Removing '$OUT' failed"; exit 1)
-	cp "$1" "$OUT"
+	vecho -n "Installing '$1' as '$OUT' ..."
+	if [ -e "$OUT" ]; then
+	    em="$(rm -f "$OUT" 2>&1)"
+	    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+	fi
+	em="$(cp "$1" "$OUT" 2>&1)"
+	if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
 	if [ $strip -ne 0 ]; then strip -- "$OUT"; fi
 	if [ -n "$owner" ]; then chown "$owner" "$OUT"; fi
 	if [ -n "$group" ]; then chgrp "$group" "$OUT"; fi
 	if [ -n "$mode" ]; then chmod "$mode" "$OUT"; fi
+	vecho " done."
     fi
     exit 0
 fi
@@ -128,13 +158,19 @@ while [ $# -gt 1 ]; do
 	fi
     fi
     if [ $nodel -eq 0 ]; then
-	rm -f "$OUT/$bn" || (echo 1>&2 "Removing '$OUT/$bn' failed"; exit 1)
-	cp "$1" "$OUT"
+	vecho -n "Installing '$1' in '$OUT' ..."
+	if [ -e "$OUT/$bn" ]; then
+	    em="$(rm -f "$OUT/$bn" 2>&1)"
+	    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+	fi
+	em="$(cp "$1" "$OUT/$bn" 2>&1)"
+	if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+	if [ $strip -ne 0 ]; then strip -- "$OUT/$bn"; fi
 	if [ -n "$owner" ]; then chown "$owner" "$OUT/$bn"; fi
 	if [ -n "$group" ]; then chgrp "$group" "$OUT/$bn"; fi
 	if [ -n "$mode" ]; then chmod "$mode" "$OUT/$bn"; fi
-	if [ $strip -ne 0 ]; then strip -- "$OUT/$bn"; fi
 	if [ -n "$compress" ]; then gzip -9f "$OUT/$bn"; fi
+	vecho " done."
     fi
     shift
 done
