@@ -15,6 +15,9 @@
 **    cgen compile[=<compiler-program>] [-c <rcfile>] [-v] [-s] <target> <compiler-args>
 **    cgen help [<topic>]
 **    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> <linker-args>
+**    cgen slib <target> <object-files>
+**    cgen dlib[=<linker-program>] [<library-path>] <object-files>
+**    cgen rogen[=<linker-program>] <object-files>
 **
 ** Arguments/Options:
 **
@@ -58,6 +61,19 @@
 **    help
 **       display a short synopsis of cgen's arguments and terminate; any prefix of the
 **       word `help´ can be used.
+**
+**    slib
+**       generate a static library (lib<target>.a) using `ar´ and `ranlib´ ...
+**
+**    dlib
+**       generate a dynamic shared library using the specified linker program (default:
+**       `cc´). This command expects <linker-program> to understand the option
+**       `-shared´.
+**
+**    rogen
+**       generate a relocatable object file from a list of (relocatable) object files
+**       - using <linker-program> (default: `ld´); This command expects <linker-program>
+**       to understand the option `-r´.
 **
 **    <target>
 **       the name of the target to be displayed if `-v´ was not specified; any argument
@@ -114,11 +130,24 @@
 # define DEFAULT_LINKER "cc"
 #endif
 
+#ifndef DEFAULT_SLIBCMD
+# define DEFAULT_SLIBCMD "ar rc %t @ARGV; ranlib %t"
+#endif
+
+#ifndef DEFAULT_DLIBCMD
+# define DEFAULT_DLIBCMD "ld -shared @ARGV -o %t"
+#endif
+
+#ifndef DEFAULT_ROGENCMD
+# define DEFAULT_ROGENCMD "ld -r @ARGV -o %t"
+#endif
+
 typedef struct action_s action_t;
 
 static int do_clean (action_t *act, const char *prog, int argc, char **argv);
 static int do_generate (action_t *act, const char *prog, int argc, char **argv);
 static int do_help (action_t *act, const char *prog, int argc, char **argv);
+static int do_libgen (action_t *act, const char *prog, int argc, char *argv[]);
 
 typedef struct {
     const char *acname;
@@ -134,10 +163,10 @@ struct action_s {
     actionproc_t proc;
     int min_args, max_args;
     bool display_topics;
-    const char *env_cmd, *default_cmd, *env_opts, *env_flags;
+    const char *env_cmd, *default_cmd, *default_opts, *env_opts, *env_flags;
     const char *synopsis, *prog_desc, *prog_args, *short_msg, *prog_help;
 } actions[] = {
-    { "clean", NULL, do_clean, 1, 0, false, NULL, NULL, NULL, NULL,
+    { "clean", NULL, do_clean, 1, 0, false, NULL, NULL, NULL, NULL, NULL,
       "%s%s [-s|-v] [-C <new-directory>] %s",
       "", "<clean-args>",
       "Cleaning up in %s ...",
@@ -167,7 +196,7 @@ struct action_s {
       "\n    The list of files and directories to be removed."
     },
     { "compile", "cc", do_generate, 0, 0, false,
-      "COMPILER", DEFAULT_COMPILER, "COPTS", "CFLAGS",
+      "COMPILER", DEFAULT_COMPILER, NULL, "COPTS", "CFLAGS",
       "%s=[%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<compiler-program>", "<compiler-args>",
       "Compiling %s ...",
@@ -203,13 +232,13 @@ struct action_s {
       "\n    short message `Compiling target ...´; also, allow the executed command"
       "\n    to display it's messages (stdout/stderr)."
     },
-    { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL,
+    { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL, NULL,
       "%s%s [%s]", "", "<topic>", "",
       "\n\nDisplay usage information on the different topics"
       "\n\nValid topics are:"
     },
     { "link", "ld", do_generate, 0, 0, false,
-      "LINKER", DEFAULT_LINKER, "LOPTS", "LFLAGS",
+      "LINKER", DEFAULT_LINKER, NULL, "LOPTS", "LFLAGS",
       "%s=[%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
@@ -244,6 +273,63 @@ struct action_s {
       "\n    Display each command line generated before it's executed instead of the"
       "\n    short message `Linking target ...´; also, allow the executed command"
       "\n    to display it's messages (stdout/stderr)."
+    },
+    { "slib", NULL, do_libgen, 1, 0, false,
+      "SLIB", DEFAULT_SLIBCMD, NULL, NULL, NULL, 
+      "%s=[%s] -v <target> <object-files>",
+      "<libgen-commands>", NULL,
+      "Generating %s ...",
+      "\n\nArguments/Options:"
+      "\n"
+      "\n  <target>"
+      "\n    the middle-part of the library-file being generated. The name of the"
+      "\n    generated file is `lib<target>.a´"
+      "\n"
+      "\n  <object-files>"
+      "\n    the names of the object-files used for building the library. There is no"
+      "\n    check if the all <object-files> are real binary relocatable objects"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    write the complete command-text to stdout (instead of the `Generating"
+      " %s ...´)"
+    },
+    { "dlib", NULL, do_libgen, 1, 0, false,
+      "DLIB", DEFAULT_DLIBCMD, NULL, NULL, NULL,
+      "%s=[%s] -v <target> <object-files>",
+      "<libgen-program>", NULL,
+      "Generating %s ...",
+      "\n\nArguments/Options:"
+      "\n"
+      "\n  <target>"
+      "\n    the middle-part of the library-file being generated. The name of the"
+      "\n    generated file is `<target>.so´"
+      "\n"
+      "\n  <object-files>"
+      "\n    the names of the object-files used for building the library. There is no"
+      "\n    check if the all <object-files> are real binary relocatable objects"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    write the complete command-text to stdout (instead of the `Generating"
+      " %s ...´)"
+    },
+    { "rogen", NULL, do_libgen, 1, 0, false,
+      "ROGEN", DEFAULT_ROGENCMD, NULL, NULL, NULL,
+      "%s=[%s] -v <target> <object-files>",
+      "<libgen-program>", NULL,
+      "Generating %s ...",
+      "\n\nArguments/Options:"
+      "\n"
+      "\n  <target>"
+      "\n    the middle-part of the library-file being generated. The name of the"
+      "\n    generated file is `<target>.so´"
+      "\n"
+      "\n  <object-files>"
+      "\n    the names of the object-files used for building the library. There is no"
+      "\n    check if the all <object-files> are real binary relocatable objects"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    write the complete command-text to stdout (instead of the `Generating"
+      " %s ...´)"
     },
     { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -404,15 +490,21 @@ __inline__ bool nows (char c)
 /* Split a string into a vector of strings using shell-alike word-detection.
 */
 static
-int shsplit (const char *s, char ***_out, int *_outlen)
+int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 {
     const char *p;
     char *buf, *r, **rv, quote = 0, c;
+    size_t bufsz = 0;
     int wc = 0, ix;
     bool word_open = false;
 
-    if (!(buf = malloc (strlen (s) + 1))) { return -1; }
-    r = buf; p = s;
+    p = s; ix = 0;
+    while (*p) {
+	if (*p++ == ';') { ix += 2; }
+    }
+    bufsz = strlen (s) + ix + 1;
+    if (!(buf = malloc (bufsz))) { return -1; }
+    r = buf; p = s; ix = 0;
     while ((c = *p++)) {
 	if (isws (c)) {
 	    if (quote) {
@@ -429,18 +521,26 @@ int shsplit (const char *s, char ***_out, int *_outlen)
 	    }
 	} else if (c == '\'' || c == '"') {
 	    if (!quote) {
-		word_open = true;
+		quote = c; word_open = true;
 	    } else if (c == quote) {
 		*r++ = '\0'; ++wc; word_open = false;
 	    } else {
 		*r++ = c;
 	    }
+	} else if (c == ';' && !quote) {
+	    /* Break here, because it is the beginning of a new command ... */
+	    break;
 	} else {
 	    *r++ = c; word_open = true;
 	}
     }
+
+    /* There is an open word, close this word and increase the word count ... */
     if (word_open) { *r++ = '\0'; ++wc; word_open = false; }
+
+    /* Allocate memory for a command vector ... */
     if ((rv = malloc ((wc + 1) * sizeof(char *)))) {
+	/* ... and fill it with copies of the strings stored in buffer ... */
 	ix = 0; r = buf;
 	while (wc-- > 0) {
 	    if (!(rv[ix++] = sdup (r))) {
@@ -451,8 +551,22 @@ int shsplit (const char *s, char ***_out, int *_outlen)
 	}
 	if (rv) { rv[ix] = NULL; }
     }
+
+    /* Free the buffer which was allocated for the command parsing ... */
     free (buf);
+
+    /* If there was a remaining command string (after a `;´) and there is a valid
+    ** return parameter `_rs´ for this string then return this string through this
+    ** parameter ...
+    */
+    if (c && _rs) { *_rs = p; }
+
+    /* Return the command vector through the parameter `_out´ and the number of elements
+    ** through `_outlen´ ...
+    */
     if (rv) { *_out = rv; *_outlen = ix; return 0; }
+
+    /* Return -1 here - indicating a failure ... */
     return -1;
 }
 
@@ -517,13 +631,6 @@ int lccmp (const char *l, const char *r)
     int lc, rc;
     while ((lc = tolower (*l++)) == (rc = tolower (*r++)) && lc && rc);
     return lc - rc;
-#if 0
-    for (;;) {
-	lc = tolower (*l++); rc = tolower (*r++);
-	if (lc != rc) { return lc - rc; }
-    }
-    return 0;
-#endif
 }
 #endif
 
@@ -933,52 +1040,64 @@ char *rplc (const char *pat, const char *where, const char *subst)
 ** (envvar) and a list of arguments.
 */
 char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *act,
-		const char *target, int argc, char **argv)
+		const char *target, int argc, char **argv, const char **_nxprog)
 {
-    int ix, jx, optc, cmdc = 0, aviix;
-    const char *sv, *envval;
-    char **progv = NULL, **optv = NULL, **cmdv = NULL;
+    int ix, jx, kx, nx, optc = 0, progc = 0, cmdc = 0, aviix, px[2], ac;
+    const char *sv, *envval, *nxprog = NULL;
+    char **progv = NULL, **optv = NULL, **cmdv = NULL, **pv[2], **av;
 
-    /* If the compiler program was explicitely set ... */
-    if (prog) {
-	/* ... and the `-s´-option was one of the options to `compile´ or `link´ ... */
-	if (split_prog) {
-	    /* ... then split `prog´ into a vector of arguments (e.g. special calling
-	    ** of gcc)
-	    */
-	    if (shsplit (prog, &progv, &optc)) { return NULL; }
-	    /* Increase the number of arguments by the length of the `prog´-vector ... */
-	    cmdc += optc;
-	} else {
-	    if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
-	    *progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
-	    /* Increase the number of arguments by the length of the `prog´-vector ... */
-	    ++cmdc;
-	}
-    } else {
-	sv = prog;
-	if (act->env_cmd) { prog = getenv (act->env_cmd); }
+    /* Retrieve the "program" to be executed if it was not already specified ...
+    */
+    if (!prog) {
+	/* Try the environment variable for this command first ... */
+	sv = prog; if (act->env_cmd) { prog = getenv (act->env_cmd); }
 	if (!prog || !*prog) { prog = sv; }
+	/* Try the (compiled) default for this command second ... */
 	if (!prog || !*prog) { prog = act->default_cmd; }
-	if (prog && !*prog) { prog = NULL; }
-	if (!prog) {
-	    usage ("no valid program specified; see `%s help´ for help, please!",
-	    progname);
-	}
+	if (prog && !*prog) { prog = sv; }
+    }
+    /* It is an error if (after the steps above) we could not retrieve a valid
+    ** program ...
+    */
+    if (!prog) {
+	usage ("no valid %s specified; see `%s help´ for help, please!",
+	       act->prog_desc, progname);
+    }
+    if (split_prog) {
+	/* If the `-s´-option was one of the options to `compile´ or `link´ then
+	** split `prog´ into a vector of arguments (e.g. special calling of gcc);
+	** the splitting is done in a shell-alike manner ...
+	*/
+	if (shsplit (prog, &progv, &progc, &nxprog)) { return NULL; }
+
 	/* Increase the number of arguments by the length of the `prog´-vector ... */
+    } else {
+	/* If `split_prog´ was not requested, then allocate a vector with exactly one
+	** element ...
+	*/
 	if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
 	*progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
-	++cmdc;
+	/* Increase the number of arguments by the length of the `prog´-vector ... */
+	progc = 1;
     }
+    cmdc += progc;
+
+    /* Retrieve the `options´-string ... */
     if (!(envval = getenv (act->env_opts)) || !*envval) {
 	envval = getenv (act->env_flags);
     }
     if (!envval || !*envval) { envval = popts; }
+
+    /* And generate an `options´-vector from this string ... */
     if (envval && *envval) {
-	if (shsplit (envval, &optv, &optc)) { goto ERREXIT; }
+	if (shsplit (envval, &optv, &optc, NULL)) { goto ERREXIT; }
 	/* Increase the number of arguments by the length of the options-vector ... */
-	cmdc += optc;
+    } else {
+	if (!(optv = (char **) malloc (sizeof (char *)))) { goto ERREXIT; }
+	*optv = NULL; optc = 0;
     }
+    cmdc += optc;
+
     /* Increase the number of arguments by the number of the remaining arguments ... */
     cmdc += argc;
 
@@ -986,37 +1105,46 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
     if (!(cmdv = (char **) malloc ((cmdc + 1) * sizeof(char *)))) { goto ERREXIT; }
     memset (cmdv, 0, (cmdc + 1) * sizeof(char *));
 
+    pv[0] = progv; pv[1] = optv;
+    px[0] = progc; px[1] = optc;
+
     /* Now fill the command vector piece by piece ... */
-    ix = 0;
-
-    /* 1. the program vector (splitted? `prog´-argument ... */
-    for (jx = 0; progv[jx]; ++jx) { cmdv[ix++] = progv[jx]; progv[jx] = NULL; }
-
-    /* 2. the options retrieved either from the environment or from the
-    ** configuration file, until either the end of this list or until an argument
-    ** @ARGV was found ...
-    */
-    aviix = -1;
-    if (optv) {
-	for (jx = 0; optv[jx]; ++jx) {
-	    if (!strcmp (optv[jx], "@ARGV")) { aviix = jx + 1; break; }
-	    cmdv[ix++] = optv[jx]; optv[jx] = NULL;
+    ix = 0; aviix = -1; nx = -1;
+    for (kx = 0; kx < 2; ++kx) {
+	ac = px[kx]; av = pv[kx];
+	for (jx = 0; jx < ac; ++jx) {
+	    if (!strcmp (av[jx], "@ARGV")) {
+		free (av[jx]); aviix = jx + 1; nx = jx; goto NX;
+	    }
+	    cmdv[ix++] = av[jx];
 	}
     }
-
-    /* 3. the remaining command line arguments ... */
+NX:
+    /* Insert the command line arguments ... */
     for (jx = 0; jx < argc; ++jx) {
 	if (!(cmdv[ix++] = sdup (argv[jx]))) { goto ERREXIT; }
     }
 
-    /* 4. if there are remaining options (after the `@ARGV´ placeholder) ... */
+    /* Insert the remaining options ... */
     if (aviix > 0) {
-	/* ... then these options ... */
-	while (optv[aviix]) { cmdv[ix++] = optv[aviix++]; }
+	ac = px[nx]; av = pv[nx];
+	for (jx = aviix; jx < ac; ++jx) {
+	    cmdv[ix++] = av[jx]; av[jx] = NULL;
+	}
+	for (kx = nx + 1; kx < 3; ++kx) {
+	    ac = px[kx]; av = pv[kx];
+	    for (jx = 0; jx < ac; ++jx) {
+		cmdv[ix++] = av[jx]; av[jx] = NULL;
+	    }
+	}
     }
 
     /* End of the command vector */
     cmdv[ix] = NULL;
+
+    /* Empty the `progv´ and `optv´ vectors (as their elements were moved to `cmdv´ ... */
+    for (jx = 0; jx < progc; ++jx) { progv[jx] = NULL; }
+    for (jx = 0; jx < optc; ++jx) { optv[jx] = NULL; }
 
     /* After the command vector was filled, each argument is modifier by substituting
     ** each `%t´ with `target´ ...
@@ -1030,6 +1158,11 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
     /* Remove the (no longer used) `progv´ and `optv´ vectors ... */
     if (progv) { argv_free (progv); progv = NULL; }
     if (optv) { argv_free (optv); optv = NULL; }
+
+    /* Return the remaining `prog´-cmdline through the `_nxprog´-argument (if this
+    ** argument is valid ...
+    */
+    if (_nxprog) { *_nxprog = nxprog; }
 
     /* Return the command vector ... */
     return cmdv;
@@ -1101,21 +1234,21 @@ char *which (const char *cmd)
 /* Perform the requested action (`compile´ or `link´) by executing the corresponding
 ** command in a sub-process. Display the output depending on the `verbose´ argument.
 */
-int spawn (FILE *out, bool verbose, bool split_prog,
+int spawn (FILE *out, int verbose, bool split_prog,
 	   action_t *act, const char *prog, const char *popts,
-	   const char *target, int argc, char **argv)
+	   const char *target, int argc, char **argv, const char **_nxcmd)
 {
     extern char **environ;
     char **cmdv;
-    const char *cmd;
+    const char *cmd, *nxcmd = NULL;
     pid_t child;
     int out_fd, waitstat, excode;
-    cmdv = gen_cmd (prog, popts, split_prog, act, target, argc, argv);
+    cmdv = gen_cmd (prog, popts, split_prog, act, target, argc, argv, &nxcmd);
     if (!cmdv) { return -1; }
     if (!(cmd = which (cmdv[0]))) { return -1; }
-    if (verbose) {
+    if (verbose > 0) {
 	print_command (out, cmdv);
-    } else {
+    } else if (verbose == 0) {
 	fprintf (out, act->short_msg, target);
     }
     if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }
@@ -1125,21 +1258,26 @@ int spawn (FILE *out, bool verbose, bool split_prog,
 	    close (out_fd);
 	    return -1;
 	case 0:  /* CHILD */
-	    if (!verbose) { dup2 (out_fd, 1); dup2 (out_fd, 2); }
+	    if (verbose <= 0) { dup2 (out_fd, 1); dup2 (out_fd, 2); }
 	    close (out_fd);
 	    execve (cmd, cmdv, environ);
 	    exit (1);
 	default: /* PARENT */
-	    close (out_fd);
+	    /* Free the unused resources ... */
+	    argv_free (cmdv); close (out_fd);
+
+	    /* Wait for the child process to terminate ... */
 	    waitpid (child, &waitstat, 0);
+
+	    /* ... and retrieve it's exit status ... */
 	    excode = 0;
 	    if (WIFEXITED (waitstat)) {
 		excode = WEXITSTATUS (waitstat);
 	    } else if (WIFSIGNALED (waitstat)) {
-		excode = WTERMSIG (waitstat);
+		excode = -WTERMSIG (waitstat);
 	    }
-	    if (!verbose) { print_exitstate (out, excode); }
-	    return excode;
+	    if (verbose == 0) { print_exitstate (out, excode); }
+	    return (excode ? 0 : -1);
     }
     return -1;
 }
@@ -1233,8 +1371,8 @@ int do_clean (action_t *act, const char *prog, int argc, char **argv)
 static
 int do_generate (action_t *act, const char *prog, int argc, char **argv)
 {
-    int optx, ix, rc, cdesclen = 0, ac;
-    bool verbose = false, split_prog = false;
+    int optx, ix, rc, cdesclen = 0, ac, verbose = 0;
+    bool split_prog = false;
     char *target = NULL, *cf = NULL, *opt, **av;
     const char *popts = NULL;
     cdesc_t cdesc = NULL;
@@ -1255,7 +1393,7 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
 	    split_prog = true; continue;
 	}
 	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
-	    verbose = true; continue;
+	    verbose = 1; continue;
 	}
 
 	usage ("invalid option `%s´", opt);
@@ -1277,7 +1415,40 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
     check_args (act, argc - optx);
     target = argv[optx++];
     ac = argc - optx; av = &argv[optx];
-    rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av);
+    rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av, NULL);
+    return (rc ? 1 : 0);
+}
+
+/*##0*/
+static
+int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
+{
+    /* 1. Step: Set the program-name ... */
+    char *target = NULL, **av, *opt, *nullarg[] = { NULL };
+    const char *nxprog = NULL;
+    int optx = 0, ac, rc;
+    int verbose = 0;
+
+    for (optx = 1; optx < argc; ++optx) {
+	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
+	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
+	    verbose = 1; continue;
+	}
+
+	usage ("invalid option `%s´", opt);
+    }
+
+    check_args (act, argc - optx);
+    target = argv[optx++];
+
+    ac = argc - optx; av = &argv[optx];
+    rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av, &nxprog);
+    if (!verbose) { verbose = -1; }
+    while (rc == 0 && nxprog) {
+	prog = nxprog; nxprog = NULL;
+	rc = spawn (stdout, verbose, true, act, prog, NULL, target, 0, nullarg, &nxprog);
+    }
+    print_exitstate (stdout, rc);
     return (rc ? 1 : 0);
 }
 
