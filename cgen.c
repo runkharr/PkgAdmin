@@ -130,16 +130,19 @@
 # define DEFAULT_LINKER "cc"
 #endif
 
-#ifndef DEFAULT_SLIBCMD
-# define DEFAULT_SLIBCMD "ar rc %t @ARGV; ranlib %t"
+#ifndef DEFAULT_LIBGENCMD
+# define DEFAULT_LIBGENCMD "ar rc %t @ARGV; ranlib %t"
+# define DEFAULT_LIBGENCMDTEXT "`ar rc %%t @ARGV; ranlib %%t´"
 #endif
 
-#ifndef DEFAULT_DLIBCMD
-# define DEFAULT_DLIBCMD "ld -shared @ARGV -o %t"
+#ifndef DEFAULT_SOGENCMD
+# define DEFAULT_SOGENCMD "ld -shared @ARGV -o %t"
+# define DEFAULT_SOGENCMDTEXT "`ld -shared @ARGV -o %%t´"
 #endif
 
 #ifndef DEFAULT_ROGENCMD
 # define DEFAULT_ROGENCMD "ld -r @ARGV -o %t"
+# define DEFAULT_ROGENCMDTEXT "`ld -r @ARGV -o %t´"
 #endif
 
 typedef struct action_s action_t;
@@ -197,7 +200,7 @@ struct action_s {
     },
     { "compile", "cc", do_generate, 0, 0, false,
       "COMPILER", DEFAULT_COMPILER, NULL, "COPTS", "CFLAGS",
-      "%s=[%s] [-c <rcfile>] [-v] [-s] <target> %s",
+      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<compiler-program>", "<compiler-args>",
       "Compiling %s ...",
       "\n\nArguments/Options:"
@@ -239,7 +242,7 @@ struct action_s {
     },
     { "link", "ld", do_generate, 0, 0, false,
       "LINKER", DEFAULT_LINKER, NULL, "LOPTS", "LFLAGS",
-      "%s=[%s] [-c <rcfile>] [-v] [-s] <target> %s",
+      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
       "\n\nArguments/Options:"
@@ -274,12 +277,16 @@ struct action_s {
       "\n    short message `Linking target ...´; also, allow the executed command"
       "\n    to display it's messages (stdout/stderr)."
     },
-    { "slib", NULL, do_libgen, 1, 0, false,
-      "SLIB", DEFAULT_SLIBCMD, NULL, NULL, NULL, 
-      "%s=[%s] -v <target> <object-files>",
+    { "libgen", NULL, do_libgen, 1, 0, false,
+      "LIBGEN", DEFAULT_LIBGENCMD, NULL, NULL, NULL, 
+      "%s[=%s] [-v] <target> <object-files>",
       "<libgen-commands>", NULL,
       "Generating %s ...",
       "\n\nArguments/Options:"
+      "\n"
+      "\n  libgen=<libgen-commands>"
+      "\n    Execute <libgen-commands> sequentially (default: "DEFAULT_LIBGENCMDTEXT")"
+      "\n    with <target> as it's target and <object-files> as source files."
       "\n"
       "\n  <target>"
       "\n    the middle-part of the library-file being generated. The name of the"
@@ -293,12 +300,16 @@ struct action_s {
       "\n    write the complete command-text to stdout (instead of the `Generating"
       " %s ...´)"
     },
-    { "dlib", NULL, do_libgen, 1, 0, false,
-      "DLIB", DEFAULT_DLIBCMD, NULL, NULL, NULL,
-      "%s=[%s] -v <target> <object-files>",
-      "<libgen-program>", NULL,
+    { "sogen", NULL, do_libgen, 1, 0, false,
+      "SOGEN", DEFAULT_SOGENCMD, NULL, NULL, NULL,
+      "%s[=%s] [-v] <target> <object-files>",
+      "<sogen-commands>", NULL,
       "Generating %s ...",
       "\n\nArguments/Options:"
+      "\n"
+      "\n  sogen=<sogen-commands>"
+      "\n    Execute <sogen-commands> sequentially (default: `"DEFAULT_SOGENCMDTEXT"´)"
+      "\n    with <target> as it's target and <object-files> as source files."
       "\n"
       "\n  <target>"
       "\n    the middle-part of the library-file being generated. The name of the"
@@ -314,10 +325,14 @@ struct action_s {
     },
     { "rogen", NULL, do_libgen, 1, 0, false,
       "ROGEN", DEFAULT_ROGENCMD, NULL, NULL, NULL,
-      "%s=[%s] -v <target> <object-files>",
-      "<libgen-program>", NULL,
+      "%s[=%s] [-v] <target> <object-files>",
+      "<rogen-commands>", NULL,
       "Generating %s ...",
       "\n\nArguments/Options:"
+      "\n"
+      "\n  rogen=<sogen-commands>"
+      "\n    Execute <rogen-commands> sequentially (default: "DEFAULT_ROGENCMDTEXT")"
+      "\n    with <target> as it's target and <object-files> as source files."
       "\n"
       "\n  <target>"
       "\n    the middle-part of the library-file being generated. The name of the"
