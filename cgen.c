@@ -15,9 +15,9 @@
 **    cgen compile[=<compiler-program>] [-c <rcfile>] [-v] [-s] <target> <compiler-args>
 **    cgen help [<topic>]
 **    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> <linker-args>
-**    cgen slib <target> <object-files>
-**    cgen dlib[=<linker-program>] [<library-path>] <object-files>
-**    cgen rogen[=<linker-program>] <object-files>
+**    cgen libgen[=<libgen-commands>] <target> <object-files>
+**    cgen sogen[=<sogen-commands>] [<library-path>] <object-files>
+**    cgen rogen[=<rogen-commands>] <object-files>
 **
 ** Arguments/Options:
 **
@@ -62,10 +62,10 @@
 **       display a short synopsis of cgen's arguments and terminate; any prefix of the
 **       word `help´ can be used.
 **
-**    slib
-**       generate a static library (lib<target>.a) using `ar´ and `ranlib´ ...
+**    libgen
+**       generate a static library using `ar´ and `ranlib´ ...
 **
-**    dlib
+**    sogen
 **       generate a dynamic shared library using the specified linker program (default:
 **       `cc´). This command expects <linker-program> to understand the option
 **       `-shared´.
@@ -202,17 +202,16 @@ struct action_s {
       "COMPILER", DEFAULT_COMPILER, NULL, "COPTS", "CFLAGS",
       "%s[=%s] [-c <rcfile>] [-v] [-s] <target> %s",
       "<compiler-program>", "<compiler-args>",
-      "Compiling %s ...",
+      "Generating %s ...",
       "\n\nArguments/Options:"
       "\n"
-      "\n  compile[=<compiler-program>] (alt: cc[=<compiler-program>])"
-      "\n    Execute the program <compiler-program> (default: cc) with <compiler-args> as"
-      "\n    it's arguments; if `-v´ is specified, display the complete command to be"
-      "\n    executed and also this program's output (stdout/stderr); otherwise, display"
-      "\n    only a text line `Compiling <target> ...´,  followed by either ` done´ or"
-      "\n    ` failed´ - depending on whether the programm succeeded or terminated"
-      "\n    abnormally. Any prefix of the word `compile´ can be specified here, such as"
-      "\n    `co´, `comp´ and the like."
+      "\n  compile (alt: cc)"
+      "\n    Execute a compiler command constructed from a linker program, some"
+      "\n    (default-)options and <compiler-args>."
+      "\n"
+      "\n  <compiler-program>"
+      "\n    the name of the program used to translate an source-file into a relocatable"
+      "\n    object file."
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
@@ -220,20 +219,31 @@ struct action_s {
       "\n    <compiler-args> (by using the place-holder `%t´ as argument"
       "\n"
       "\n  <compiler-args>"
-      "\n    The additional arguments to be supplied to the command being executed."
-      "\n    Any argument `%t´ is replaced by <target>"
+      "\n    the arguments (options and source-file) which are used to generate the"
+      "\n    relocatable object-file."
       "\n"
       "\n  -c <rcfile> (alt: -f <rcfile>)"
-      "\n    load compiler and additional options from a configuration file"
+      "\n    load <compiler-program> and additional options from a configuration file"
       "\n"
       "\n  -s (alt: --split-prog)"
-      "\n    Assume <compiler-command> being an incomplete command line (split it)"
-      "\n    according to shell-rules"
+      "\n    Assume <compiler-command> being an (incomplete) command line template, thus"
+      "\n    splitting it according to shell-rules"
       "\n"
       "\n  -v (alt: --verbose)"
       "\n    Display each command line generated before it's executed instead of the"
       "\n    short message `Compiling target ...´; also, allow the executed command"
       "\n    to display it's messages (stdout/stderr)."
+      "\n"
+      "\nThe command-template constructed from <compiler-program>, default-options and"
+      "\n<compiler-args> may contain constructs like `@ARGV´ (a), `%t[<newsfx>/<oldsfx>]´"
+      "\n(b) and `%t´ (c). These constructs are replaced by\n"
+      "\n  (a) <compiler-args> - instead of appending <compiler-args> to"
+      " <compiler-program> and\n      default-options,"
+      "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx> and"
+      "\n  (c) <target> - unchanged.\n\nOnly the first occurrence of `@ARGV´ is replaced;"
+      " each further occurrences remain\nunchanged. The announced \"default-options\""
+      " are supplied through an the environment\nvariable (either COPTS or CFLAGS with a"
+      " preference for COPTS)."
     },
     { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL, NULL,
       "%s%s [%s]", "", "<topic>", "",
@@ -247,104 +257,153 @@ struct action_s {
       "Linking %s ...",
       "\n\nArguments/Options:"
       "\n"
-      "\n  link=<linker-program> (alt: ld[=<linker-program>])"
-      "\n    Execute the program <linker-program> (default: cc) with <linker-args> as"
-      "\n    it's arguments; if `-v´ is specified, display the complete command to be"
-      "\n    executed and also this program's output (stdout/stderr); otherwise, display"
-      "\n    only a text line `Linking <target> ...´, followed by either ` done´ or"
-      "\n    ` failed´ - depending on whether the program succeeded or terminated"
-      "\n    abnormally. Any prefix of the word `link´ can be specified here, such as"
-      "\n    `l´, `li´ and the like."
+      "\n  link (alt: ld)"
+      "\n    Execute a linker command constructed from a linker program, some (default-)"
+      "\n    options and <linker-args>."
+      "\n"
+      "\n  <linker-program>"
+      "\n    the name of the program used to combine object-files and libraries to an"
+      "\n    executable object file."
+      "\n"
+      "\n  <linker-args>"
+      "\n    the arguments (options/object-files/libraries) which are used to generate"
+      "\n    an executable object-file."
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
       "\n    `Linking <target> ...´; additionally it can be inserted anywhere into"
-      "\n    <linker-args> (by using the place-holder `%t´ as argument"
-      "\n"
-      "\n  <linker-args>"
-      "\n    The additional arguments to be supplied to the command being executed."
-      "\n    Any argument `%t´ is replaced by <target>"
+      "\n    <linker-args> (by using the place-holder `%t´ each argument)"
       "\n"
       "\n  -c <rcfile> (alt: -f <rcfile>)"
-      "\n    load linker and additional options from a configuration file"
+      "\n    load <linker-program> and additional options from a configuration file"
       "\n"
       "\n  -s (alt: --split-prog)"
-      "\n    Assume <linker-command> being an incomplete command line (split it)"
-      "\n    according to shell-rules"
+      "\n    Assume <linker-command> being an (incomplete) command line template, thus"
+      "\n    splitting it according to shell-rules"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    Display each command line generated before it's executed instead of the"
-      "\n    short message `Linking target ...´; also, allow the executed command"
-      "\n    to display it's messages (stdout/stderr)."
+      "\n    write the command-text which generates <target> to stdout prior to the"
+      "\n    execution of the command (instead of the message `Generating <target> ... ´"
+      "\n    (followed by a status message of either `done´ or `failed´))"
+      "\n"
+      "\nThe command-template constructed from <linker-program>, default-options and"
+      " <linker-args>\nmay contain constructs like `@ARGV´ (a), `%t[<newsfx>/<oldsfx>]´"
+      " (b) and `%t´ (c). These\nconstructs are replaced by\n"
+      "\n  (a) <linker-args> - instead of appending <linker-args> to <linker-program> and"
+      "\n      default-options,"
+      "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx> and"
+      "\n  (c) <target> - unchanged.\n\nOnly the first occurrence of `@ARGV´ is replaced;"
+      " each further occurrences remain\nunchanged. The announced \"default options\""
+      " are supplied through an the environment\nvariable (either LOPTS or LFLAGS with a"
+      " preference for LOPTS)."
     },
     { "libgen", NULL, do_libgen, 1, 0, false,
-      "LIBGEN", DEFAULT_LIBGENCMD, NULL, NULL, NULL, 
+      "LIBGENCMD", DEFAULT_LIBGENCMD, NULL, NULL, NULL, 
       "%s[=%s] [-v] <target> <object-files>",
       "<libgen-commands>", NULL,
       "Generating %s ...",
       "\n\nArguments/Options:"
       "\n"
-      "\n  libgen=<libgen-commands>"
-      "\n    Execute <libgen-commands> sequentially (default: "DEFAULT_LIBGENCMDTEXT")"
-      "\n    with <target> as it's target and <object-files> as source files."
+      "\n  libgen"
+      "\n    generate a (new) library-file (<target>) from a list of relocatable input"
+      "\n    files"
+      "\n"
+      "\n  <libgen-commands>"
+      "\n    the command template to be used for constructing the commands which are"
+      "\n    used for generating <target>; instead of supplying <libgen-commands>"
+      "\n    directly, the environment variable `LIBGENCMD´ can be used; if `LIBGENCMD´"
+      "\n    is not defined or empty, `"DEFAULT_LIBGENCMD"´ is used instead."
+      "\n    The very first occurrence of `@ARGV´ is replaced by <object-files> (each"
+      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´ occurs in"
+      "\n    <libgen-commands>, <object-files> is appended to <libgen-commands> instead."
+      "\n    In the completed command-template, the symbol `%t´ has a special meaning:"
+      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with the suffix"
+      "\n        <oldsfx> replaced with <newsfx> in target,"
+      "\n      - any other occurrences ot `%t´ are replaced with an unchanged <target>."
       "\n"
       "\n  <target>"
-      "\n    the middle-part of the library-file being generated. The name of the"
-      "\n    generated file is `lib<target>.a´"
+      "\n    The name of the library being generated"
       "\n"
       "\n  <object-files>"
-      "\n    the names of the object-files used for building the library. There is no"
-      "\n    check if the all <object-files> are real binary relocatable objects"
+      "\n    the names of the input files used for generating <target>. There is no"
+      "\n    check if the <object-files> are real binary relocatable objects"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    write the complete command-text to stdout (instead of the `Generating"
-      " %s ...´)"
-    },
-    { "sogen", NULL, do_libgen, 1, 0, false,
-      "SOGEN", DEFAULT_SOGENCMD, NULL, NULL, NULL,
-      "%s[=%s] [-v] <target> <object-files>",
-      "<sogen-commands>", NULL,
-      "Generating %s ...",
-      "\n\nArguments/Options:"
-      "\n"
-      "\n  sogen=<sogen-commands>"
-      "\n    Execute <sogen-commands> sequentially (default: `"DEFAULT_SOGENCMDTEXT"´)"
-      "\n    with <target> as it's target and <object-files> as source files."
-      "\n"
-      "\n  <target>"
-      "\n    the middle-part of the library-file being generated. The name of the"
-      "\n    generated file is `<target>.so´"
-      "\n"
-      "\n  <object-files>"
-      "\n    the names of the object-files used for building the library. There is no"
-      "\n    check if the all <object-files> are real binary relocatable objects"
-      "\n"
-      "\n  -v (alt: --verbose)"
-      "\n    write the complete command-text to stdout (instead of the `Generating"
-      " %s ...´)"
+      "\n    write the command-text which generates <target> to stdout prior to the"
+      "\n    execution of the command (instead of the message `Generating <target> ... ´"
+      "\n    (followed by a status message of either `done´ or `failed´))"
     },
     { "rogen", NULL, do_libgen, 1, 0, false,
-      "ROGEN", DEFAULT_ROGENCMD, NULL, NULL, NULL,
+      "ROGENCMD", DEFAULT_ROGENCMD, NULL, NULL, NULL,
       "%s[=%s] [-v] <target> <object-files>",
       "<rogen-commands>", NULL,
       "Generating %s ...",
       "\n\nArguments/Options:"
       "\n"
-      "\n  rogen=<sogen-commands>"
-      "\n    Execute <rogen-commands> sequentially (default: "DEFAULT_ROGENCMDTEXT")"
-      "\n    with <target> as it's target and <object-files> as source files."
+      "\n  rogen"
+      "\n    generate a (new) relocatable object-file (<target>) from a list of"
+      "\n    relocatable input files"
+      "\n"
+      "\n  <rogen-commands>"
+      "\n    the command template to be used for constructing the commands which are"
+      "\n    used for generating <target>; instead of supplying <rogen-commands>"
+      "\n    directly, the environment variable `ROGENCMD´ can be used; if `ROGENCMD´"
+      "\n    is not defined or empty, `"DEFAULT_ROGENCMD"´ is used instead."
+      "\n    The very first occurrence of `@ARGV´ is replaced by <object-files> (each"
+      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´ occurs in"
+      "\n    <rogen-commands>, <object-files> is appended to <rogen-commands> instead."
+      "\n    In the completed command-template, the symbol `%t´ has a special meaning:"
+      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with the suffix"
+      "\n        <oldsfx> replaced with <newsfx> in target,"
+      "\n      - any other occurrences ot `%t´ are replaced with an unchanged <target>."
       "\n"
       "\n  <target>"
-      "\n    the middle-part of the library-file being generated. The name of the"
-      "\n    generated file is `<target>.so´"
+      "\n    The name of the relocatable object-file to be generated"
       "\n"
       "\n  <object-files>"
-      "\n    the names of the object-files used for building the library. There is no"
-      "\n    check if the all <object-files> are real binary relocatable objects"
+      "\n    the names of the input files used for generating <target>. There is no"
+      "\n    check if the <object-files> are real binary relocatable objects"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    write the complete command-text to stdout (instead of the `Generating"
-      " %s ...´)"
+      "\n    write the command-text which generates <target> to stdout prior to the"
+      "\n    execution of the command (instead of the message `Generating <target> ... ´"
+      "\n    (followed by a status message of either `done´ or `failed´))"
+    },
+    { "sogen", NULL, do_libgen, 1, 0, false,
+      "SOGENCMD", DEFAULT_SOGENCMD, NULL, NULL, NULL,
+      "%s[=%s] [-v] <target> <object-files>",
+      "<sogen-commands>", NULL,
+      "Generating %s ...",
+      "\n\nArguments/Options:"
+      "\n"
+      "\n  sogen"
+      "\n    generate a (new) shared object-file (<target>) from a list of"
+      "\n    relocatable input files"
+      "\n"
+      "\n  <sogen-commands>"
+      "\n    the command template to be used for constructing the commands which are"
+      "\n    used for generating <target>; instead of supplying <sogen-commands>"
+      "\n    directly, the environment variable `SOGENCMD´ can be used; if `SOGENCMD´"
+      "\n    is not defined or empty, `"DEFAULT_SOGENCMD"´ is used instead."
+      "\n    The very first occurrence of `@ARGV´ is replaced by <object-files> (each"
+      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´ occurs in"
+      "\n    <sogen-commands>, <object-files> is appended to <sogen-commands> instead."
+      "\n    In the completed command-template, the symbol `%t´ has a special meaning:"
+      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with the suffix"
+      "\n        <oldsfx> replaced with <newsfx> in target,"
+      "\n      - any other occurrences ot `%t´ are replaced with an unchanged <target>."
+      "\n"
+      "\n  <target>"
+      "\n    The name of the shared object-file being generated"
+      "\n"
+      "\n  <object-files>"
+      "\n    the names of the input files used for generating <target>. There is no"
+      "\n    check if the <object-files> are real binary relocatable objects"
+      "\n"
+      "\n  -v (alt: --verbose)"
+      "\n    write the command-text which generates <target> to stdout prior to the"
+      "\n    execution of the command (instead of the message `Generating <target> ... ´"
+      "\n    (followed by a status message of either `done´ or `failed´))"
     },
     { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -525,10 +584,10 @@ int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 	    if (quote) {
 		*r++ = c;
 	    } else if (word_open) {
-		*r++ = '\0'; ++wc; word_open = false;
+		*r++ = '\0'; word_open = false;
 	    }
 	} else if (c == '\\') {
-	    word_open = true;
+	    word_open = true; ++wc;
 	    if (quote == '\'') {
 		*r++ = c;
 	    } else {
@@ -536,9 +595,9 @@ int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 	    }
 	} else if (c == '\'' || c == '"') {
 	    if (!quote) {
-		quote = c; word_open = true;
+		quote = c; word_open = true; ++wc;
 	    } else if (c == quote) {
-		*r++ = '\0'; ++wc; word_open = false;
+		*r++ = '\0'; word_open = false;
 	    } else {
 		*r++ = c;
 	    }
@@ -546,12 +605,15 @@ int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 	    /* Break here, because it is the beginning of a new command ... */
 	    break;
 	} else {
-	    *r++ = c; word_open = true;
+	    if (!word_open) {
+		word_open = true; ++wc;
+	    }
+	    *r++ = c;
 	}
     }
 
     /* There is an open word, close this word and increase the word count ... */
-    if (word_open) { *r++ = '\0'; ++wc; word_open = false; }
+    if (word_open) { *r++ = '\0'; word_open = false; }
 
     /* Allocate memory for a command vector ... */
     if ((rv = malloc ((wc + 1) * sizeof(char *)))) {
@@ -1067,8 +1129,11 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
 	/* Try the environment variable for this command first ... */
 	sv = prog; if (act->env_cmd) { prog = getenv (act->env_cmd); }
 	if (!prog || !*prog) { prog = sv; }
-	/* Try the (compiled) default for this command second ... */
-	if (!prog || !*prog) { prog = act->default_cmd; }
+	/* Try the (compiled) default for this command second. Because this default may
+	** contain a complete command template instead of only a program-name, we need to
+	** assume that `split_prog´ was set; in other words: we will set it manually ...
+	*/
+	if (!prog || !*prog) { prog = act->default_cmd; split_prog = true; }
 	if (prog && !*prog) { prog = sv; }
     }
     /* It is an error if (after the steps above) we could not retrieve a valid
@@ -1098,8 +1163,9 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
     cmdc += progc;
 
     /* Retrieve the `options´-string ... */
-    if (!(envval = getenv (act->env_opts)) || !*envval) {
-	envval = getenv (act->env_flags);
+    envval = NULL;
+    if (!(act->env_opts && (envval = getenv (act->env_opts)) && *envval)) {
+	envval = NULL; if (act->env_flags) { envval = getenv (act->env_flags); }
     }
     if (!envval || !*envval) { envval = popts; }
 
@@ -1129,7 +1195,7 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
 	ac = px[kx]; av = pv[kx];
 	for (jx = 0; jx < ac; ++jx) {
 	    if (!strcmp (av[jx], "@ARGV")) {
-		free (av[jx]); aviix = jx + 1; nx = jx; goto NX;
+		free (av[jx]); aviix = jx + 1; nx = kx; goto NX;
 	    }
 	    cmdv[ix++] = av[jx];
 	}
@@ -1146,7 +1212,7 @@ NX:
 	for (jx = aviix; jx < ac; ++jx) {
 	    cmdv[ix++] = av[jx]; av[jx] = NULL;
 	}
-	for (kx = nx + 1; kx < 3; ++kx) {
+	for (kx = nx + 1; kx < 2; ++kx) {
 	    ac = px[kx]; av = pv[kx];
 	    for (jx = 0; jx < ac; ++jx) {
 		cmdv[ix++] = av[jx]; av[jx] = NULL;
@@ -1155,7 +1221,7 @@ NX:
     }
 
     /* End of the command vector */
-    cmdv[ix] = NULL;
+    cmdv[ix] = NULL; cmdc = ix;
 
     /* Empty the `progv´ and `optv´ vectors (as their elements were moved to `cmdv´ ... */
     for (jx = 0; jx < progc; ++jx) { progv[jx] = NULL; }
@@ -1259,6 +1325,7 @@ int spawn (FILE *out, int verbose, bool split_prog,
     pid_t child;
     int out_fd, waitstat, excode;
     cmdv = gen_cmd (prog, popts, split_prog, act, target, argc, argv, &nxcmd);
+    if (_nxcmd) { *_nxcmd = nxcmd; }
     if (!cmdv) { return -1; }
     if (!(cmd = which (cmdv[0]))) { return -1; }
     if (verbose > 0) {
@@ -1291,8 +1358,7 @@ int spawn (FILE *out, int verbose, bool split_prog,
 	    } else if (WIFSIGNALED (waitstat)) {
 		excode = -WTERMSIG (waitstat);
 	    }
-	    if (verbose == 0) { print_exitstate (out, excode); }
-	    return (excode ? 0 : -1);
+	    return (excode ? -1 : 0);
     }
     return -1;
 }
@@ -1431,10 +1497,10 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
     target = argv[optx++];
     ac = argc - optx; av = &argv[optx];
     rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av, NULL);
+    if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
 
-/*##0*/
 static
 int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 {
@@ -1458,12 +1524,11 @@ int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 
     ac = argc - optx; av = &argv[optx];
     rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av, &nxprog);
-    if (!verbose) { verbose = -1; }
     while (rc == 0 && nxprog) {
 	prog = nxprog; nxprog = NULL;
-	rc = spawn (stdout, verbose, true, act, prog, NULL, target, 0, nullarg, &nxprog);
+	rc = spawn (stdout, -1, true, act, prog, NULL, target, 0, nullarg, &nxprog);
     }
-    print_exitstate (stdout, rc);
+    if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
 
