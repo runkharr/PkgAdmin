@@ -46,7 +46,7 @@ veshift() {
 }
 
 usage() {
-    if [ $# -gt 0 ]; then echo "${PROG}:" $*; exit 64; fi
+    if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" $*; exit 64; fi
     cat <<-EOT
 	Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] [-z] file... directory
 	       $0 [-c] [-m mode] [-o user] [-g group] [-s] [-z] file directory/file
