@@ -45,11 +45,24 @@ veshift() {
     local cc="$1"; shift; while [ $cc -gt 0 ]; do veecho -n " "; cc=$((cc - 1)); done
 }
 
+usage() {
+    if [ $# -gt 0 ]; then echo "${PROG}:" $*; exit 64; fi
+    cat <<-EOT
+	Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] [-z] file... directory
+	       $0 [-c] [-m mode] [-o user] [-g group] [-s] [-z] file directory/file
+	       $0 [-m mode] [-o user] [-g group] -d directory
+	EOT
+    exit 0
+}
+
 QUERY=0; strip=0; verbose=0
+
+if [ $# -lt 1 ]; then usage; fi
 
 while [ $# -gt 0 ]; do
     case "$1" in
 	-c) shift ;;
+	-h) usage ;;
 	-m*|-o*|-g*|-d*)
 	    opt="`echo $1 | sed -e 's/\(-.\)/\1/'`"
 	    xarg="`echo $1 | sed -e 's/^-.//'`"
@@ -72,26 +85,13 @@ while [ $# -gt 0 ]; do
 	-s) strip=1; shift ;;
 	-v) verbose=1; shift ;;
 	-z) compress=1; shift ;;
-	-*) printf "%s%s\n%s\n" \
-		"Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] " \
-		"file... dirx" \
-		"       $0 [-m mode] [-o user] [-g group] -d directory" \
-		1>&2
-	    exit 1
-	    ;;
+	-*) usage invalid option "$1" ;;
 	*) break ;;
     esac
 done
 
 if [ -n "$mkdir" ]; then
-    if [ $# -gt 0 ]; then
-	printf "%s%s\n%s\n" \
-	    "Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] " \
-	    "file... dirx" \
-	    "       $0 [-m mode] [-o user] [-g group] -d directory" \
-	    1>&2
-	exit 1
-    fi
+    if [ $# -gt 0 ]; then usage ambiguous argument to \`-d´; fi
     vecho -n "Creating directory '$mkdir' ..."
     em="$(mkdir -p "$mkdir")"
     if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
@@ -103,21 +103,13 @@ if [ -n "$mkdir" ]; then
 fi
 
 if [ $# -lt 2 ]; then
-    printf "%s%s\n%s\n" \
-	"Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] " \
-	"file... dirx" \
-	"       $0 [-m mode] [-o user] [-g group] -d directory" \
-	1>&2
-    exit 1
+    usage missing "argument(s)"
 fi
 
 for i in "$@"; do OUT="$i"; done
 
 if [ ! -d "$OUT" -a $# -gt 2 ]; then
-    printf "%s%s\n" \
-	"$0: if more than two arguments are given, the last one "
-	"_must_ be a directory" 1>&2
-    exit 1
+    usage 'if' more than two arguments are given, the last one must be a directory
 fi
 
 if [ ! -d "$OUT" ]; then
