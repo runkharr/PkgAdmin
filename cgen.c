@@ -12,9 +12,11 @@
 ** Synopsis:
 **
 **    cgen clean [-s|-v] [-C <directory>] <clean-args>
-**    cgen compile[=<compiler-program>] [-c <rcfile>] [-v] [-s] <target> <compiler-args>
+**    cgen compile[=<compiler-program>] [-c <rcfile>] [-v] [-s] <target> \
+**         <compiler-args>
 **    cgen help [<topic>]
-**    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> <linker-args>
+**    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> \
+**         <linker-args>
 **    cgen libgen[=<libgen-commands>] <target> <object-files>
 **    cgen sogen[=<sogen-commands>] [<library-path>] <object-files>
 **    cgen rogen[=<rogen-commands>] <object-files>
@@ -22,84 +24,89 @@
 ** Arguments/Options:
 **
 **    -c <rcfile> (alt: -f <rcfile>)
-**       load compiler/linker and extra options from the configuration file <rcfile>
+**       load compiler/linker and extra options from the configuration file
+**       <rcfile>
 **
 **    -C <directory> (alt: --cd, --chdir)
 **       change into <directory> before performing the clean-action.
 **
 **    -s (alt: --split-prog)
-**       Assume <compiler-program> or <linker-program> being a command line prefix
-**       instead of a path-name and split it shell-alike.
+**       Assume <compiler-program> or <linker-program> being a command line
+**       prefix instead of a path-name and split it shell-alike.
 **
 **    -v
-**       display the complete command to be executed, together with all of it's output;
-**       otherwise, only a short message concerning the action, the <target> and the
-**       action's success-status is displayed.
+**       display the complete command to be executed, together with all of it's
+**       output; otherwise, only a short message concerning the action, the
+**       <target> and the action's success-status is displayed.
 **
 **    clean
-**       Remove any files and (recursively) directories specified in <clean-args>; errors
-**       during the removal process are ignored; if `-v´ is specified, display each file
-**       (directory) to be removed before it's removal and display the success-status
-**       thereafter; otherwise, only a shore text-line `Cleaning up in <cwd>´ is
-**       (<cwd> is the current working directory) displayed either ` done´ or ` failed´
-**       depending on whether all specified files/directories could be removed or not.
+**       Remove any files and (recursively) directories specified in
+**       <clean-args>; errors during the removal process are ignored; if `-v´
+**       is specified, display each file (directory) to be removed before it's
+**       removal and display the success-status thereafter; otherwise, only a
+**       shore text-line `Cleaning up in <cwd>´ is (<cwd> is the current
+**       working directory) displayed either ` done´ or ` failed´ depending on
+**       whether all specified files/directories could be removed or not.
 **
 **    compile[=<compiler-program>]
-**       Execute the program <compiler-program> (default: cc) with <compiler-args> as
-**       it's arguments; if `-v´ is specified, display the complete command to be
-**       executed and also this program's output (stdout/stderr); otherwise, display
-**       only a text line `Compiling <target> ...´,  followed by either ` done´ or
-**       ` failed´ - depending on the program's termination code. Any prefix of the
-**       word `compile´ can be specified here, such as `c´ `co´, `comp´ and the like.
+**       Execute the program <compiler-program> (default: cc) with
+**       <compiler-args> as it's arguments; if `-v´ is specified, display the
+**       complete command to be executed and also this program's output
+**       (stdout/stderr); otherwise, display only a text line
+**       `Compiling <target> ...´,  followed by either ` done´ or ` failed´
+**       - depending on the program's termination code. Any prefix of the word
+**       `compile´ can be specified here, such as `c´ `co´, `comp´ and the
+**       like.
 **
 **    link=<linker-program>
-**       Execute the program <linker-program> (default: cc) with <linker-args> as it's
-**       arguments; the option `-v´ has the same effect as described above, with the
-**       exception that `Linking <target> ...´ is displayed. Again, instead of the word
-**       `link´, each of it's prefixes can be used.
+**       Execute the program <linker-program> (default: cc) with <linker-args>
+**       as it's arguments; the option `-v´ has the same effect as described
+**       above, with the exception that `Linking <target> ...´ is displayed.
+**       Again, instead of the word `link´, each of it's prefixes can be used.
 **
 **    help
-**       display a short synopsis of cgen's arguments and terminate; any prefix of the
-**       word `help´ can be used.
+**       display a short synopsis of cgen's arguments and terminate; any prefix
+**       of the word `help´ can be used.
 **
 **    libgen
 **       generate a static library using `ar´ and `ranlib´ ...
 **
 **    sogen
-**       generate a dynamic shared library using the specified linker program (default:
-**       `cc´). This command expects <linker-program> to understand the option
-**       `-shared´.
+**       generate a dynamic shared library using the specified linker program
+**       (default: `cc´). This command expects <linker-program> to understand
+**       the option `-shared´.
 **
 **    rogen
-**       generate a relocatable object file from a list of (relocatable) object files
-**       - using <linker-program> (default: `ld´); This command expects <linker-program>
-**       to understand the option `-r´.
+**       generate a relocatable object file from a list of (relocatable) object
+**       files - using <linker-program> (default: `ld´); This command expects
+**       <linker-program> to understand the option `-r´.
 **
 **    <target>
-**       the name of the target to be displayed if `-v´ was not specified; any argument
-**       of the form `%t´ in the <compiler-args> and <linker-args> will be replaced with
-**       this (file-)name
+**       the name of the target to be displayed if `-v´ was not specified; any
+**       argument of the form `%t´ in the <compiler-args> and <linker-args>
+**       will be replaced with this (file-)name
 **
 **    <topic>
 **       One of `clean´, `compile´, `help´ or `link`
 **
 **    <compiler-args>
-**       The arguments which (together with the name of the compiler program) form the
-**       command to be executed
+**       The arguments which (together with the name of the compiler program)
+**       form the command to be executed
 **
 **    <linker-args>
-**       The arguments which (together with the name of the linker program) form the
-**       command to be executed
+**       The arguments which (together with the name of the linker program)
+**       form the command to be executed
 **
 **    <clean-args>
 **       the names of files and directories to be removed
 **
 ** Environment variables:
-**    `cgen´ recognizes the the environment variables COMPILER and LINKER and uses the
-**    stored in these variables instead of the defaults for the `compile´- and `link´-
-**    actions. Additionally the variables COPTS (or CFLAGS) and LOPTS (LFLAGS) are
-**    recognized; the corresponding value is (shell-splitted) inserted before
-**    <compiler-args> (respectively <linker-args>) ...
+**    `cgen´ recognizes the the environment variables COMPILER and LINKER and
+**    uses the values stored in these variables instead of the defaults for the
+**    `compile´- and `link´-actions. Additionally the variables COPTS (or
+**    CFLAGS) and LOPTS (LFLAGS) are recognized; the corresponding value is
+**    (shell-splitted) inserted before <compiler-args> (respectively
+**    <linker-args>) ...
 **
 */
 
@@ -159,7 +166,11 @@ typedef struct {
 
 typedef pdesc_t *cdesc_t;
 
-typedef int (*actionproc_t) (action_t *act, const char *prog, int argc, char **argv);
+#define tmalloc(s, t) ((t *) malloc ((s) * sizeof(t)))
+#define tsmalloc(t, s) ((t *) malloc (sizeof(t) + (s)))
+
+typedef int (*actionproc_t) (action_t *act, const char *prog,
+			     int argc, char **argv);
 
 struct action_s {
     const char *pfx_name, *eq_name;
@@ -176,14 +187,21 @@ struct action_s {
       "\n\nArguments/Options:"
       "\n"
       "\n  clean"
-      "\n    Remove any files and (recursively) directories specified in <clean-args>;"
-      "\n    errors during the removal process are ignored; if `-v´ is specified, display"
-      "\n    each file (directory) to be removed before it's removal and display the"
-      "\n    success-status thereafter; if `-s´ is specified, display nothing; otherwise,"
-      "\n    display only a shore text-line `Cleaning up in <cwd>´ is (<cwd> is the"
-      "\n    current working directory) displayed followed by either ` done´ or ` failed´"
-      "\n    depending on whether all specified files and/or directories could be removed"
-      "\n    or not."
+      "\n    Remove any files and (recursively) directories specified in"
+      " <clean-args>;"
+      "\n    errors during the removal process are ignored; if `-v´ is"
+      " specified,"
+      "\n    display each file (directory) to be removed before it's removal"
+      " and display"
+      "\n    the success-status thereafter; if `-s´ is specified, display"
+      " nothing;"
+      "\n    otherwise, display only a shore text-line `Cleaning up in <cwd>´"
+      " is (<cwd>"
+      "\n    is the current working directory) displayed followed by either"
+      " ` done´ or"
+      "\n    ` failed´, depending on whether all specified files and/or"
+      " directories"
+      "\n    could be removed or not."
       "\n"
       "\n  -C <new-directory> (alt, --cd, --chdir)"
       "\n    Chdir into <new-directory> before performing the removal."
@@ -192,58 +210,74 @@ struct action_s {
       "\n    Suppress the `Cleaning up in ...´ message"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    Display each file/directory to be removed (in a shell-alike manner) and it's"
-      "\n    the success status thereafter (` done´ or `failed´)."
+      "\n    Display each file/directory to be removed (in a shell-alike"
+      " manner) and"
+      "\n    the success status thereafter (` done´ or ` failed´)."
       "\n"
       "\n  <clean-args>"
       "\n    The list of files and directories to be removed."
     },
     { "compile", "cc", do_generate, 0, 0, false,
       "COMPILER", DEFAULT_COMPILER, NULL, "COPTS", "CFLAGS",
-      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> %s",
+      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n           %s",
       "<compiler-program>", "<compiler-args>",
       "Generating %s ...",
       "\n\nArguments/Options:"
       "\n"
       "\n  compile (alt: cc)"
-      "\n    Execute a compiler command constructed from a linker program, some"
+      "\n    Execute a compiler command constructed from a linker program,"
+      " some"
       "\n    (default-)options and <compiler-args>."
       "\n"
       "\n  <compiler-program>"
-      "\n    the name of the program used to translate an source-file into a relocatable"
+      "\n    the name of the program used to translate an source-file into a"
+      " relocatable"
       "\n    object file."
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
-      "\n    `Compiling <target> ...´; additionally it can be inserted anywhere into"
+      "\n    `Compiling <target> ...´; additionally it can be inserted"
+      " anywhere into"
       "\n    <compiler-args> (by using the place-holder `%t´ as argument"
       "\n"
       "\n  <compiler-args>"
-      "\n    the arguments (options and source-file) which are used to generate the"
+      "\n    the arguments (options and source-file) which are used to"
+      " generate the"
       "\n    relocatable object-file."
       "\n"
       "\n  -c <rcfile> (alt: -f <rcfile>)"
-      "\n    load <compiler-program> and additional options from a configuration file"
+      "\n    load <compiler-program> and additional options from a"
+      " configuration file"
       "\n"
       "\n  -s (alt: --split-prog)"
-      "\n    Assume <compiler-command> being an (incomplete) command line template, thus"
+      "\n    Assume <compiler-command> being an (incomplete) command line"
+      " template, thus"
       "\n    splitting it according to shell-rules"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    Display each command line generated before it's executed instead of the"
-      "\n    short message `Compiling target ...´; also, allow the executed command"
+      "\n    Display each command line generated before it's executed instead"
+      " of the"
+      "\n    short message `Compiling target ...´; also, allow the executed"
+      " command"
       "\n    to display it's messages (stdout/stderr)."
       "\n"
-      "\nThe command-template constructed from <compiler-program>, default-options and"
-      "\n<compiler-args> may contain constructs like `@ARGV´ (a), `%t[<newsfx>/<oldsfx>]´"
+      "\nThe command-template constructed from <compiler-program>, default-"
+      "options and"
+      "\n<compiler-args> may contain constructs like `@ARGV´ (a), `%t[<newsfx>"
+      "/<oldsfx>]´"
       "\n(b) and `%t´ (c). These constructs are replaced by\n"
       "\n  (a) <compiler-args> - instead of appending <compiler-args> to"
-      " <compiler-program> and\n      default-options,"
-      "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx> and"
-      "\n  (c) <target> - unchanged.\n\nOnly the first occurrence of `@ARGV´ is replaced;"
-      " each further occurrences remain\nunchanged. The announced \"default-options\""
-      " are supplied through an the environment\nvariable (either COPTS or CFLAGS with a"
-      " preference for COPTS)."
+      "\n      <compiler-program> and default-options,"
+      "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx>"
+      " and"
+      "\n  (c) <target> - unchanged."
+      "\n"
+      "\nOnly the first occurrence of `@ARGV´ is replaced; each further"
+      " occurrences"
+      "\nremain unchanged. The announced \"default-options\" are supplied"
+      " through an the"
+      "\nenvironment variable (either COPTS or CFLAGS with a preference for"
+      " COPTS)."
     },
     { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL, NULL,
       "%s%s [%s]", "", "<topic>", "",
@@ -252,50 +286,67 @@ struct action_s {
     },
     { "link", "ld", do_generate, 0, 0, false,
       "LINKER", DEFAULT_LINKER, NULL, "LOPTS", "LFLAGS",
-      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> %s",
+      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n           %s",
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
       "\n\nArguments/Options:"
       "\n"
       "\n  link (alt: ld)"
-      "\n    Execute a linker command constructed from a linker program, some (default-)"
+      "\n    Execute a linker command constructed from a linker program, some"
+      " (default-)"
       "\n    options and <linker-args>."
       "\n"
       "\n  <linker-program>"
-      "\n    the name of the program used to combine object-files and libraries to an"
+      "\n    the name of the program used to combine object-files and"
+      " libraries to an"
       "\n    executable object file."
       "\n"
       "\n  <linker-args>"
-      "\n    the arguments (options/object-files/libraries) which are used to generate"
+      "\n    the arguments (options/object-files/libraries) which are used to"
+      " generate"
       "\n    an executable object-file."
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
-      "\n    `Linking <target> ...´; additionally it can be inserted anywhere into"
+      "\n    `Linking <target> ...´; additionally it can be inserted anywhere"
+      " into"
       "\n    <linker-args> (by using the place-holder `%t´ each argument)"
       "\n"
       "\n  -c <rcfile> (alt: -f <rcfile>)"
-      "\n    load <linker-program> and additional options from a configuration file"
+      "\n    load <linker-program> and additional options from a configuration"
+      " file"
       "\n"
       "\n  -s (alt: --split-prog)"
-      "\n    Assume <linker-command> being an (incomplete) command line template, thus"
+      "\n    Assume <linker-command> being an (incomplete) command line"
+      " template, thus"
       "\n    splitting it according to shell-rules"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    write the command-text which generates <target> to stdout prior to the"
-      "\n    execution of the command (instead of the message `Generating <target> ... ´"
+      "\n    write the command-text which generates <target> to stdout prior"
+      " to the"
+      "\n    execution of the command (instead of the message `Generating"
+      " <target> ... ´"
       "\n    (followed by a status message of either `done´ or `failed´))"
       "\n"
-      "\nThe command-template constructed from <linker-program>, default-options and"
-      " <linker-args>\nmay contain constructs like `@ARGV´ (a), `%t[<newsfx>/<oldsfx>]´"
-      " (b) and `%t´ (c). These\nconstructs are replaced by\n"
-      "\n  (a) <linker-args> - instead of appending <linker-args> to <linker-program> and"
-      "\n      default-options,"
-      "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx> and"
-      "\n  (c) <target> - unchanged.\n\nOnly the first occurrence of `@ARGV´ is replaced;"
-      " each further occurrences remain\nunchanged. The announced \"default options\""
-      " are supplied through an the environment\nvariable (either LOPTS or LFLAGS with a"
-      " preference for LOPTS)."
+      "\nThe command-template constructed from <linker-program>, default-"
+      "options and"
+      "\n<linker-args> may contain constructs like `@ARGV´ (a),"
+      " `%t[<newsfx>/<oldsfx>]´"
+      "\n(b) and `%t´ (c). These constructs are replaced by"
+      "\n"
+      "\n  (a) <linker-args> - instead of appending <linker-args> to <linker-"
+      "program>"
+      "\n      and default-options,"
+      "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx>"
+      " and"
+      "\n  (c) <target> - unchanged."
+      "\n"
+      "\nOnly the first occurrence of `@ARGV´ is replaced; each further"
+      " occurrences"
+      "\nremain unchanged. The announced \"default options\" are supplied"
+      " through an"
+      "\nenvironment variable (either LOPTS or LFLAGS with a preference for"
+      " LOPTS)."
     },
     { "libgen", NULL, do_libgen, 1, 0, false,
       "LIBGENCMD", DEFAULT_LIBGENCMD, NULL, NULL, NULL, 
@@ -305,33 +356,46 @@ struct action_s {
       "\n\nArguments/Options:"
       "\n"
       "\n  libgen"
-      "\n    generate a (new) library-file (<target>) from a list of relocatable input"
+      "\n    generate a (new) library-file (<target>) from a list of"
+      " relocatable input"
       "\n    files"
       "\n"
       "\n  <libgen-commands>"
-      "\n    the command template to be used for constructing the commands which are"
-      "\n    used for generating <target>; instead of supplying <libgen-commands>"
-      "\n    directly, the environment variable `LIBGENCMD´ can be used; if `LIBGENCMD´"
+      "\n    the command template to be used for constructing the commands"
+      " which are"
+      "\n    used for generating <target>; instead of supplying <libgen-"
+      "commands>"
+      "\n    directly, the environment variable `LIBGENCMD´ can be used; if"
+      " `LIBGENCMD´"
       "\n    is not defined or empty, `"DEFAULT_LIBGENCMD"´ is used instead."
-      "\n    The very first occurrence of `@ARGV´ is replaced by <object-files> (each"
-      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´ occurs in"
-      "\n    <libgen-commands>, <object-files> is appended to <libgen-commands> instead."
-      "\n    In the completed command-template, the symbol `%t´ has a special meaning:"
-      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with the suffix"
+      "\n    The very first occurrence of `@ARGV´ is replaced by <object-"
+      "files> (each"
+      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´"
+      " occurs in"
+      "\n    <libgen-commands>, <object-files> is appended to <libgen-"
+      "commands> instead."
+      "\n    In the completed command-template, the symbol `%t´ has a special"
+      "meaning:"
+      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with"
+      " the suffix"
       "\n        <oldsfx> replaced with <newsfx> in target,"
-      "\n      - any other occurrences ot `%t´ are replaced with an unchanged <target>."
+      "\n      - any other occurrences ot `%t´ are replaced with an unchanged"
+      " <target>."
       "\n"
       "\n  <target>"
       "\n    The name of the library being generated"
       "\n"
       "\n  <object-files>"
-      "\n    the names of the input files used for generating <target>. There is no"
+      "\n    the names of the input files used for generating <target>. There"
+      " is no"
       "\n    check if the <object-files> are real binary relocatable objects"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    write the command-text which generates <target> to stdout prior to the"
-      "\n    execution of the command (instead of the message `Generating <target> ... ´"
-      "\n    (followed by a status message of either `done´ or `failed´))"
+      "\n    write the command-text which generates <target> to stdout prior"
+      " to the"
+      "\n    execution of the command (instead of the message `Generating"
+      " <target> ...´"
+      "\n    (followed by a status message of either ` done´ or ` failed´))"
     },
     { "rogen", NULL, do_libgen, 1, 0, false,
       "ROGENCMD", DEFAULT_ROGENCMD, NULL, NULL, NULL,
@@ -341,33 +405,46 @@ struct action_s {
       "\n\nArguments/Options:"
       "\n"
       "\n  rogen"
-      "\n    generate a (new) relocatable object-file (<target>) from a list of"
+      "\n    generate a (new) relocatable object-file (<target>) from a list"
+      " of"
       "\n    relocatable input files"
       "\n"
       "\n  <rogen-commands>"
-      "\n    the command template to be used for constructing the commands which are"
-      "\n    used for generating <target>; instead of supplying <rogen-commands>"
-      "\n    directly, the environment variable `ROGENCMD´ can be used; if `ROGENCMD´"
+      "\n    the command template to be used for constructing the commands"
+      " which are"
+      "\n    used for generating <target>; instead of supplying <rogen-"
+      "commands>"
+      "\n    directly, the environment variable `ROGENCMD´ can be used; if"
+      " `ROGENCMD´"
       "\n    is not defined or empty, `"DEFAULT_ROGENCMD"´ is used instead."
-      "\n    The very first occurrence of `@ARGV´ is replaced by <object-files> (each"
-      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´ occurs in"
-      "\n    <rogen-commands>, <object-files> is appended to <rogen-commands> instead."
-      "\n    In the completed command-template, the symbol `%t´ has a special meaning:"
-      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with the suffix"
+      "\n    The very first occurrence of `@ARGV´ is replaced by <object-"
+      "files> (each"
+      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´"
+      " occurs in"
+      "\n    <rogen-commands>, <object-files> is appended to <rogen-commands>"
+      " instead."
+      "\n    In the completed command-template, the symbol `%t´ has a special"
+      " meaning:"
+      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with"
+      " the suffix"
       "\n        <oldsfx> replaced with <newsfx> in target,"
-      "\n      - any other occurrences ot `%t´ are replaced with an unchanged <target>."
+      "\n      - any other occurrences ot `%t´ are replaced with an unchanged"
+      " <target>."
       "\n"
       "\n  <target>"
       "\n    The name of the relocatable object-file to be generated"
       "\n"
       "\n  <object-files>"
-      "\n    the names of the input files used for generating <target>. There is no"
+      "\n    the names of the input files used for generating <target>. There"
+      " is no"
       "\n    check if the <object-files> are real binary relocatable objects"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    write the command-text which generates <target> to stdout prior to the"
-      "\n    execution of the command (instead of the message `Generating <target> ... ´"
-      "\n    (followed by a status message of either `done´ or `failed´))"
+      "\n    write the command-text which generates <target> to stdout prior"
+      " to the"
+      "\n    execution of the command (instead of the message `Generating"
+      " <target> ...´"
+      "\n    (followed by a status message of either ` done´ or ` failed´))"
     },
     { "sogen", NULL, do_libgen, 1, 0, false,
       "SOGENCMD", DEFAULT_SOGENCMD, NULL, NULL, NULL,
@@ -381,39 +458,52 @@ struct action_s {
       "\n    relocatable input files"
       "\n"
       "\n  <sogen-commands>"
-      "\n    the command template to be used for constructing the commands which are"
-      "\n    used for generating <target>; instead of supplying <sogen-commands>"
-      "\n    directly, the environment variable `SOGENCMD´ can be used; if `SOGENCMD´"
+      "\n    the command template to be used for constructing the commands"
+      " which are"
+      "\n    used for generating <target>; instead of supplying <sogen-"
+      "commands>"
+      "\n    directly, the environment variable `SOGENCMD´ can be used; if"
+      " `SOGENCMD´"
       "\n    is not defined or empty, `"DEFAULT_SOGENCMD"´ is used instead."
-      "\n    The very first occurrence of `@ARGV´ is replaced by <object-files> (each"
-      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´ occurs in"
-      "\n    <sogen-commands>, <object-files> is appended to <sogen-commands> instead."
-      "\n    In the completed command-template, the symbol `%t´ has a special meaning:"
-      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with the suffix"
+      "\n    The very first occurrence of `@ARGV´ is replaced by <object-"
+      "files> (each"
+      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´"
+      " occurs in"
+      "\n    <sogen-commands>, <object-files> is appended to <sogen-commands>"
+      " instead."
+      "\n    In the completed command-template, the symbol `%t´ has a special"
+      " meaning:"
+      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with"
+      " the suffix"
       "\n        <oldsfx> replaced with <newsfx> in target,"
-      "\n      - any other occurrences ot `%t´ are replaced with an unchanged <target>."
+      "\n      - any other occurrences ot `%t´ are replaced with an unchanged"
+      " <target>."
       "\n"
       "\n  <target>"
       "\n    The name of the shared object-file being generated"
       "\n"
       "\n  <object-files>"
-      "\n    the names of the input files used for generating <target>. There is no"
+      "\n    the names of the input files used for generating <target>. There"
+      " is no"
       "\n    check if the <object-files> are real binary relocatable objects"
       "\n"
       "\n  -v (alt: --verbose)"
-      "\n    write the command-text which generates <target> to stdout prior to the"
-      "\n    execution of the command (instead of the message `Generating <target> ... ´"
-      "\n    (followed by a status message of either `done´ or `failed´))"
+      "\n    write the command-text which generates <target> to stdout prior"
+      " to the"
+      "\n    execution of the command (instead of the message `Generating"
+      " <target> ...´"
+      "\n    (followed by a status message of either ` done´ or ` failed´))"
     },
-    { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+    { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL,
+      NULL, NULL, NULL }
 };
 
 /* Module-internal global variable holding the name of the program.
 */
 static char *progname = NULL;
 
-/* Return true if the first argument (string) is a prefix of the second one (or equals
-** the second argument) and false otherwise.
+/* Return true if the first argument (string) is a prefix of the second one
+** (or equals the second argument) and false otherwise.
 */
 static
 bool is_prefix (const char *p, const char *s)
@@ -433,8 +523,8 @@ bool is_lcprefix (const char *p, const char *s)
 }
 #endif
 
-/* Display either the usage message and terminate (exit-code = 0)
-** or an error message concerning the usage and abort the program (exit-code = 64).
+/* Display either the usage message and terminate (exit-code = 0) or an error
+** message concerning the usage and abort the program (exit-code = 64).
 */
 static
 void usage (const char *fmt, ...)
@@ -454,11 +544,13 @@ void usage (const char *fmt, ...)
 		if (act->eq_name && !strcmp (acname, act->eq_name)) { break; }
 	    }
 	    if (!act->pfx_name) {
-		fprintf (stderr, "%s: no topic for `%s´ available\n", progname, acname);
+		fprintf (stderr, "%s: no topic for `%s´ available\n",
+				 progname, acname);
 		exit (64);
 	    }
 	    printf ("Usage: %s ", progname);
-	    printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
+	    printf (act->synopsis, act->pfx_name, act->prog_desc,
+		    act->prog_args);
 	    printf ("%s", act->prog_help);
 	    if (act->display_topics) {
 		for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
@@ -484,8 +576,8 @@ GENERAL_DESC:
 	printf ("\n       %s ", progname);
 	printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
     }
-    printf ("\n\nFor further help issue `%s help <topic>´, where topic is one of\n(",
-	    progname);
+    printf ("\n\nFor further help issue `%s help <topic>´, where topic is"
+	    " one of\n(", progname);
     for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
 	if (ix > 0) { printf (", "); }
 	printf ("%s", act->pfx_name);
@@ -499,7 +591,7 @@ GENERAL_DESC:
 static
 char *sdup (const char *s)
 {
-    char *res = malloc (strlen (s) + 1);
+    char *res = tmalloc (strlen (s) + 1, char);
     if (res) { strcpy (res, s); }
     return res;
 }
@@ -517,7 +609,7 @@ char *conc (const char *s, ...)
 	va_start (rargs, s);
 	while ((el = va_arg (rargs, const char *))) { resl += strlen (el) + 1; }
 	va_end (rargs);
-	if ((res = (char *) malloc (resl))) {
+	if ((res = tmalloc (resl, char))) {
 	    p = res; --p; el = s;
 	    while ((*++p = *el++));
 	    va_start (rargs, s);
@@ -532,19 +624,22 @@ char *conc (const char *s, ...)
 #endif
 
 #if 0
-/* duplicate a string but catch the error, write the corresponding message to stderr and
-** return the (copy of) the string.
+/* Duplicate a string but catch the error, write the corresponding message to
+** stderr and return the (copy of) the string.
 */
 static
 char *x_sdup (const char *s)
 {
     char *res = sdup (s);
-    if (!res) { fprintf (stderr, "%s: %s\n", progname, strerror (errno)); exit (1); }
+    if (!res) {
+	fprintf (stderr, "%s: %s\n", progname, strerror (errno)); exit (1);
+    }
     return res;
 }
 #endif
 
-/* Return true if the argument is either a blank or a TAB-character and false otherwise.
+/* Return true if the argument is either a blank or a TAB-character and false
+** otherwise.
 */
 static
 __inline__ bool isws (char c)
@@ -552,8 +647,8 @@ __inline__ bool isws (char c)
     return (c == ' ' || c == '\t');
 }
 
-/* return true if the argument is neither '\0' nor a blank nor a TAB-character and false
-** otherwise ...
+/* Return true if the argument is neither '\0' nor a blank nor a TAB-character
+** and false otherwise ...
 */
 static
 __inline__ bool nows (char c)
@@ -577,7 +672,7 @@ int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 	if (*p++ == ';') { ix += 2; }
     }
     bufsz = strlen (s) + ix + 1;
-    if (!(buf = malloc (bufsz))) { return -1; }
+    if (!(buf = tmalloc (bufsz, char))) { return -1; }
     r = buf; p = s; ix = 0;
     while ((c = *p++)) {
 	if (isws (c)) {
@@ -616,7 +711,7 @@ int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
     if (word_open) { *r++ = '\0'; word_open = false; }
 
     /* Allocate memory for a command vector ... */
-    if ((rv = malloc ((wc + 1) * sizeof(char *)))) {
+    if ((rv = tmalloc ((wc + 1), char *))) {
 	/* ... and fill it with copies of the strings stored in buffer ... */
 	ix = 0; r = buf;
 	while (wc-- > 0) {
@@ -632,14 +727,14 @@ int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
     /* Free the buffer which was allocated for the command parsing ... */
     free (buf);
 
-    /* If there was a remaining command string (after a `;´) and there is a valid
-    ** return parameter `_rs´ for this string then return this string through this
-    ** parameter ...
+    /* If there was a remaining command string (after a `;´) and there is a
+    ** valid return parameter `_rs´ for this string then return this string
+    ** through this parameter ...
     */
     if (c && _rs) { *_rs = p; }
 
-    /* Return the command vector through the parameter `_out´ and the number of elements
-    ** through `_outlen´ ...
+    /* Return the command vector through the parameter `_out´ and the number
+    ** of elements through `_outlen´ ...
     */
     if (rv) { *_out = rv; *_outlen = ix; return 0; }
 
@@ -684,7 +779,7 @@ char **path_split (const char *path)
     if (*p) { ++vecsz; ressz += strlen (p); }
 
     ressz += (vecsz) * sizeof(char *);
-    if (!(res = (char **) malloc (ressz))) { return res; }
+    if (!(res = tmalloc (ressz, char *))) { return res; }
 
     ix = 0; r = (char *) res + (vecsz) * sizeof(char *);
     p = path; if (*p == '/') { res[ix++] = r; *r++ = '\0'; ++p; }
@@ -706,8 +801,8 @@ static
 int lccmp (const char *l, const char *r)
 {
     int lc, rc;
-    while ((lc = tolower (*l++)) == (rc = tolower (*r++)) && lc && rc);
-    return lc - rc;
+    while ((lc = tolower (*l++)) == (rc = tolower (*r++)) && lc);
+    return (lc&255) - (rc&255);
 }
 #endif
 
@@ -715,11 +810,15 @@ typedef struct { const char *acname, *cfname; int isopt, len; } rcdef_t;
 
 static
 rcdef_t rcdefs[] = {
-    { "compile", "compiler", 0, 8 }, { "compile", "cc", 0, 2 },
-    { "link", "linker", 0, 6 }, { "link", "ld", 0, 2 },
-    { "compile", "compiler_options", 1, 16 }, { "compile", "ccopts", 1, 6 },
+    { "compile", "compiler", 0, 8 },
+    { "compile", "cc", 0, 2 },
+    { "link", "linker", 0, 6 },
+    { "link", "ld", 0, 2 },
+    { "compile", "compiler_options", 1, 16 },
+    { "compile", "ccopts", 1, 6 },
     { "compile", "copts", 1, 5 },
-    { "link", "linker_options", 1, 14 }, { "link", "ldopts", 1, 6 },
+    { "link", "linker_options", 1, 14 },
+    { "link", "ldopts", 1, 6 },
     { "link", "lopts", 1, 5 },
     { NULL, NULL, -1, 0 }
 };
@@ -748,9 +847,10 @@ int get_ident (char *p, char *q, char **_r)
     return 0;
 }
 
-/* Parse a configuration file (returning the names and options for a compiler/linker via
-** the last argument). A return value of -1 indicates an opening failure, 0 a success and
-** a positive value the number of errors found during the parsing process ...
+/* Parse a configuration file (returning the names and options for a compiler/
+** linker via the last argument). A return value of -1 indicates an opening
+** failure, 0 a success and a positive value the number of errors found during
+** the parsing process ...
 */
 static
 int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
@@ -760,6 +860,7 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
     rcdef_t *rcdef;
     cdesc_t out = NULL, o1 = NULL;
     char buf[1024], rem[1024], *p, *q, *v;
+    if (!cgenrc) { return 0; }
     if (!(fp = fopen (cgenrc, "r"))) { return -1; }
     while (fgets (buf, sizeof(buf), fp)) {
 	++lc;
@@ -769,15 +870,18 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 	p = buf; while (isws (*p)) { ++p; }
 	if (!*p || *p == '#') { continue; }
 	if (*p == '=') {
-	    ++errc; fprintf (stderr, "%s(line %d): expecting a cfname\n", cgenrc, lc);
+	    ++errc; fprintf (stderr, "%s(line %d): expecting a cfname\n",
+				     cgenrc, lc);
 	    continue;
 	}
 	if (!(q = strchr (p, '='))) {
-	    ++errc; fprintf (stderr, "%s(line %d): expecting `=´\n", cgenrc, lc);
+	    ++errc; fprintf (stderr, "%s(line %d): expecting `=´\n", cgenrc,
+				     lc);
 	    continue;
 	}
 	if (get_ident (p, q, &q)) {
-	    ++errc; fprintf (stderr, "%s(line %d): invalid identifier\n", cgenrc, lc);
+	    ++errc; fprintf (stderr, "%s(line %d): invalid identifier\n",
+				     cgenrc, lc);
 	    continue;
 	}
 
@@ -788,7 +892,8 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 
 	/* It is an error if the identifier is not in this list ... */
 	if (!rcdef->cfname) {
-	    ++errc; fprintf (stderr, "%s(line %d): invalid variable\n", cgenrc, lc);
+	    ++errc; fprintf (stderr, "%s(line %d): invalid variable\n", cgenrc,
+				     lc);
 	    continue;
 	}
 
@@ -800,21 +905,24 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 	    if (!strcmp (rcdef->acname, out[ix].acname)) { break; }
 	}
 
-	/* If the `acname´-configuration was not already loaded, then generate a
-	** new one ...
+	/* If the `acname´-configuration was not already loaded, then generate
+	** a new one ...
 	*/
 	if (ix >= ndesc) {
 	    if (!(o1 = (cdesc_t) realloc (out, ++ndesc * sizeof(*out)))) {
-		fprintf (stderr, "%s: %s\n", progname, strerror (errno)); exit (1);
+		fprintf (stderr, "%s: %s\n", progname, strerror (errno));
+		exit (1);
 	    }
 	    out = o1;
 	    out[ix].acname = rcdef->acname;
 	}
 
 	/* It is an error if this configuration was already loaded ... */
-	if ((rcdef->isopt && out[ix].popts) || (!rcdef->isopt && out[ix].prog)) {
+	if ((rcdef->isopt && out[ix].popts)
+	||  (!rcdef->isopt && out[ix].prog)) {
 	    ++errc;
-	    fprintf (stderr, "%s(line %d): ambiguous `%s´\n", cgenrc, lc, rcdef->cfname);
+	    fprintf (stderr, "%s(line %d): ambiguous `%s´\n", cgenrc, lc,
+			     rcdef->cfname);
 	    continue;
 	}
 
@@ -831,9 +939,9 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
     }
     fclose (fp);
 
-    /* If the configuration file was correct, the configuration list (and it's length)
-    ** are returned (through the last two parameters); otherwise, release all items
-    ** allocated to this point ...
+    /* If the configuration file was correct, the configuration list (and it's
+    ** length) are returned (through the last two parameters); otherwise,
+    ** release all items allocated to this point ...
     */
     if (errc == 0) {
 	*_out = out; *_outlen = ndesc;
@@ -861,13 +969,18 @@ void print_command (FILE *out, char **cmd)
 	if (!*w) {
 	    fputs ("''", out);
 	} else if (!strpbrk (w, " \t'\"\\`$")) {
-	    /* Keiner der üblichen Verdächtigen ==> Wort kann direkt ausgegeben werden */
+	    /* Keiner der üblichen Verdächtigen ==> Wort kann direkt ausgegeben
+	    ** werden
+	    */
 	    fputs (w, out);
 	} else if (!strpbrk (w, "\"\\`$")) {
-	    /* Kein ", \, ` oder $ ==> Wort kann in " eingeschlossen ausgegeben werden */
+	    /* Kein ", \, ` oder $ ==> Wort kann in " eingeschlossen ausgegeben
+	    ** werden
+	    */
 	    fputc ('"', out); fputs (w, out); fputc ('"', out);
 	} else {
-	    /* ", \, ` oder $ gefunden ==> Wort muß in ' eingeschlossen werden */
+	    /* ", \, ` oder $ gefunden ==> Wort muß in ' eingeschlossen werden
+	    */
 	    for (p = w; *p; ++p) {
 		if (*p == '\'') {
 		    if (p != w) { fputc ('\'', out); }
@@ -884,8 +997,8 @@ void print_command (FILE *out, char **cmd)
     fputs ("\n", out);
 }
 
-/* Write either " failed\n" or " done\n" (depending on the value of `exitstate´) to the
-** specified output channel.
+/* Write either " failed\n" or " done\n" (depending on the value of
+** `exitstate´) to the specified output channel.
 */ 
 static
 void print_exitstate (FILE *out, int exitstate)
@@ -905,8 +1018,8 @@ int rmfile (const char *path, FILE *out)
     return rc;
 }
 
-/* Helper structure for collection sub-directories during the recurvive removal of a
-** directory.
+/* Helper structure for collection sub-directories during the recurvive removal
+** of a directory.
 */
 struct _dlist;
 typedef struct _dlist dlist_s, *dlist_t;
@@ -914,6 +1027,12 @@ struct _dlist {
     dlist_t next;
     char path[1];
 };
+
+static int
+is_dotordotdot (const char*s)
+{
+    return (*s == '.' && (!s[1] || (s[1] == '.' && !s[2])));
+}
 
 /* Remove a directory - including (recursively) all of it' entries.
 */
@@ -929,14 +1048,11 @@ int rmrec (const char *path, FILE *out)
 
     if (!(dp = opendir (path))) { return -1; }
     while ((rc = readdir_r (dp, &de, &dep)) == 0 && dep != NULL) {
-	if (*de.d_name == '.'
-	&&  (de.d_name[1] == '\0' || (de.d_name[1] == '.' && de.d_name[2] == '\0'))) {
-	    continue;
-	}
+	if (is_dotordotdot (de.d_name)) { continue; }
 	pl = strlen (path) + strlen (de.d_name) + 2;
 	if (pl > bsz) {
 	    bsz = pl + 1023; bsz -= bsz % 1024;
-	    if (!(p = realloc (buf, bsz))) { goto ERREXIT; }
+	    if (!(p = (char *) realloc (buf, bsz))) { goto ERREXIT; }
 	    buf = p; 
 	}
 	snprintf (buf, bsz, "%s/%s", path, de.d_name);
@@ -945,7 +1061,7 @@ int rmrec (const char *path, FILE *out)
 	    goto ERREXIT;
 	}
 	if (S_ISDIR (st.st_mode)) {
-	    if (!(ne = malloc (sizeof(dlist_s) + strlen (buf)))) { goto ERREXIT; }
+	    if (!(ne = tsmalloc (dlist_s, strlen (buf)))) { goto ERREXIT; }
 	    ne->next = subdirs; subdirs = ne;
 	    strcpy (ne->path, buf);
 	} else if (rmfile (buf, out)) {
@@ -990,7 +1106,7 @@ static
 char *mycwd()
 {
     size_t bsz = 1024;
-    char *buf = malloc (bsz), *b, *wd;
+    char *buf = tmalloc (bsz, char), *b, *wd;
     if (!buf) { return buf; }
     while (!(wd = getcwd (buf, bsz)) && errno == ERANGE) {
 	bsz += 1024;
@@ -1002,8 +1118,8 @@ char *mycwd()
     return wd;
 }
 
-/* Perform the `clean´-action (directly - not calling an external program for this
-** reason).
+/* Perform the `clean´-action (directly - not calling an external program for
+** this reason).
 */
 static
 int cleanup (FILE *out, int verbose, int nfiles, char **files)
@@ -1075,8 +1191,8 @@ NOSFXSUBST:
 /* Replace each occurrence of `pat´ (except when prefixed with `\´) in `where´
 ** with `subst´.
 */
-static
-char *rplc (const char *pat, const char *where, const char *subst)
+static char
+*rplc (const char *pat, const char *where, const char *subst)
 {
     const char *w; size_t pl = strlen (pat);
     char *res, *r; size_t ressz = 1;
@@ -1094,10 +1210,10 @@ char *rplc (const char *pat, const char *where, const char *subst)
 	}
     }
 
-    /* 2. Allocate enough memory for the result and fill it with `where´ (with each
-    **    occurrence of `pat´ replaced with `subst´) ...
+    /* 2. Allocate enough memory for the result and fill it with `where´ (with
+    **    each occurrence of `pat´ replaced with `subst´) ...
     */
-    if ((res = malloc (ressz))) {
+    if ((res = tmalloc (ressz, char))) {
 	w = where; r = res;
 	while (*w) {
 	    if (*w == '\\' && !strncmp (&w[1], pat, pl)) {
@@ -1113,25 +1229,28 @@ char *rplc (const char *pat, const char *where, const char *subst)
     return res;
 }
 
-/* Generate the command from the program (cmd), the value of the environment variable
-** (envvar) and a list of arguments.
+/* Generate the command from the program (cmd), the value of the environment
+** variable (envvar) and a list of arguments.
 */
-char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *act,
-		const char *target, int argc, char **argv, const char **_nxprog)
+char **gen_cmd (const char *prog, const char *popts, bool split_prog,
+		action_t *act, const char *target, int argc, char **argv,
+		const char **_nxprog)
 {
     int ix, jx, kx, nx, optc = 0, progc = 0, cmdc = 0, aviix, px[2], ac;
     const char *sv, *envval, *nxprog = NULL;
     char **progv = NULL, **optv = NULL, **cmdv = NULL, **pv[2], **av;
 
-    /* Retrieve the "program" to be executed if it was not already specified ...
+    /* Retrieve the "program" to be executed if it was not already
+    ** specified ...
     */
     if (!prog) {
 	/* Try the environment variable for this command first ... */
 	sv = prog; if (act->env_cmd) { prog = getenv (act->env_cmd); }
 	if (!prog || !*prog) { prog = sv; }
-	/* Try the (compiled) default for this command second. Because this default may
-	** contain a complete command template instead of only a program-name, we need to
-	** assume that `split_prog´ was set; in other words: we will set it manually ...
+	/* Try the (compiled) default for this command second. Because this
+	** default may contain a complete command template instead of only a
+	** program-name, we need to assume that `split_prog´ was set; in other
+	** words: we will set it manually ...
 	*/
 	if (!prog || !*prog) { prog = act->default_cmd; split_prog = true; }
 	if (prog && !*prog) { prog = sv; }
@@ -1144,20 +1263,24 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
 	       act->prog_desc, progname);
     }
     if (split_prog) {
-	/* If the `-s´-option was one of the options to `compile´ or `link´ then
-	** split `prog´ into a vector of arguments (e.g. special calling of gcc);
-	** the splitting is done in a shell-alike manner ...
+	/* If the `-s´-option was one of the options to `compile´ or `link´
+	** then split `prog´ into a vector of arguments (e.g. special calling
+	** of gcc); the splitting is done in a shell-alike manner ...
 	*/
 	if (shsplit (prog, &progv, &progc, &nxprog)) { return NULL; }
 
-	/* Increase the number of arguments by the length of the `prog´-vector ... */
-    } else {
-	/* If `split_prog´ was not requested, then allocate a vector with exactly one
-	** element ...
+	/* Increase the number of arguments by the length of the `prog´-
+	** vector ...
 	*/
-	if (!(progv = (char **) malloc (2 * sizeof(char *)))) { return NULL; }
+    } else {
+	/* If `split_prog´ was not requested, then allocate a vector with
+	** exactly one element ...
+	*/
+	if (!(progv = tmalloc (2, char *))) { return NULL; }
 	*progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
-	/* Increase the number of arguments by the length of the `prog´-vector ... */
+	/* Increase the number of arguments by the length of the `prog´-
+	** vector ...
+	*/
 	progc = 1;
     }
     cmdc += progc;
@@ -1172,18 +1295,22 @@ char **gen_cmd (const char *prog, const char *popts, bool split_prog, action_t *
     /* And generate an `options´-vector from this string ... */
     if (envval && *envval) {
 	if (shsplit (envval, &optv, &optc, NULL)) { goto ERREXIT; }
-	/* Increase the number of arguments by the length of the options-vector ... */
+	/* Increase the number of arguments by the length of the options-
+	** vector ...
+	*/
     } else {
-	if (!(optv = (char **) malloc (sizeof (char *)))) { goto ERREXIT; }
+	if (!(optv = tmalloc (1, char *))) { goto ERREXIT; }
 	*optv = NULL; optc = 0;
     }
     cmdc += optc;
 
-    /* Increase the number of arguments by the number of the remaining arguments ... */
+    /* Increase the number of arguments by the number of the remaining
+    ** arguments ...
+    */
     cmdc += argc;
 
     /* Allocate enough memory for the command vector ... */
-    if (!(cmdv = (char **) malloc ((cmdc + 1) * sizeof(char *)))) { goto ERREXIT; }
+    if (!(cmdv = tmalloc (cmdc + 1, char *))) { goto ERREXIT; }
     memset (cmdv, 0, (cmdc + 1) * sizeof(char *));
 
     pv[0] = progv; pv[1] = optv;
@@ -1223,12 +1350,14 @@ NX:
     /* End of the command vector */
     cmdv[ix] = NULL; cmdc = ix;
 
-    /* Empty the `progv´ and `optv´ vectors (as their elements were moved to `cmdv´ ... */
+    /* Empty the `progv´ and `optv´ vectors (as their elements were moved to
+    ** `cmdv´ ...
+    */
     for (jx = 0; jx < progc; ++jx) { progv[jx] = NULL; }
     for (jx = 0; jx < optc; ++jx) { optv[jx] = NULL; }
 
-    /* After the command vector was filled, each argument is modifier by substituting
-    ** each `%t´ with `target´ ...
+    /* After the command vector was filled, each argument is modifier by
+    ** substituting each `%t´ with `target´ ...
     */
     for (jx = 0; jx < ix; ++jx) {
 	char *sv = rplc ("%t", cmdv[jx], target);
@@ -1240,8 +1369,8 @@ NX:
     if (progv) { argv_free (progv); progv = NULL; }
     if (optv) { argv_free (optv); optv = NULL; }
 
-    /* Return the remaining `prog´-cmdline through the `_nxprog´-argument (if this
-    ** argument is valid ...
+    /* Return the remaining `prog´-cmdline through the `_nxprog´-argument (if
+    ** this argument is valid ...
     */
     if (_nxprog) { *_nxprog = nxprog; }
 
@@ -1255,8 +1384,8 @@ ERREXIT:
     return NULL;
 }
 
-/* Check if the argument points to a regular file which is executable for the calling
-** user.
+/* Check if the argument points to a regular file which is executable for the
+** calling user.
 */
 static
 bool is_xfile (const char *path)
@@ -1267,8 +1396,9 @@ bool is_xfile (const char *path)
     return (access (path, X_OK) ? false : true);
 }
 
-/* Return either (a copy of) the argument if this argument is a (relative or absolute)
-** pathname or try to find the argument in the PATH and return it's absolute pathname.
+/* Return either (a copy of) the argument if this argument is a (relative or
+** absolute) pathname or try to find the argument in the PATH and return it's
+** absolute pathname.
 */
 static
 char *which (const char *cmd)
@@ -1312,8 +1442,9 @@ char *which (const char *cmd)
     return res;
 }
 
-/* Perform the requested action (`compile´ or `link´) by executing the corresponding
-** command in a sub-process. Display the output depending on the `verbose´ argument.
+/* Perform the requested action (`compile´ or `link´) by executing the
+** corresponding command in a sub-process. Display the output depending on the
+** `verbose´ argument.
 */
 int spawn (FILE *out, int verbose, bool split_prog,
 	   action_t *act, const char *prog, const char *popts,
@@ -1465,7 +1596,9 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
 	    if (opt[2]) {
 		cf = &opt[2];
 	    } else {
-		if (optx >= argc - 1) { usage ("missing argument for option `-c/-f´"); }
+		if (optx >= argc - 1) {
+		    usage ("missing argument for option `-c/-f´");
+		}
 		cf = argv[++optx];
 	    }
 	    continue;
@@ -1480,9 +1613,11 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
 	usage ("invalid option `%s´", opt);
     }
 
+    if (!cf && access (".cgenrc", F_OK) == 0) { cf = ".cgenrc"; }
     rc = read_cgenrc (cf, &cdesc, &cdesclen);
     if (rc > 0) {
-	fprintf (stderr, "%s: errors in configuration file\n", progname); exit (1);
+	fprintf (stderr, "%s: errors in configuration file\n", progname);
+	exit (1);
     }
     if (cdesc) {
 	for (ix = 0; ix < cdesclen; ++ix) {
@@ -1496,7 +1631,8 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
     check_args (act, argc - optx);
     target = argv[optx++];
     ac = argc - optx; av = &argv[optx];
-    rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av, NULL);
+    rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av,
+		NULL);
     if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
@@ -1523,10 +1659,12 @@ int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     target = argv[optx++];
 
     ac = argc - optx; av = &argv[optx];
-    rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av, &nxprog);
+    rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av,
+		&nxprog);
     while (rc == 0 && nxprog) {
 	prog = nxprog; nxprog = NULL;
-	rc = spawn (stdout, -1, true, act, prog, NULL, target, 0, nullarg, &nxprog);
+	rc = spawn (stdout, -1, true, act, prog, NULL, target, 0, nullarg,
+		    &nxprog);
     }
     if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
@@ -1541,10 +1679,12 @@ int main (int argc, char *argv[])
     char *p, *prog = NULL;
     action_t *act;
 
-    if ((progname = strrchr (argv[0], '/'))) { ++progname; } else { progname = argv[0]; }
+    progname = strrchr (argv[0], '/');
+    if (progname) { ++progname; } else { progname = argv[0]; }
 
     if (argc - 1 < 1) {
-	usage ("missing argument(s); see `%s help´ for more, please!", progname);
+	usage ("missing argument(s); see `%s help´ for more, please!",
+	       progname);
     }
 
     /* Argument: compile=<prog> | link=<prog> | clean | help */
