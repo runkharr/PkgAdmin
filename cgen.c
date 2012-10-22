@@ -120,6 +120,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <dirent.h>
+#include <pwd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -500,7 +501,7 @@ struct action_s {
 
 /* Module-internal global variable holding the name of the program.
 */
-static char *progname = NULL;
+static char *progname = NULL, *progpath = NULL;
 
 /* Return true if the first argument (string) is a prefix of the second one
 ** (or equals the second argument) and false otherwise.
@@ -1121,21 +1122,21 @@ char *mycwd()
 /* Perform the `clean´-action (directly - not calling an external program for
 ** this reason).
 */
-static
-int cleanup (FILE *out, int verbose, int nfiles, char **files)
+static int
+cleanup (FILE *out, const char *wd, int verbose, int nfiles, char **files)
 {
     int rc, errs = 0, ix = 0;
     action_t *act;
-    char *workdir = NULL;
+    //char *workdir = NULL;
     if (verbose < 2) {
-	if (!(workdir = mycwd ())) { return -1; }
+	//if (!(workdir = mycwd ())) { return -1; }
 	for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
 	    if (!strcmp (act->pfx_name, "clean")) { break; }
 	}
 	if (act->pfx_name && verbose) {
-	    fprintf (out, act->short_msg, workdir);
+	    fprintf (out, act->short_msg, wd);
 	}
-	free (workdir); workdir = NULL;
+	//free (workdir); workdir = NULL;
 	for (ix = 0; ix < nfiles; ++ix) {
 	    rc = rmfsentry (files[ix], NULL);
 	    if (rc) { ++errs; }
@@ -1520,7 +1521,7 @@ int do_help (action_t *act, const char *prog, int argc, char **argv)
 static
 int do_clean (action_t *act, const char *prog, int argc, char **argv)
 {
-    int ix;
+    int ix, verbosity;
     bool verbose = false, silent = false;
     char *newdir = NULL;
 
@@ -1576,7 +1577,9 @@ int do_clean (action_t *act, const char *prog, int argc, char **argv)
 			 progname, act->pfx_name, newdir, strerror (errno));
 	exit (1);
     }
-    cleanup (stdout, (verbose ? 2 : (silent ? 0 : 1)), argc - ix, &argv[ix]);
+    if (!newdir) { newdir = "."; }
+    verbosity = (verbose ? 2 : (silent ? 0 : 1));
+    cleanup (stdout, newdir, verbosity, argc - ix, &argv[ix]);
     return 0;
 }
 
@@ -1670,17 +1673,96 @@ int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     return (rc ? 1 : 0);
 }
 
+#if NORMALIZED_PROGPATH
+static void
+normalize_path (const char *in, char **_out)
+{
+    const char *p = in, *r;
+    char *res, *wrk, *q, lastchar;
+    if (!(wrk = (char *) malloc (strlen (in) + 1))) {
+	fprintf (stderr, "%p: %s\n", progname, strerror (errno)); exit (1);
+    }
+    q = wrk; lastchar = '/';
+    while (*p) {
+	r = p;
+	if (*p == '.' && (p == in || lastchar == '/')) {
+	    lastchar = *++p; if (*p == '/' || *p == '\0') { continue; }
+	    if (*p == '.') {
+		lastchar = *++p;
+		if (*p == '/' || *p == '\0') {
+		    if (q != wrk) { --q; while (q != wrk && *--q != '/'); }
+		    if (*q == '/') { ++q; }
+		    continue;
+		}
+	    }
+	    if (q == wrk || *(q - 1) != '/') { *q++ = '/'; }
+	    p = r; while (*p != '\0' && *p != '/') { *q++ = *p++; }
+	    lastchar = *p; if (*p == '/') { *q++ = *p++; }
+	} else if (*p == '/') {
+	    if (p++ == in || lastchar != '/') { lastchar = (*q++ = '/'); }
+	} else {
+	    lastchar = (*q++ = *p++);
+	}
+    }
+    if (q != wrk) { if (*--q != '/') { ++q; } }
+    if (!(res = (char *) malloc ((size_t) (q - wrk) + 1))) {
+	fprintf (stderr, "%p: %s\n", progname, strerror (errno)); exit (1);
+    }
+    memcpy (res, wrk, (size_t) (q - wrk)); res[q - wrk] = '\0';
+    free (wrk);
+    *_out = res;
+}
+
+static char *
+concat (const char *arg0, ...)
+{
+    va_list av0, av1;
+    size_t sz = strlen (arg0) + 1;
+    char *res, *p;
+    const char *arg;
+    va_start (av0, arg0);
+    va_copy (av1, av0);
+    while ((arg = va_arg (av0, char *))) {
+	sz += strlen (arg);
+    }
+    va_end (av0);
+    if ((res = tmalloc (sz, char))) {
+	p = res;
+	strcpy (p, arg0); p += strlen (arg0);
+	while ((arg = va_arg (av1, char *))) {
+	    strcpy (p, arg); p += strlen (arg);
+	}
+    }
+    va_end (av1);
+    return res;
+}
+#endif
+
 /* Main program
 **
 */
 int main (int argc, char *argv[])
 {
     int mode;
-    char *p, *prog = NULL;
+    char *p, *prog = NULL, *cwd;
     action_t *act;
 
-    progname = strrchr (argv[0], '/');
-    if (progname) { ++progname; } else { progname = argv[0]; }
+#if NORMALIZED_PROGPATH
+    if (*argv[0] == '/') {
+	normalize_path (argv[0], &p);
+    } else {
+	cwd = mycwd (); prog = concat (cwd, "/", argv[0], NULL); free (cwd);
+	normalize_path (prog, &p); free (prog); prog = NULL;
+    }
+#else
+    p = argv[0];
+#endif
+    progname = strrchr (p, '/');
+    if (progname) {
+	progpath = p; *progname++ = '\0';
+    } else {
+	progpath = NULL; progname = p;
+    }
 
     if (argc - 1 < 1) {
 	usage ("missing argument(s); see `%s help´ for more, please!",
