@@ -117,7 +117,9 @@ case $1 in
 	if [ $# -lt 2 ]; then
 	    echo "Usage: `basename $0` header <.h-file>" 1>&2; exit 64
 	fi
-	cat >"$cwd/$2" <<-EOT
+	if [ "${2#/}" != "$2" ]; then vhf="$2"; else vhf="$cwd/$2"; fi
+	if [ -e "$vhf" ]; then echo "${prog}: '$vhf' already exists"; exit 1; fi
+	cat >"$vhf" <<-EOT
 		/* version.h
 		**
 		** automatically created file
