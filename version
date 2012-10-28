@@ -12,6 +12,7 @@ fp="${0%/*}/fullpath"
 ppath="`$fp -b1 "$0"`"
 top=`expr "$ppath" : '\(.\+\)/admin'`
 
+cwd=`pwd`
 cd "$top"
 
 usage () {
@@ -116,7 +117,7 @@ case $1 in
 	if [ $# -lt 2 ]; then
 	    echo "Usage: `basename $0` header <.h-file>" 1>&2; exit 64
 	fi
-	cat >$2 <<-EOT
+	cat >"$cwd/$2" <<-EOT
 		/* version.h
 		**
 		** automatically created file
