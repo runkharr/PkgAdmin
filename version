@@ -10,7 +10,7 @@
 prog="$0"
 fp="${0%/*}/fullpath"
 ppath="`$fp -b1 "$0"`"
-top=`expr "$ppath" : '\(.\+\)/admin'`
+top=`echo "$ppath" | sed -e 's|/admin||'`
 
 cwd=`pwd`
 cd "$top"
