@@ -8,10 +8,10 @@
 # Licence: GPL(v2)
 
 PROG=`basename "$0"`
-PPATH=`dirname "$0"`
-top=`expr "$PPATH" : '\(.\+\)/admin'`
+PPATH=$(dirname "$0")
 
-cd "top"
+top=`echo "$PPATH" | sed -e 's|/\?admin$|.|; s|^$|.|'`
+cd "$top"
 
 if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
     cat 1>&2 <<-EOT
