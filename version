@@ -126,12 +126,12 @@ case $1 in
 		** PLEASE DO NOT EDIT!
 		**
 		*/
-		#ifndef _VERSION_H
-		#define _VERSION_H
+		#ifndef VERSION_H
+		#define VERSION_H
 		
 		#define VERSION "${VERSION}"
 		
-		#endif /* defined(_VERSION_H) */
+		#endif /* defined(VERSION_H) */
 		EOT
 	;;
     packagename|pkgname|package|name)
