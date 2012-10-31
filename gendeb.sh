@@ -49,8 +49,8 @@ if [ "$DV" != "$PV" ]; then
     # ... generate the date for the `AUTHOR  DATE'-entry ...
     DT=`unset LANG LC_CTYPE LC_ALL; date -R`
 
-    package="`$top/admin/version packagename`"
-    maintainer="`$top/admin/dcedit -m`"
+    package="`$adm/version packagename`"
+    maintainer="`$adm/dcedit -m`"
     # ... generate the new entry ...
     cat <<-EOT >"${deb_changelog}.new"
 	$package ($DV) unstable; urgency=low
