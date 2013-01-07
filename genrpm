@@ -1,0 +1,63 @@
+#! /bin/sh
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: © 2008, Boris Jakubith <fbj@blinx.de>
+# Licence: GPL(v2)
+
+PROG=$(basename "$0")
+PPATH=$(dirname "$0")
+
+abspath() {
+    local d="$(pwd)"
+    local p="$(echo "$1" | sed -e 's|^\./|'"$d"'/|')"
+    echo "$p" | sed -e 's|^\([^/]\)|'"$d"'/\1|'
+}
+
+top=$(echo "$PPATH" | sed -e 's|/\?admin$||; s|^$|'"$(pwd)"'|')
+cd "$top"
+
+if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
+    echo 1>&2 "${PROG}: you are probably in the wrong context."
+    exit 64
+fi
+
+if [ $# -lt 3 ]; then
+    echo 1>&2 "Usage: ${PROG} sourcefile specfile rpm-topdir"
+    exit 0
+fi
+
+sourcefile="$1"; shift
+if ! [ -f "$sourcefile" ]; then
+    echo 1>&2 "${PROG}: $sourcefile - not found!"; exit 1
+fi
+
+specfile="$1"; shift
+if ! [ -f "$specfile" ]; then
+    echo 1>&2 "${PROG}: $specfile - not found!"; exit 1
+fi
+
+rpmdir="$1"; shift
+if ! mkdir "$rpmdir" 2>/dev/null; then
+    echo 1>&2 "${PROG}: $rpmdir - already exists!"; exit 1
+fi
+mkdir "$rpmdir"/{BUILD,RPMS,SPECS,SRPMS,SOURCES,tmp} || rm -rf "$rpmdir"
+
+cp "$sourcefile" "$rpmdir/SOURCES"
+
+dspec="$rpmdir/SPECS/$(basename "${specfile}")"
+VERSION=$(cat "$top/VERSION")
+sed -e "s|@VERSION@|$VERSION|" <"$specfile" >"$dspec"
+(echo "%_topdir        $top/$rpmdir"
+ echo "%_tmppath       %{_topdir}/tmp"
+ echo "%_buildrootdir  %{_topdir}/tmp"
+ echo "%buildroot      %{_buildrootdir}/%{name}-%{version}-%{release}-root") \
+    >"$rpmdir/macros"
+
+dmacros="$rpmdir/macros"
+rpmbuild --macros="/usr/lib/rpm/macros:$dmacros" -bb "$dspec"
+
+mv $rpmdir/RPMS/$(uname -m)/*.rpm $top
+rm -rf "$rpmdir"
