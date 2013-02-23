@@ -16,7 +16,7 @@ abspath() {
     echo "$p" | sed -e 's|^\([^/]\)|'"$d"'/\1|'
 }
 
-top=$(echo "$PPATH" | sed -e 's|/\?admin$||; s|^$|'"$(pwd)"'|')
+top=$(echo "$PPATH" | sed -e 's|/\?admin$||; s|^\.\?$|'"$(pwd)"'|')
 cd "$top"
 
 if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
