@@ -11,7 +11,7 @@
 **
 ** Synopsis:
 **
-**     uninstall [-d directory] file-path...
+**     uninstall [-d directory] [-q|-v] file-path...
 **
 ** With `-d directory´ any element of `file-path´ which is a relative pathname
 ** (e.g. a pure file-name) is searched below `directory´ and deleted if found;
@@ -26,6 +26,9 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <dirent.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
 
 static int
 dir_is_empty (const char *dir)
@@ -75,9 +78,9 @@ static char *
 conc (char **_res, size_t *_ressz, const char *s0, ...)
 {
     va_list sX, sY;
-    char *res = NULL, *p;
+    char *res = *_res, *p;
     const char *sx;
-    size_t ressz;
+    size_t ressz = *_ressz;
     if (!s0) { return res; }
     ressz = 1 + strlen (s0);
     va_start (sX, s0);
@@ -91,8 +94,11 @@ conc (char **_res, size_t *_ressz, const char *s0, ...)
         *_res = res; *_ressz = ressz;
     }
     p = res;
+fprintf(stderr,"##A0: res = %p, ressz = %ld\n",res,ressz);
+fprintf(stderr,"##A1: s0 = \"%s\"\n",s0);
     p = pbCopy (p, s0);
     while ((sx = va_arg (sY, const char *))) {
+fprintf(stderr,"##A2: p = %p, sx = \"%s\"\n",p,sx);
         p = pbCopy (p, sx);
     }
     return res;
@@ -122,31 +128,66 @@ usage (const char *fmt, ...)
             "\n  -q"
             "\n    don't display error messages. An exit-code != 0 (indicating"
             " errors) is"
-            "\n    returned nonetheless\n",
+            "\n    returned nonetheless"
+	    "\n  -v"
+	    "\n    display each file to be removed (including error"
+	    " messages)\n",
             prog, prog);
     exit (0);
+}
+
+static void
+print_state (const char *file, int verbosity, int rc)
+{
+    if (verbosity >= 2) {
+	if (rc) {
+	    printf (" failed (%s)\n", strerror (errno));
+	} else {
+	    fputs (" done\n", stdout);
+	}
+    } else if (verbosity > 0) {
+	fprintf (stderr, "%s: %s - %s\n", prog, file, strerror (errno));
+    }
+}
+
+static int
+is_directory (const char *path)
+{
+    struct stat sb;
+
+    if (stat (path, &sb) != 0) { return -1; }
+    return (S_ISDIR (sb.st_mode) ? 1 : 0);
 }
 
 int
 main (int argc, char *argv[])
 {
-    int opt, quiet = 0, errcc = 0;
+    int opt, verbosity = 1, errcc = 0, rc;
     char *dirname = NULL;
     char *path = NULL, *file;
     size_t pathsz = 0;
 
     set_prog (argv[0]);
-    while ((opt = getopt (argc, argv, "d:hq")) != -1) {
+    while ((opt = getopt (argc, argv, "d:hqv")) != -1) {
         switch (opt) {
             case 'd':
                 if (dirname) { usage ("ambiguous '-d'-option"); }
                 dirname = optarg;
+		if ((rc = is_directory (dirname)) <= 0) {
+		    if (rc < 0) {
+			usage ("'%s' - %s", dirname, strerror (errno));
+		    }
+		    usage ("'%s' - no directory", dirname);
+		}
                 break;
             case 'h':
                 usage (NULL);
             case 'q':
-                quiet = 1;
+                verbosity = 0;
                 break;
+	    case 'v':
+		++verbosity; if (verbosity > 2) { verbosity = 2; }
+		break;
             default:
                 usage ("invalid option '%s'", argv[optind]);
         }
@@ -160,24 +201,25 @@ main (int argc, char *argv[])
         if (*(file = argv[optind]) == '/' || !dirname) {
             file = conc (&path, &pathsz, file, NULL);
         } else {
+fprintf(stderr,"##B0: path = %p(%ld), |%s|%s|%s|\n",path,pathsz,dirname,"/",file);
             file = conc (&path, &pathsz, dirname, "/", file, NULL);
         }
         if (!file) {
             fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
         }
-        if (unlink (file) == 0) { continue; }
-        ++errcc;
-        if (!quiet) {
-            fprintf (stderr, "%s: %s - %s\n", prog, file, strerror (errno));
-        }
+	if (verbosity >= 2) {
+	    printf ("Removing %s ...", file); fflush (stdout);
+	}
+	
+	if ((rc = unlink (file)) != 0) { ++errcc; }
+	print_state (file, verbosity, rc);
     }
     if (errcc == 0 && dirname && dir_is_empty (dirname)) {
-        if (rmdir (dirname) != 0) {
-            ++errcc;
-            if (!quiet) {
-                fprintf (stderr, "%s: %s - %s\n", prog, file, strerror (errno));
-            }
-        }
+	if (verbosity >= 2) {
+	    printf ("Removing directory %s ...", dirname);
+	}
+	if ((rc = rmdir (dirname)) != 0) { ++errcc; }
+	print_state (dirname, verbosity, rc);
     }
     if (path) { free (path); path = NULL; pathsz = 0; }
     return (errcc > 0 ? 1 : 0);
