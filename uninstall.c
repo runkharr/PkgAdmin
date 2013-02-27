@@ -94,11 +94,8 @@ conc (char **_res, size_t *_ressz, const char *s0, ...)
         *_res = res; *_ressz = ressz;
     }
     p = res;
-fprintf(stderr,"##A0: res = %p, ressz = %ld\n",res,ressz);
-fprintf(stderr,"##A1: s0 = \"%s\"\n",s0);
     p = pbCopy (p, s0);
     while ((sx = va_arg (sY, const char *))) {
-fprintf(stderr,"##A2: p = %p, sx = \"%s\"\n",p,sx);
         p = pbCopy (p, sx);
     }
     return res;
@@ -201,7 +198,6 @@ main (int argc, char *argv[])
         if (*(file = argv[optind]) == '/' || !dirname) {
             file = conc (&path, &pathsz, file, NULL);
         } else {
-fprintf(stderr,"##B0: path = %p(%ld), |%s|%s|%s|\n",path,pathsz,dirname,"/",file);
             file = conc (&path, &pathsz, dirname, "/", file, NULL);
         }
         if (!file) {
