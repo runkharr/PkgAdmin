@@ -11,7 +11,7 @@
 **
 ** Synopsis:
 **
-**     uninstall [-d directory] [-q|-v] file-path...
+**     uninstall [-d|-D directory] [-q|-v] file-path...
 **
 ** With `-d directory´ any element of `file-path´ which is a relative pathname
 ** (e.g. a pure file-name) is searched below `directory´ and deleted if found;
@@ -111,15 +111,17 @@ usage (const char *fmt, ...)
         fputs ("\n", stderr);
         exit (64);
     }
-    printf ("Usage: %s [-d dirname] [-q] file...\n"
+    printf ("Usage: %s [-d|-D dirname] [-q] file...\n"
             "       %s -h\n"
             "\nOptions:"
             "\n  -d dirname"
             "\n    treat relative pathnames in the list 'file...' as being"
             " relative to"
-            "\n    'dirname'; additionally, remove the directory 'dirname'"
-            " if it is empty"
-            "\n    after deleting the last of the specified files"
+            "\n    'dirname'"
+	    "\n  -D dirname"
+	    "\n    same as '-d dirname', but additionally remove the directory"
+	    " 'dirname' if"
+	    "\n    it is empty after deleting the last of the specified files"
             "\n  -h"
             "\n    display this text and terminate\n"
             "\n  -q"
@@ -159,17 +161,18 @@ is_directory (const char *path)
 int
 main (int argc, char *argv[])
 {
-    int opt, verbosity = 1, errcc = 0, rc;
+    int opt, verbosity = 1, errcc = 0, remove_directory = 0, rc;
     char *dirname = NULL;
     char *path = NULL, *file;
     size_t pathsz = 0;
 
     set_prog (argv[0]);
-    while ((opt = getopt (argc, argv, "d:hqv")) != -1) {
+    while ((opt = getopt (argc, argv, "D:d:hqv")) != -1) {
         switch (opt) {
-            case 'd':
-                if (dirname) { usage ("ambiguous '-d'-option"); }
+            case 'd': case 'D':
+                if (dirname) { usage ("ambiguous '-%c'-option", opt); }
                 dirname = optarg;
+		if (opt == 'D') { remove_directory = 1; }
 		if ((rc = is_directory (dirname)) <= 0) {
 		    if (rc < 0) {
 			usage ("'%s' - %s", dirname, strerror (errno));
@@ -210,7 +213,7 @@ main (int argc, char *argv[])
 	if ((rc = unlink (file)) != 0) { ++errcc; }
 	print_state (file, verbosity, rc);
     }
-    if (errcc == 0 && dirname && dir_is_empty (dirname)) {
+    if (errcc == 0 && dirname && dir_is_empty (dirname) && remove_directory) {
 	if (verbosity >= 2) {
 	    printf ("Removing directory %s ...", dirname);
 	}
