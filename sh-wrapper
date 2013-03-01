@@ -61,7 +61,7 @@ done
 if [ -e "$PPATH/run" ] && ! rm -f "$PPATH/run" 2>/dev/null; then
     echo 1>&2 "${PROG}: file '$PPATH/run' is in the way - please remove it!"
 fi
-mv 'run.bin' run
+mv "$PPATH/run.bin" "$PPATH/run"
 
 # Now execute the binary file (under the control of `run´, which fixes it's
 # argv[0] - the program's pathname).
