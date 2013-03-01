@@ -13,7 +13,7 @@
 ** brackets and the tags) are included into the generated file.
 **
 ** Synopsis:
-**    hgen -o outfile template headerfile...
+**    hgen -o outfile template [headerfile...]
 **
 ** If `-o outfile´ is not supplied, the result is written to stdout ...
 **
@@ -186,6 +186,8 @@ static int write_header_file (const char *tfname, const char *ofname,
 	    &&  isateol (p + len)) {
 		fputs ("/* ", out); fputs (ofname, out);
 		p += len; fputs (p, out);
+	    } else {
+		fputs (line, out);
 	    }
 	} else if (lc == 1 && !strncmp (line, "// ", sizeof("// ") - 1)) {
 	    p = &line[sizeof("// ") - 1];
@@ -193,6 +195,8 @@ static int write_header_file (const char *tfname, const char *ofname,
 	    &&  isateol (p + len)) {
 		fputs ("// ", out); fputs (ofname, out);
 		p += strlen (tfname); fputs (p, out);
+	    } else {
+		fputs (line, out);
 	    }
 	} else {
 	    fputs (line, out);
@@ -229,7 +233,7 @@ static void usage (const char *fmt, ...)
 	fputs ("\n", stderr);
 	exit (64);
     }
-    printf ("Usage: %s [-o out-header] header-template header-file...\n"
+    printf ("Usage: %s [-o out-header] header-template [header-file...]\n"
 	    "       %s -h\n"
 	    "\nOptions:"
 	    "\n  -h (alt: -help, --help)"
