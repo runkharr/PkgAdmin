@@ -81,7 +81,7 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
 	    &&  isateol (line + BEGINTAG_LEN)) {
 		if (!tf) {
 		    fprintf (out, "/* From: %s (%d) */\n", infile, lc + 1);
-		    fprintf (out, "#line %d \"%s\"\n", lc, infile);
+		    fprintf (out, "#line %d \"%s\"\n", lc + 1, infile);
 		}
 		tf = 1; continue;
 	    }
