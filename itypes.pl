@@ -13,7 +13,7 @@ unless (@ARGV) {
 
 $file = (shift);
 
-if (system 'cc', "-o$path/itypes", "$path/itypes.c") {
+if (system 'cc', "-o$path/itypes.bin", "$path/itypes.c") {
     print STDERR "$prog: Compilation failed - $!\n"; exit 71;
 }
 
@@ -22,10 +22,10 @@ if ($pid = open FILE, '-|') {
     close FILE;
 } elsif (defined $pid) {
     open STDIN, "<$file" or die "$prog: $file - $!\n";
-    exec "$path/itypes"; die "$prog: $!\n";
+    exec "$path/itypes.bin"; die "$prog: $!\n";
 } else {
     print STDERR "$prog: fork () failed - $!\n"; exit 71;
 }
 
-unlink "$path/itypes";
+unlink "$path/itypes.bin";
 exit 0;
