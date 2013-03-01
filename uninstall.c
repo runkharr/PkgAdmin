@@ -144,6 +144,7 @@ print_state (const char *file, int verbosity, int rc)
 	} else {
 	    fputs (" done\n", stdout);
 	}
+	fflush (stdout);
     } else if (verbosity > 0 && rc != 0) {
 	fprintf (stderr, "%s: %s - %s\n", prog, file, strerror (errno));
     }
@@ -208,7 +209,8 @@ main (int argc, char *argv[])
         }
 	isdir = is_directory (file);
 	if (verbosity >= 2) {
-	    printf ("Removing %s%s ...", (isdir ? " directory" : ""), file);
+	    printf ("Removing%s %s ...",
+		    (isdir ? " directory" : " file"), file);
 	    fflush (stdout);
 	}
 	if (isdir) { rc = rmdir (file); } else { rc = unlink (file); }
@@ -221,6 +223,14 @@ main (int argc, char *argv[])
 	}
 	if ((rc = rmdir (dirname)) != 0) { ++errcc; }
 	print_state (dirname, verbosity, rc);
+    } else if (remove_directory && verbosity >= 2) {
+	printf ("Not removing directory %s", dirname);
+	if (errcc > 0) {
+	    fputs (" (due to previous errors)\n", stdout);
+	} else {
+	    fputs (" (not empty)\n", stdout);
+	}
+	fflush (stdout);
     }
     if (path) { free (path); path = NULL; pathsz = 0; }
     return (errcc > 0 ? 1 : 0);

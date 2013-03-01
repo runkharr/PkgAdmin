@@ -14,20 +14,55 @@
 PROG="${0##*/}"
 PPATH="${0%/*}"; if [ -z "$PATH" ]; then PATH=.; fi
 
+# Being paranoid!
+export PATH; PATH=/usr/local/bin:/usr/pkg/bin:/usr/bin:/bin
+
+# Check if a program named `cc´ (probably the C-compiler) exists.
+# (If `cc´ exists but is no C-compiler, the complete script may fail because
+#  of the wrong calling conventions ...)
 if ! type >/dev/null cc; then
     echo 1>&2 "${PROG}: 'cc' not found - can't continue!"; exit 1
 fi
 
-if [ ! -x "$PPATH/run" -o "$PPATH/run.c" -nt "$PPATH/run" ]; then
-    if ! cc "$PPATH/run.c" -o "$PPATH/run"; then
-        echo 1>&2 "${PROG}: couldn't generate 'run'!"; exit 1
-    fi
-fi
-if [ ! -x "$PPATH/${PROG}.bin" -o "$PPATH/${PROG}.c" -nt "$PPATH/${PROG}.bin" ]
-then
-    if ! cc "$PPATH/${PROG}.c" -o "$PPATH/${PROG}.bin"; then
-        echo 1>&2 "${PROG}: couldn't generate '${PROG}.bin'!"; exit 1
-    fi
-fi
+# Check for two programs and try to (re-)generate them (from the corresponding
+# `.c´ source files) if necessary ...
+for bn in run "$PROG"; do
+    # Shorthands for source and binary file (makes the following less
+    # error-prone) ...
+    cf="$PPATH/$bn.c"; bf="$PPATH/$bn.bin"
 
+    # It is always an error if the source file doesn't exist!
+    if [ ! -f "$cf" ]; then
+	echo 1>&2 "${PROG}: required '$cf' doesn't exist or is no plain file"
+	exit 1
+    fi
+
+    # If the `binary´ file exists but is either not a plain file or not
+    # an executable, delete it.
+    if [ -e "$bf" ] && [ ! -f "$bf" -o ! -x "$bf" ]; then
+	# Deleting a directory is strictly forbidden!
+	if [ -d "$bf" ]; then
+	    echo 1>&2 "${PROG}: target file '$bf' is a directory"; exit 1
+	fi
+	rm -f "$bf"
+    fi
+
+    # If the binary file doesn't exist or is not executable, or if the source
+    # file is newer than the binary file, try to (re-)generate the binary from
+    # the source - using the program `cc´ (probably a C-compiler).
+    if [ ! -x "$bf" -o "$cf" -nt "$bf" ]; then
+	if ! cc "$cf" -o "$bf"; then
+	    echo 1>&2 "${PROG}: couldn't generate '$bf'!"; exit 1
+	fi
+    fi
+done
+
+# This part is simply makeup (renaming `run.bin´ as `run´) ...
+if [ -e "$PPATH/run" ] && ! rm -f "$PPATH/run" 2>/dev/null; then
+    echo 1>&2 "${PROG}: file '$PPATH/run' is in the way - please remove it!"
+fi
+mv 'run.bin' run
+
+# Now execute the binary file (under the control of `run´, which fixes it's
+# argv[0] - the program's pathname).
 exec "$PPATH/run" "$PPATH/${PROG}.bin" as "$PPATH/${PROG}" ${1+"$@"}
