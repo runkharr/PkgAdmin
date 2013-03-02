@@ -30,6 +30,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#define PROG "uninstall"
+
+#include "lib/set_prog.c"
+
+#include "lib/bconc.c"
+
 static int
 dir_is_empty (const char *dir)
 {
@@ -49,56 +55,6 @@ dir_is_empty (const char *dir)
     }
     closedir (dp);
     return cc == 0;
-}
-
-static const char *prog = NULL;
-
-static void
-set_prog (const char *av0)
-{
-    char *b;
-    const char *p;
-    if (!av0) { p = "uninstall"; }
-    else if ((p = strrchr (av0, '/'))) { ++p; } else { p = av0; }
-    if (!(b = malloc (strlen (p) + 1))) {
-        fprintf (stderr, "%s: %s\n", p, strerror (errno)); exit (1);
-    }
-    strcpy (b, p);
-    prog = b;
-}
-
-static char *
-pbCopy (char *d, const char *s)
-{
-    while ((*d++ = *s++));
-    return --d;
-}
-
-static char *
-conc (char **_res, size_t *_ressz, const char *s0, ...)
-{
-    va_list sX, sY;
-    char *res = *_res, *p;
-    const char *sx;
-    size_t ressz = *_ressz;
-    if (!s0) { return res; }
-    ressz = 1 + strlen (s0);
-    va_start (sX, s0);
-    va_copy (sY, sX);
-    while ((sx = va_arg (sX, const char *))) {
-        ressz += strlen (sx);
-    }
-    va_end (sX);
-    if (ressz > *_ressz) {
-        if (!(res = realloc (*_res, ressz))) { return res; }
-        *_res = res; *_ressz = ressz;
-    }
-    p = res;
-    p = pbCopy (p, s0);
-    while ((sx = va_arg (sY, const char *))) {
-        p = pbCopy (p, sx);
-    }
-    return res;
 }
 
 static void
@@ -167,7 +123,7 @@ main (int argc, char *argv[])
     char *path = NULL, *file;
     size_t pathsz = 0;
 
-    set_prog (argv[0]);
+    set_prog (argc, argv);
     while ((opt = getopt (argc, argv, "D:d:hqv")) != -1) {
         switch (opt) {
             case 'd': case 'D':
@@ -200,9 +156,9 @@ main (int argc, char *argv[])
 
     for (; optind < argc; ++optind) {
         if (*(file = argv[optind]) == '/' || !dirname) {
-            file = conc (&path, &pathsz, file, NULL);
+            file = bconc (path, pathsz, file);
         } else {
-            file = conc (&path, &pathsz, dirname, "/", file, NULL);
+            file = bconc (path, pathsz, dirname, "/", file);
         }
         if (!file) {
             fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);

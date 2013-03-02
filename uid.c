@@ -19,7 +19,9 @@
 #include <errno.h>
 #include <stdarg.h>
 
-static char *prog = NULL;
+#define PROG "uid"
+
+#include "lib/set_prog.c"
 
 static void
 usage (const char *fmt, ...)
@@ -67,8 +69,7 @@ int main (int argc, char *argv[])
     uid_t uid;
     gid_t gid;
 
-    prog = strrchr (argv[0], '/');
-    if (prog) { ++prog; } else { prog = argv[0]; }
+    set_prog (argc, argv);
 
     cmd = cmdnum (prog);
     if (argc > 1 && *argv[1] != '-') {
