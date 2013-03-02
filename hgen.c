@@ -45,17 +45,7 @@ static int isateol (const char *s)
     return 0;
 }
 
-static int haseol (const char *s)
-{
-    const char *p = s + strlen (s);
-    if (p == s) { return 0; }
-    if (*--p == '\r') { return 2; }
-    if (*p == '\n') {
-	if (p > s && *--p == '\r') { return 3; }
-	return 1;
-    }
-    return 0;
-}
+#include "lib/haseol.c"
 
 #define BEGINTAG "/*##EXPORT##*/"
 #define BEGINTAG_LEN (sizeof(BEGINTAG) - 1)
@@ -122,12 +112,7 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
 #define LMAX NAME_MAX
 #endif
 
-static const char *bn (const char *filename)
-{
-    const char *res = strrchr (filename, '/');
-    if (res) { ++res; } else { res = filename; }
-    return res;
-}
+#include "lib/bn.c"
 
 static char *find_file (const char *file, int filesc, char *files[])
 {

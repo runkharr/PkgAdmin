@@ -824,19 +824,7 @@ rcdef_t rcdefs[] = {
     { NULL, NULL, -1, 0 }
 };
 
-static
-int cuteol (char *buf)
-{
-    char *p = &buf[strlen (buf)];
-    if (p > buf) {
-	if (*--p == '\r') { *p = '\0'; return 1; }
-	if (*p == '\n') {
-	    *p = '\0'; if (p > buf && *--p == '\r') { *p = '\0'; return 3; }
-	    return 2;
-	}
-    }
-    return 0;
-}
+#include "lib/cuteol.c"
 
 static
 int get_ident (char *p, char *q, char **_r)
