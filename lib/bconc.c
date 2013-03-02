@@ -19,7 +19,9 @@
 
 #include "lib/pbCopy.c"
 
-static char *bconc (char **_res, size_t *_ressz, const char *s0, ...)
+#define bconc(res, ressz, ...) (_bconc (&(res), &(ressz), __VA_ARGS__, NULL))
+
+static char *_bconc (char **_res, size_t *_ressz, const char *s0, ...)
 {
     va_list sX, sY;
     char *res = *_res, *p;
