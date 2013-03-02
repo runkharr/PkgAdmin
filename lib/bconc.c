@@ -21,29 +21,32 @@
 
 #define bconc(res, ressz, ...) (_bconc (&(res), &(ressz), __VA_ARGS__, NULL))
 
-static char *_bconc (char **_res, size_t *_ressz, const char *s0, ...)
+static char *_bconc (char **_res, size_t *_ressz, ...)
 {
+    int sc = 0;
     va_list sX, sY;
     char *res = *_res, *p;
     const char *sx;
-    size_t ressz = *_ressz;
-    if (!s0) { return res; }
-    ressz = 1 + strlen (s0);
-    va_start (sX, s0);
+    size_t ressz = *_ressz, reslen = 1;
+    va_start (sX, _ressz);
     va_copy (sY, sX);
     while ((sx = va_arg (sX, const char *))) {
-        ressz += strlen (sx);
+        reslen += strlen (sx); ++sc;
     }
     va_end (sX);
-    if (ressz > *_ressz) {
-        if (!(res = realloc (*_res, ressz))) { return res; }
+    if (!res) { ressz = 0; }
+    if (reslen > *_ressz) {
+	ressz = reslen + 128; ressz -= (ressz% 128);
+        if (!(res = realloc (*_res, ressz))) {
+	    free (*_res); *_res = NULL; *_ressz = 0; return res;
+	}
         *_res = res; *_ressz = ressz;
     }
     p = res;
-    p = pbCopy (p, s0);
     while ((sx = va_arg (sY, const char *))) {
         p = pbCopy (p, sx);
     }
+    *p = '\0';
     return res;
 }
 
