@@ -24,88 +24,14 @@
 
 #include <sys/types.h>
 
-#include "lib/prog.c"
+#define PROG "install"
 
+#include "lib/set_prog.c"
 #include "lib/lprefix.c"
-
 #include "lib/cuteol.c"
-
-static int vfask (FILE *in, FILE *out, int defaultans, const char *prompt,
-		  va_list fpa)
-{
-    int answer, waseol;
-    char ans[128], *p, *q;
-    va_list fpa1;
-    if (!isatty (fileno (in)) || !isatty (fileno (out))) {
-	errno = EINVAL; return -1;
-    }
-    for (;;) {
-	va_copy (fpa1, fpa); vfprintf (out, prompt, fpa); va_end (fpa1);
-	if (defaultans > 0) {
-	    fputs (" (Y/n)? ", out);
-	} else if (defaultans == 0) {
-	    fputs (" (y/N)? ", out);
-	} else {
-	    fputs (" (y/n)? ", out);
-	}
-	fflush (out);
-	if (!fgets (ans, sizeof(ans), in)) {
-	    fputs ("<EOF>\n", out); fflush (out); return -1;
-	}
-	waseol = cuteol (ans);
-	p = ans; while (isblank (*p)) { ++p; }
-	q = p + strlen (p);
-	while (q > p && isblank (*--q)) { *q = '\0'; }
-	if (q == p) {
-	    answer = (defaultans > 0 ? +1 : (defaultans == 0 ? 0 : -1));
-	} else if (is_lprefix (p, "yes") || is_lprefix (p, "ja")) {
-	    answer = +1;
-	} else if (is_lprefix (p, "no") || is_lprefix (p, "nein")) {
-	    answer = 0;
-	} else {
-	    answer = -1;
-	}
-	if (answer >= 0) { break; }
-	fputs ("*** Wrong answer. Please answer only with (a prefix of)\n"
-	       "    'yes' ('ja') or 'no' ('nein')!\n", out);
-    }
-    return answer;
-}
-
-static int fask (FILE *in, FILE *out, int defaultans, const char *prompt, ...)
-{
-    int res;
-    va_list fpa;
-    va_start (fpa, prompt);
-    res = vfask (in, out, defaultans, prompt, fpa);
-    va_end (fpa);
-    return res;
-}
-
-static int ask (int defaultans, const char *prompt, ...)
-{
-    int res;
-    va_list fpa;
-    va_start (fpa, prompt);
-    res = vfask (stdin, stdout, defaultans, prompt, fpa);
-    va_end (fpa);
-    return res;
-}
-
-static void set_prog (int argc, char *argv[])
-{
-    if (argc < 1) {
-	prog = "install";
-    } else if (!argv || !argv[0]) {
-	prog = "install";
-    } else if ((prog = strrchr (argv[0], '/'))) {
-	++prog;
-    } else {
-	prog = argv[0];
-    }
-}
-
 #include "lib/append.c"
+#include "lib/err.c"
+#include "lib/ask.c"
 
 static int is_regfile (const char *path)
 {
@@ -146,8 +72,6 @@ static char *which (const char *file)
 	return NULL;
     }
 }
-
-#include "lib/err.c"
 
 static void usage (const char *fmt, ...)
 {
