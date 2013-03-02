@@ -26,7 +26,7 @@
 **
 ** and respectively
 **
-**    append (buf, bufsz, where, what)	/* what being a \0-terminated string */
+**    append (buf, bufsz, where, what)	// what being a \0-terminated string
 **
 ** ...
 **
@@ -38,15 +38,15 @@
 #include <string.h>
 #include <errno.h>
 
-#define lappend (buf, bufsz, s, l) (_lappend (&(buf), &(bufsz), (s), (l)))
-#define append (buf, bufsz, s) (_lappend (&(buf), &(bufsz), (s), strlen ((s))))
+#define lappend(buf, bufsz, p, s, l) \
+    (_lappend (&(buf), &(bufsz), (p), (s), (l)))
+#define append(buf, bufsz, p, s) \
+    (_lappend (&(buf), &(bufsz), (p), (s), strlen ((s))))
 
 static
-char *_lappend (char **_res, size_t *_ressz, char *p const char *s, size_t l)
+char *_lappend (char **_res, size_t *_ressz, char *p, const char *s, size_t l)
 {
-    va_list sX, sY;
     char *res = *_res;
-    const char *sx;
     size_t ressz = *_ressz, px = 0;
     if (res) {
 	if (p < res || p >= res + ressz) { errno = EINVAL; return NULL; }
