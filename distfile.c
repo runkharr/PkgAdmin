@@ -81,35 +81,11 @@ static const char *def_packtpls[] = {
 #define __inline__
 #endif
 
-static __inline__ int isws (int c)
-{
-    return (c == ' ' || c == '\t');
-}
+#include "lib/isws.c"
 
-static __inline__ int nows (int c)
-{
-    return (c != '\0' && c != ' ' && c != '\t');
-}
+#include "lib/nows.c"
 
-/* Cut the end of line chars from the supplied string and return a number
-** which tells which type of end of line was found (0 = no EOL, 1 = *nix EOL,
-** 2 = MacOS EOL, 3 = DOS/Windows EOL) ...
-*/
-int cuteol (char *l)
-{
-    char *p = l + strlen (l);
-    if (l == p) { return 0; }
-    if (*--p == '\r') { *p = '\0'; return 2; }
-    if (*p == '\n') {
-	if (l != p) {
-	    if (*--p == '\r') { *p = '\0'; return 3; }
-	    ++p;
-	}
-	*p = '\0';
-	return 1;
-    }
-    return 0;
-}
+#include "lib/cuteol.c"
 
 /* Read a line from a file. The buffer for this line is supplied as
 ** (reference-)arguments `_line' and `_linesz' and will eventually

@@ -92,12 +92,11 @@ static struct rsz *outtypes[] = {
     out_utypes, out_stypes, NULL
 };
 
-static const char *prog = NULL;
+#define PROG "itypes"
 
-static int isws (int c)
-{
-    return (c == ' ') || (c == '\t');
-}
+#include "lib/set_prog.c"
+
+#include "lib/isws.c"
 
 static int wstart (const char *p, const char *s)
 {
@@ -214,19 +213,6 @@ static int prepare_tables (void)
         }
     }
     return errs;
-}
-
-static void set_prog (int argc, char *argv[])
-{
-    if (argc < 1) {
-        prog = "itypes";
-    } else if (!argv || !argv[0]) {
-        prog = "itypes";
-    } else if ((prog = strrchr (argv[0], '/'))) {
-        ++prog;
-    } else {
-        prog = argv[0];
-    }
 }
 
 static void usage (void)

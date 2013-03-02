@@ -639,23 +639,9 @@ char *x_sdup (const char *s)
 }
 #endif
 
-/* Return true if the argument is either a blank or a TAB-character and false
-** otherwise.
-*/
-static
-__inline__ bool isws (char c)
-{
-    return (c == ' ' || c == '\t');
-}
+#include "lib/isws.c"
 
-/* Return true if the argument is neither '\0' nor a blank nor a TAB-character
-** and false otherwise ...
-*/
-static
-__inline__ bool nows (char c)
-{
-    return (c != '\0' && c != ' ' && c != '\t');
-}
+#include "lib/nows.c"
 
 /* Split a string into a vector of strings using shell-alike word-detection.
 */

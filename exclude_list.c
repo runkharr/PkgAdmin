@@ -26,48 +26,17 @@
 #define LSZ_INITIAL 1024
 #define LSZ_INCREASE 1024
 
-#define t_alloc(t, n) ((t *) malloc ((n) * sizeof(t)))
-#define t_realloc(t, p, n) ((t *) realloc ((p), (n) * sizeof(t)))
-#define cfree(p) do { \
-    void **q = &(p); \
-    if (*q) { free (*q); *q = 0; } \
-} while (0)
+#include "lib/mrmacs.c"
 
-static char *prog = 0;
+#define PROG "exclude_list"
 
-#ifndef __GNUC__
-#define __inline__
-#endif
+#include "lib/store_prog.c"
 
-static __inline__ int isws (int c)
-{
-    return (c == ' ' || c == '\t');
-}
+#include "lib/isws.c"
 
-static __inline__ int nows (int c)
-{
-    return (c != '\0' && c != ' ' && c != '\t');
-}
+#include "lib/nows.c"
 
-/* Cut the end of line chars from the supplied string and return a number
-** which tells which type of end of line was found (0 = no EOL, 1 = *nix EOL,
-** 2 = MacOS EOL, 3 = DOS/Windows EOL) ...
-*/
-int cuteol (char *l)
-{
-    char *p = l + strlen (l);
-    if (l == p) { return 0; }
-    if (*--p == '\r') { *p = '\0'; return 2; }
-    if (*p == '\n') {
-	if (l != p) {
-	    if (*--p == '\r') { *p = '\0'; return 3; }
-	    ++p;
-	}
-	*p = '\0';
-	return 1;
-    }
-    return 0;
-}
+#include "lib/cuteol.c"
 
 /* Read a line from a file. The buffer for this line is supplied as
 ** (reference-)arguments `_line' and `_linesz' and will eventually
@@ -100,17 +69,6 @@ int my_getline (FILE *in, char **_line, size_t *_linesz)
 /*    if (p == line && *p == '\0') { return -1; }*/
     *_line = line; *_linesz = linesz;
     return (size_t) (p - line);
-}
-
-static void store_prog (char *argv[])
-{
-    char *p = strrchr (argv[0], '/');
-    if (p) { ++p; } else { p = argv[0]; }
-    if (prog) { cfree (prog); }
-    if (!(prog = t_alloc (char, strlen (p) + 1))) {
-	fprintf (stderr, "%s: %s\n", p, strerror (errno)); exit (1);
-    }
-    strcpy (prog, p);
 }
 
 static void usage (void)

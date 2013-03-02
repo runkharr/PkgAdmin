@@ -26,12 +26,13 @@
 #include <stdarg.h>
 #include <limits.h>
 
-static const char *prog = NULL;
+#define PROG "hgen"
 
-static int isws (int c)
-{
-    return (c == '\t') || (c == ' ');
-}
+#include "lib/set_prog.c"
+
+#include "lib/isws.c"
+
+#include "lib/haseol.c"
 
 static int isateol (const char *s)
 {
@@ -44,8 +45,6 @@ static int isateol (const char *s)
     }
     return 0;
 }
-
-#include "lib/haseol.c"
 
 #define BEGINTAG "/*##EXPORT##*/"
 #define BEGINTAG_LEN (sizeof(BEGINTAG) - 1)
@@ -195,19 +194,6 @@ static int write_header_file (const char *tfname, const char *ofname,
     }
     fclose(tf);
     return errs;
-}
-
-static void set_prog (int argc, char *argv[])
-{
-    if (argc < 1) {
-	prog = "hgen";
-    } else if (!argv || !argv[0]) {
-	prog = "hgen";
-    } else if ((prog = strrchr (argv[0], '/'))) {
-	++prog;
-    } else {
-	prog = argv[0];
-    }
 }
 
 static void usage (const char *fmt, ...)
