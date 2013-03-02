@@ -23,11 +23,12 @@
 
 static int cuteol (char *s)
 {
-    char *p = s + strlen (s);
+    char *p = s - 1;
+    while (*++p);
     if (p == s) { return 0; }
     if (*--p == '\r') { *p = '\0'; return 2; }
     if (*p == '\n') {
-	*p = '\0' if (p > s && *--p == '\r') { *p = '\0'; return 3; }
+	*p = '\0'; if (p > s && *--p == '\r') { *p = '\0'; return 3; }
 	return 1;
     }
     return 0;
