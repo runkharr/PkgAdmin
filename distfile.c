@@ -51,8 +51,6 @@ static void distfile_cfree (void *p)
 #define cfree(p) (distfile_cfree (&(p)))
 #endif
 
-static char *prog = 0, *progpath = 0;
-
 static const char *src_excludes = ".srcdist-excludes";
 static const char *bin_excludes = ".bindist-excludes";
 
@@ -120,27 +118,9 @@ int my_getline (FILE *in, char **_line, size_t *_linesz)
     return (size_t) (p - line);
 }
 
-static char *x_strdup (const char *s)
-{
-    char *res = t_allocv (char, strlen (s) + 1);
-    if (!res) {
-	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-    }
-    strcpy (res, s);
-    return res;
-}
+#include "lib/x_strdup.c"
 
-static void store_prog (char *argv[])
-{
-    char *p = strrchr (argv[0], '/');
-    if (p) { ++p; } else { p = argv[0]; }
-    cfree (prog); /*if (prog) { cfree (prog); }*/
-    if (!(prog = t_allocv (char, strlen (p) + 1))) {
-	fprintf (stderr, "%s: %s\n", p, strerror (errno)); exit (1);
-    }
-    strcpy (prog, p);
-    progpath = x_strdup (argv[0]);
-}
+#include "lib/store_progpath.c"
 
 static void usage (const char *fmt, ...)
 {
@@ -1506,7 +1486,7 @@ int main (int argc, char *argv[])
     char *mname, *instcmd = NULL, *packcmd = NULL, *newdir = NULL;
     char *pkgname = NULL, *clupcmd = NULL, *ipfx = NULL, *psfx = NULL;
     rxlist_t exclude_pats = NULL;
-    store_prog (argv);
+    store_progpath (argv);
     if (argc < 2) { usage (NULL); }
     /* get the `-c', `-h', `-i', `-p', `-V' and `-x' options */
     while ((opt = getopt (argc, argv, "+c:hi:p:Vx:")) != -1) {
