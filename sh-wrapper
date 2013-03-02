@@ -51,7 +51,7 @@ for bn in run "$PROG"; do
     # file is newer than the binary file, try to (re-)generate the binary from
     # the source - using the program `cc´ (probably a C-compiler).
     if [ ! -x "$bf" -o "$cf" -nt "$bf" ]; then
-	if ! cc "$cf" -o "$bf"; then
+	if ! cc -I"$PPATH" "$cf" -o "$bf"; then
 	    echo 1>&2 "${PROG}: couldn't generate '$bf'!"; exit 1
 	fi
     fi
