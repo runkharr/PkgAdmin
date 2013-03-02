@@ -14,11 +14,13 @@
 #ifndef STORE_PROG_C
 #define STORE_PROG_C
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "lib/mrmacs.c"
-#include "lib/prog.c"
+#include "lib/vprog.c"
 
 static void store_prog (char *argv[])
 {
