@@ -48,7 +48,8 @@ static int isateol (const char *s)
 static int haseol (const char *s)
 {
     const char *p = s + strlen (s);
-    if (p > s && *--p == '\r') { return 2; }
+    if (p == s) { return 0; }
+    if (*--p == '\r') { return 2; }
     if (*p == '\n') {
 	if (p > s && *--p == '\r') { return 3; }
 	return 1;
