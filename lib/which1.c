@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 
 #include "lib/mrmacs.c"
+#include "lib/check_ptr.c"
 
 static const char *which (const char *cmd)
 {
