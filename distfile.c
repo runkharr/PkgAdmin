@@ -34,22 +34,12 @@
 #define LSZ_INITIAL 1024
 #define LSZ_INCREASE 1024
 
-#define t_allocv(t, n) ((t *) malloc ((n) * sizeof(t)))
-#define t_allocp(t, n) ((t *) malloc (sizeof(t) + (n)))
-#define t_realloc(t, p, n) ((t *) realloc ((p), (n) * sizeof(t)))
-#ifdef __cplusplus
-static void cfree (void *&p)
-{
-    if (p) { free (p); p = NULL; }
-}
-#else
-static void distfile_cfree (void *p)
-{
-    void **_q = (void **) p;
-    if (*_q) { free (*_q); *_q = NULL; }
-}
-#define cfree(p) (distfile_cfree (&(p)))
-#endif
+#include "lib/gnu-inline.c"
+#include "lib/mrmacs.c"
+#include "lib/isws.c"
+#include "lib/cuteol.c"
+#include "lib/x_strdup.c"
+#include "lib/store_progpath.c"
 
 static const char *src_excludes = ".srcdist-excludes";
 static const char *bin_excludes = ".bindist-excludes";
@@ -74,16 +64,6 @@ static const char *def_packtpls[] = {
     "%p%s.tar.gz\tzip -9r '%p%s.zip' '%p'",
     NULL
 };
-
-#ifndef __GNUC__
-#define __inline__
-#endif
-
-#include "lib/isws.c"
-
-#include "lib/nows.c"
-
-#include "lib/cuteol.c"
 
 /* Read a line from a file. The buffer for this line is supplied as
 ** (reference-)arguments `_line' and `_linesz' and will eventually
@@ -117,10 +97,6 @@ int my_getline (FILE *in, char **_line, size_t *_linesz)
     *_line = line; *_linesz = linesz;
     return (size_t) (p - line);
 }
-
-#include "lib/x_strdup.c"
-
-#include "lib/store_progpath.c"
 
 static void usage (const char *fmt, ...)
 {
@@ -475,6 +451,7 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
 {
     int errcnt = 0;
     FILE *file;
+    const char *fn;
     char *line = 0, *buf = 0, *p;
     size_t linesz = 0, bufsz = 0;
     rxlist_t first = 0, last = 0;
@@ -501,8 +478,8 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
     }
 
     /* Add the filename-patterns from a hard-coded file, too ... */
-    p = "admin/excludes";
-    if ((file = fopen (p, "rb"))) {
+    fn = "admin/excludes";
+    if ((file = fopen (fn, "rb"))) {
 	while (my_getline (file, &line, &linesz) >= 0) {
 	    p = line; while (isws (*p)) { ++p; }
 	    if (*p == '\0' || *p == '#') { continue; }
@@ -854,7 +831,7 @@ static int icopy_file (const char *src, const char *dst)
 	if (!(sfp = fopen (src, "rb"))) { return -1; }
 	if (!(dfp = fopen (dst, "wb"))) { fclose (sfp); return -1; }
 	while ((rlen = fread (buf, 1, sizeof(buf), sfp)) > 0) {
-	    if (fwrite (buf, 1, (size_t) rlen, dfp) != rlen) {
+	    if (fwrite (buf, 1, (size_t) rlen, dfp) != (size_t) rlen) {
 		done = 0; break;
 	    }
 	}
@@ -1181,8 +1158,12 @@ static int remove_packdir (const char *packdir)
 ** but only if the `packcmd´-template has the format "package_name\tpackcmd"
 ** ...
 */
-static int gen_srcdist (rxlist_t exclude_pats, char *cleanupcmd, char *packcmd,
-			char *suffix, char *newdir, char **_package)
+static int gen_srcdist (rxlist_t exclude_pats,
+			const char *cleanupcmd,
+			const char *packcmd,
+			const char *suffix,
+			const char *newdir,
+			char **_package)
 {
     int rc;
     char *packdir, *buf = NULL, *package = NULL;
@@ -1387,11 +1368,11 @@ ERROR:
 }
 
 static int gen_bindist (rxlist_t exclude_pats,
-			char *instcmd,
-			char *packcmd,
-			char *instpfx,
-			char *suffix,
-			char *newdir,
+			const char *instcmd,
+			const char *packcmd,
+			const char *instpfx,
+			const char *suffix,
+			const char *newdir,
 			char **_package)
 {
     int rc;
@@ -1484,7 +1465,8 @@ int main (int argc, char *argv[])
     int mode = -1, opt;
     const char *exclude_file = 0;
     char *mname, *instcmd = NULL, *packcmd = NULL, *newdir = NULL;
-    char *pkgname = NULL, *clupcmd = NULL, *ipfx = NULL, *psfx = NULL;
+    char *pkgname = NULL, *clupcmd = NULL, *ipfx = NULL;
+    const char *psfx = NULL;
     rxlist_t exclude_pats = NULL;
     store_progpath (argv);
     if (argc < 2) { usage (NULL); }

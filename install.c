@@ -21,57 +21,22 @@
 #include <pwd.h>
 #include <grp.h>
 #include <signal.h>
+#include <fcntl.h>
 
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #define PROG "install"
 
+#include "lib/mrmacs.c"
 #include "lib/set_prog.c"
 #include "lib/lprefix.c"
 #include "lib/cuteol.c"
 #include "lib/append.c"
 #include "lib/err.c"
 #include "lib/ask.c"
-
-static int is_regfile (const char *path)
-{
-    struct stat sb;
-    if (stat (path, &sb)) { return -1; }
-    return (S_ISREG(sb.st_mode) ? 1 : 0);
-}
-
-static char *which (const char *file)
-{
-    struct stat sb;
-    if (strchr (file, '/')) {
-	if (is_regfile (file) <= 0 || access (file, X_OK) < 0) { return NULL; }
-	return strdup (file);
-    } else {
-	char *buf = NULL, *bp, *p, *q, *PATH, *res;
-	size_t bufsz = 0;
-	if (!(PATH = getenv ("PATH"))) { errno = ENOENT; return NULL; }
-	p = PATH;
-	while ((q = strchr (p, ':'))) {
-	    if (!(bp = lappend (buf, bufsz, NULL, p, (q - p)))) { return NULL; }
-	    if (!(bp = append (buf, bufsz, bp, "/"))) { return NULL; }
-	    if (!(bp = append (buf, bufsz, bp, file))) { return NULL; }
-	    if (is_regfile (buf) > 0 && access (file, X_OK) == 0) {
-		res = strdup (buf); free (buf); return res;
-	    }
-	    p = q + 1;
-	}
-	if (*p) {
-	    if (!(bp = append (buf, bufsz, NULL, p))) { return NULL; }
-	    if (!(bp = append (buf, bufsz, bp, "/"))) { return NULL; }
-	    if (!(bp = append (buf, bufsz, bp, file))) { return NULL; }
-	    if (is_regfile (buf) > 0 && access (file, X_OK) == 0) {
-		res = strdup (buf); free (buf); return res;
-	    }
-	}
-	free (buf); errno = ENOENT;
-	return NULL;
-    }
-}
+#include "lib/regfile.c"
+#include "lib/which2.c"
 
 static void usage (const char *fmt, ...)
 {
@@ -175,17 +140,26 @@ static int getgroup (const char *group)
     return -1;
 }
 
+static int
+install_directory (int query, int strip, int verbose, int compress,
+		   const char *mode, const char *user, const char *group,
+		   const char *stripcmd, const char *gzipcmd,
+		   int filesc, char **files);
+
+static int
+install_files (int query, int strip, int verbose, int compress,
+	       const char *mode, const char *user, const char *group,
+	       const char *stripcmd, const char *gzipcmd,
+	       int filesc, char **files);
+
 int main (int argc, char *argv[])
 {
     int rc, opt, query = 0, strip = 0, verbose = 0, compress = 0, dirmode;
-    char *mode = NULL, *user = NULL, *group = NULL, *tgt = NULL;
+    char *mode = NULL, *user = NULL, *group = NULL;
     char *gzipcmd = NULL, *stripcmd = NULL;
 
     set_prog (argc, argv);
 
-    if (!(gzip = which ("gzip")) && errno != ENOENT) {
-	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-    }
     opterr = 0;
     while ((opt = getopt (argc, argv, "+:Qcdg:hm:o:qsvz")) != -1) {
 	switch (opt) {
@@ -217,7 +191,7 @@ int main (int argc, char *argv[])
 		}
 		strip = 1; break;
 	    case 'v':  verbose = 1; break;
-	    case 'z';
+	    case 'z':
 		if (!gzipcmd && !(gzipcmd = which ("gzip"))) {
 		    usage ("option '-z' not available; check if the 'gzip'"
 			   " program is installed!");
@@ -239,36 +213,83 @@ int main (int argc, char *argv[])
     return rc;
 }
 
-static int install_directory (int query, int strip, int verbose, int compress,
-			      const char *mode, const char *user,
-			      const char *group, const char *stripcmd,
-			      const char *gzipcmd, int filesc, char **files)
+static int
+install_directory (int query, int strip, int verbose, int compress,
+		   const char *mode, const char *user, const char *group,
+		   const char *stripcmd, const char *gzipcmd,
+		   int filesc, char **files)
 {
-    uid_t uid = -1;
-    gid_t gid = -1;
-    int mode = -1, rc, ix;
-    char *path = NULL, *bp, *p;
-    size_t bufsz = 0;
+    uid_t uid = geteuid ();
+    gid_t gid = getegid ();
+    int pmask = 0755, rc, ix;
+    char *path = NULL, *p;
+    size_t pathsz = 0;
+    struct stat sb;
     if (strip) {
 	usage ("option '-s' is invalid when installing a directory");
     }
     if (compress) {
 	usage ("option '-z' is invalid when installing a directory");
     }
-    if (mode && (mode = getmode (mode)) < 0) {
+    if (mode && (pmask = getmode (mode)) < 0) {
 	usage ("invalid '-m mode' value");
     }
     if (user) {
-	if ((rc = getuser (user)) < 0) { user ("invalid '-u user' value"); }
+	if ((rc = getuser (user)) < 0) { usage ("invalid '-u user' value"); }
 	uid = (uid_t) rc;
     }
     if (group) {
-	if ((rc = getgroup (group)) < 0) { user ("invalid '-g group' value"); }
+	if ((rc = getgroup (group)) < 0) { usage ("invalid '-g group' value"); }
 	gid = (gid_t) rc;
     }
     if (filesc < 1) { usage ("missing directory argument"); }
     for (ix = 0; ix < filesc; ++ix) {
-	if (!(bp = append (buf, bufsz, NULL, files[ix]))) {
+	if (!append (path, pathsz, NULL, files[ix])) {
 	    err (1, "%me");
 	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-	
+	}
+	p = path; if (*p == '/') { ++p; }
+	for (;;) {
+	    while (*p && *p != '/') { ++p; }
+	    if (!*p) { break; }
+	    if (mkdir (path, 0755)) {
+		if (errno != EEXIST) { cfree (path); return -1; }
+		if (stat (path, &sb)) { cfree (path); return -1; }
+		if (!S_ISDIR (sb.st_mode)) {
+		    cfree (path); errno = EEXIST; return -1;
+		}
+	    }
+	    *p++ = '/';
+	}
+	if (mkdir (path, pmask)) {
+	    if (errno != EEXIST) { cfree (path); return -1; }
+	    if (stat (path, &sb)) { cfree (path); return -1; }
+	    if (!S_ISDIR (sb.st_mode)) {
+		cfree (path); errno = EEXIST; return -1;
+	    }
+	}
+	if (user || group) {
+	    int fd = open (path, O_RDWR, 0);
+	    if (fd < 0) { cfree (path); return -1; }
+	    if (!fstat (fd, &sb)) { close (fd); cfree (path); return -1; }
+	    if (!S_ISDIR (sb.st_mode)) {
+		close (fd); cfree (path); errno = EEXIST; return -1;
+	    }
+	    if (fchown (fd, uid, gid)) { close (fd); cfree (path); return -1; }
+	    if (fchmod (fd, pmask)) { close (fd); cfree (path); return -1; }
+	    close (fd);
+	}
+    }
+    if (path) { cfree (path); }
+    return 0;
+}
+
+static int
+install_files (int query, int strip, int verbose, int compress,
+	       const char *mode, const char *user, const char *group,
+	       const char *stripcmd, const char *gzipcmd,
+	       int filesc, char **files)
+{
+    err (1, "not implemented (yet)");
+    return 0;
+}
