@@ -20,12 +20,13 @@
 #include "lib/mrmacs.c"
 #include "lib/regfile.c"
 #include "lib/append.c"
+#include "lib/sdup.c"
 
 static char *which (const char *file)
 {
     if (strchr (file, '/')) {
 	if (is_regfile (file) <= 0 || access (file, X_OK) < 0) { return NULL; }
-	return strdup (file);
+	return sdup (file);
     } else {
 	char *buf = NULL, *bp, *p, *q, *PATH, *res;
 	size_t bufsz = 0;
@@ -36,7 +37,7 @@ static char *which (const char *file)
 	    if (!(bp = append (buf, bufsz, bp, "/"))) { return NULL; }
 	    if (!(bp = append (buf, bufsz, bp, file))) { return NULL; }
 	    if (is_regfile (buf) > 0 && access (file, X_OK) == 0) {
-		res = strdup (buf); cfree (buf); return res;
+		res = sdup (buf); cfree (buf); return res;
 	    }
 	    p = q + 1;
 	}
@@ -45,7 +46,7 @@ static char *which (const char *file)
 	    if (!(bp = append (buf, bufsz, bp, "/"))) { return NULL; }
 	    if (!(bp = append (buf, bufsz, bp, file))) { return NULL; }
 	    if (is_regfile (buf) > 0 && access (file, X_OK) == 0) {
-		res = strdup (buf); cfree (buf); return res;
+		res = sdup (buf); cfree (buf); return res;
 	    }
 	}
 	cfree (buf); errno = ENOENT;
