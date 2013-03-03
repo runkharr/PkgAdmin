@@ -1,4 +1,4 @@
-/* lib/vprog.c
+/* lib/progpath.c
 **
 ** $Id$
 **
@@ -10,9 +10,9 @@
 ** Simply a static (global) variable holding the program name ...
 **
 */
-#ifndef PROG_C
-#define PROG_C
+#ifndef PROGPATH_C
+#define PROGPATH_C
 
-static char *prog = NULL;
+static const char *progpath = 0;
 
-#endif /*PROG_C*/
+#endif /*PROGPATH_C*/

@@ -20,17 +20,17 @@
 #include <errno.h>
 
 #include "lib/mrmacs.c"
-#include "lib/vprog.c"
+#include "lib/prog.c"
 
 static void store_prog (char *argv[])
 {
-    char *p = strrchr (argv[0], '/');
+    char *p = strrchr (argv[0], '/'), *p1;
     if (p) { ++p; } else { p = argv[0]; }
     if (prog) { cfree (prog); }
-    if (!(prog = t_alloc (char, strlen (p) + 1))) {
+    if (!(p1 = t_allocv (char, strlen (p) + 1))) {
 	fprintf (stderr, "%s: %s\n", p, strerror (errno)); exit (1);
     }
-    strcpy (prog, p);
+    strcpy (p1, p); prog = p1;
 }
 
 #endif /*STORE_PROG_C*/

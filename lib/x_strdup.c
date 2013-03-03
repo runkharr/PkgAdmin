@@ -24,7 +24,7 @@
 
 static char *x_strdup (const char *s)
 {
-    char *res = t_alloc (char, strlen (s) + 1);
+    char *res = t_allocv (char, strlen (s) + 1);
     if (!res) {
 	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
     }

@@ -46,14 +46,14 @@ static const char *which (const char *cmd)
 		       "/usr/local/sbin";
 	    } else {
 		p = (char *) cwd ();
-		q = t_alloc (char, strlen (p) + strlen ("/bin") + 1);
+		q = t_allocv (char, strlen (p) + strlen ("/bin") + 1);
 		check_ptr ("which", q);
 		sprintf (q, "%s/bin", p);
 		p = "/usr/local/bin:/usr/bin:/bin";
-		PATH = t_alloc (char, strlen (q) + strlen (p) + 2);
+		PATH = t_allocv (char, strlen (q) + strlen (p) + 2);
 		check_ptr ("which", PATH);
 		sprintf (PATH, "%s:%s", q, p);
-		free (q);
+		cfree (q);
 	    }
 	}
     }

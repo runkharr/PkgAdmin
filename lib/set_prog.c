@@ -22,14 +22,13 @@
 
 static void set_prog (int argc, char *argv[])
 {
-    if (argc < 1) {
+    if (argc < 1 || !argv || !argv[0]) {
         prog = PROG;
-    } else if (!argv || !argv[0]) {
-        prog = PROG;
-    } else if ((prog = strrchr (argv[0], '/'))) {
-        ++prog;
     } else {
-        prog = argv[0];
+	const char *p = argv[0];
+	prog = p--; while (*++p);
+	while (p > prog && *--p != '/');
+	if (*p == '/') { prog = p + 1; }
     }
 }
 

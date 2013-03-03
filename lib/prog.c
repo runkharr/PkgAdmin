@@ -13,6 +13,6 @@
 #ifndef PROG_C
 #define PROG_C
 
-static const char *prog = NULL;
+static const char *prog = 0;
 
 #endif /*PROG_C*/
