@@ -23,6 +23,7 @@
 
 #include "lib/mrmacs.c"
 #include "lib/check_ptr.c"
+#include "lib/cwd.c"
 
 static const char *which (const char *cmd)
 {
