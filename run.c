@@ -25,15 +25,10 @@
 #define EX_USAGE 64
 #define EX_OSERR 71
 
-#define ifnull(x) if ((void *)(x) == NULL)
-#define unlessnull(x) if ((void *)(x) != NULL)
-#define isNULL(x) ((void *)(x) == NULL)
-#define noNULL(x) ((void *)(x) != NULL)
-#define t_alloc(t) ((t *) malloc (sizeof (t)))
-#define t_allocv(t, n) ((t *) malloc ((n) * sizeof (t)))
-#define t_allocp(t, n) ((t *) malloc (sizeof (t) + (n)))
+#define PROG "run"
 
-static char *prog = NULL;
+#include "lib/mrmacs.c"
+#include "lib/set_prog.c"
 
 static void report (int exitcode, int errcode, const char *format, ...)
 {
@@ -62,8 +57,8 @@ int main (int argc, char *argv[])
     int ix, jx, is_as, nargc = 0;
     char *p, *newname = NULL, **nargv = NULL;
     const char *cmd = NULL;
-    p = strrchr (argv[0], '/'); if (p) { ++p; } else { p = argv[0]; }
-    prog = p;
+
+    set_prog (argc, argv);
     if (argc < 2) {
 	printf ("Usage: %s program [as new-name] arg...\n", prog);
 	exit (0);
