@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include "lib/mrmacs.c"
 #include "lib/pbCopy.c"
 
 #define bconc(res, ressz, ...) (_bconc (&(res), &(ressz), __VA_ARGS__, NULL))
@@ -37,7 +38,7 @@ static char *_bconc (char **_res, size_t *_ressz, ...)
     if (!res) { ressz = 0; }
     if (reslen > *_ressz) {
 	ressz = reslen + 128; ressz -= (ressz% 128);
-        if (!(res = realloc (*_res, ressz))) {
+        if (!(res = t_realloc (char, *_res, ressz))) {
 	    free (*_res); *_res = NULL; *_ressz = 0; return res;
 	}
         *_res = res; *_ressz = ressz;
