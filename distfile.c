@@ -953,17 +953,17 @@ struct rplc_struct {
 static int pf_subst (struct rplc_struct *rs, const char *tpl,
 		     char **_buf, size_t *_bufsz)
 {
-    int ix, found, rplc, pc, escm;
+    int ix, found, rplcc, pc, escm;
     const char *p, *q, *s, *r;
     /*char *s;*/
     struct rplc_struct *rx;
     buf_clear (_buf, _bufsz);
-    p = tpl; q = p; rplc = 0;
+    p = tpl; q = p; rplcc = 0;
     while (*q) {
 	if (*q != '%' || !q[1]) { ++q; continue; }
 	if (q[1] == '%') {
 	    ++q; buf_puts (p, (size_t) (q - p), _buf, _bufsz);
-	    p = q + 2; q = p; ++rplc; continue;
+	    p = q + 2; q = p; ++rplcc; continue;
 	}
 	if (q[1] == '?' && q[2] == '(') {
 	    char *ib = NULL; size_t ibsz = 0; int any_failure = 0;
@@ -1028,10 +1028,10 @@ static int pf_subst (struct rplc_struct *rs, const char *tpl,
 	if (!found) { continue; }
 	buf_puts (p, (size_t) (q - p), _buf, _bufsz);
 	if (s) { buf_puts (s, strlen (s), _buf, _bufsz); }
-	p = q + 2; q = p; ++rplc;
+	p = q + 2; q = p; ++rplcc;
     }
     if (q != p) { buf_puts (p, (size_t) (q - p), _buf, _bufsz); }
-    return rplc;
+    return rplcc;
 }
 
 static int gen_package (const char *packcmd, const char *packdir,
