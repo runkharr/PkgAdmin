@@ -29,7 +29,7 @@
 
 #define bgetline(f, line, linesz) (_bgetline ((f), &(line), &(linesz)))
 
-static int _bgetline (FILE *in, char **_line, size_t *_linesz)
+static ssize_t _bgetline (FILE *in, char **_line, size_t *_linesz)
 {
     char *line = *_line, *p, *rr;
     size_t linesz = *_linesz, len;
@@ -53,7 +53,7 @@ static int _bgetline (FILE *in, char **_line, size_t *_linesz)
     if (!rr && p == line) { errno = 0; return -1; }
 /*    if (p == line && *p == '\0') { return -1; }*/
     *_line = line; *_linesz = linesz;
-    return (size_t) (p - line);
+    return (ssize_t) (p - line);
 }
 
 #endif /*BGETLINE_C*/
