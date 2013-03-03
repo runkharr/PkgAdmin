@@ -11,7 +11,7 @@
 **
 */
 #ifndef SDUP_C
-#ifndef SDUP_C
+#define SDUP_C
 
 #include <stdlib.h>
 
@@ -28,4 +28,4 @@ static char *sdup (const char *s)
     return t;
 }
     
-#ifndef SDUP_C
+#endif /*SDUP_C*/

@@ -21,14 +21,14 @@
 
 #include "lib/mrmacs.c"
 #include "lib/prog.c"
+#include "lib/sdup.c"
 
 static char *x_strdup (const char *s)
 {
-    char *res = t_allocv (char, strlen (s) + 1);
+    char *res = sdup (s);
     if (!res) {
 	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
     }
-    strcpy (res, s);
     return res;
 }
 
