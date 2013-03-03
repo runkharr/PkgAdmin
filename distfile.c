@@ -31,8 +31,7 @@
 
 #define VERSION "0.30"
 
-#define LSZ_INITIAL 1024
-#define LSZ_INCREASE 1024
+#define PROG "distfile"
 
 #include "lib/gnu-inline.c"
 #include "lib/mrmacs.c"
@@ -40,6 +39,7 @@
 #include "lib/cuteol.c"
 #include "lib/x_strdup.c"
 #include "lib/store_progpath.c"
+#include "lib/bgetline.c"
 
 static const char *src_excludes = ".srcdist-excludes";
 static const char *bin_excludes = ".bindist-excludes";
@@ -64,39 +64,6 @@ static const char *def_packtpls[] = {
     "%p%s.tar.gz\tzip -9r '%p%s.zip' '%p'",
     NULL
 };
-
-/* Read a line from a file. The buffer for this line is supplied as
-** (reference-)arguments `_line' and `_linesz' and will eventually
-** resized during the retrieval of the line.
-** Result is either `-2' (error) or `-1' (no content read due to EOF)
-** or the length of the line read (without the EOL-character(s)) ...
-*/
-int my_getline (FILE *in, char **_line, size_t *_linesz)
-{
-    char *line = *_line, *p, *rr;
-    size_t linesz = *_linesz, len;
-    if (!line) {
-	linesz = LSZ_INITIAL; line = t_allocv (char, linesz);
-	if (!line) { *_linesz = 0; return -2; }
-    }
-    p = line; len = linesz;
-    while ((rr = fgets (p, len, in))) {
-	if (cuteol (p)) { break; }
-	p += strlen (p);
-	len = (size_t) (p - line);
-	if (len + 1 >= linesz) {
-	    linesz += LSZ_INCREASE;
-	    if (!(p = t_realloc (char, line, linesz))) { return -2; }
-	    /**_line = p; *_linesz = linesz;*/
-	    line = p; p += len;
-	}
-	len = linesz - len;
-    }
-    if (!rr && p == line) { errno = 0; return -1; }
-/*    if (p == line && *p == '\0') { return -1; }*/
-    *_line = line; *_linesz = linesz;
-    return (size_t) (p - line);
-}
 
 static void usage (const char *fmt, ...)
 {
@@ -467,7 +434,7 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
 
     /* Add the filename-patterns from the supplied exclude-file ... */
     if ((file = fopen (filename, "rb"))) {
-	while (my_getline (file, &line, &linesz) >= 0) {
+	while (bgetline (file, line, linesz) >= 0) {
 	    p = line; while (isws (*p)) { ++p; }
 	    if (*p == '\0' || *p == '#') { continue; }
 	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
@@ -480,7 +447,7 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
     /* Add the filename-patterns from a hard-coded file, too ... */
     fn = "admin/excludes";
     if ((file = fopen (fn, "rb"))) {
-	while (my_getline (file, &line, &linesz) >= 0) {
+	while (bgetline (file, line, linesz) >= 0) {
 	    p = line; while (isws (*p)) { ++p; }
 	    if (*p == '\0' || *p == '#') { continue; }
 	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
@@ -517,7 +484,7 @@ static int read_tplfile (const char *tplfname, char ***_result)
 	*_result = 0; if (errno == ENOENT) { errno = 0; return -1; }
 	return -2;
     }
-    while (my_getline (tplfile, &line, &linesz) >= 0) {
+    while (bgetline (tplfile, line, linesz) >= 0) {
 	p = line; while (isws (*p)) { ++p; }
 	if (*p == '\0' || *p == '#') { continue; }
 	q = p + strlen (p); while (q != p && isws (*--q));
@@ -624,7 +591,7 @@ static char *get_version (void)
     FILE *versionfile;
     if ((versionfile = fopen ("VERSION", "r"))) {
 	novers = "noversion";
-	if (my_getline (versionfile, &line, &linesz) >= 0) {
+	if (bgetline (versionfile, line, linesz) >= 0) {
 	    if (*line)  {
 		if (!(res = t_allocv (char, strlen (line)))) {
 		    fprintf (stderr, "%s: %s\n", prog, strerror (errno));

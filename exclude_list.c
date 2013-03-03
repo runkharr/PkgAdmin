@@ -23,53 +23,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define LSZ_INITIAL 1024
-#define LSZ_INCREASE 1024
-
-#include "lib/mrmacs.c"
-
 #define PROG "exclude_list"
 
+#include "lib/mrmacs.c"
 #include "lib/store_prog.c"
-
 #include "lib/isws.c"
-
-#include "lib/nows.c"
-
 #include "lib/cuteol.c"
-
-/* Read a line from a file. The buffer for this line is supplied as
-** (reference-)arguments `_line' and `_linesz' and will eventually
-** resized during the retrieval of the line.
-** Result is either `-2' (error) or `-1' (no content read due to EOF)
-** or the length of the line read (without the EOL-character(s)) ...
-*/
-int my_getline (FILE *in, char **_line, size_t *_linesz)
-{
-    char *line = *_line, *p, *rr;
-    size_t linesz = *_linesz, len;
-    if (!line) {
-	linesz = LSZ_INITIAL; line = t_alloc (char, linesz);
-	if (!line) { *_linesz = 0; return -2; }
-    }
-    p = line; len = linesz;
-    while ((rr = fgets (p, len, in))) {
-	if (cuteol (p)) { break; }
-	p += strlen (p);
-	len = (size_t) (p - line);
-	if (len + 1 >= linesz) {
-	    linesz += LSZ_INCREASE;
-	    if (!(p = t_realloc (char, line, linesz))) { return -2; }
-	    /**_line = p; *_linesz = linesz;*/
-	    line = p; p += len;
-	}
-	len = linesz - len;
-    }
-    if (!rr && p == line) { errno = 0; return -1; }
-/*    if (p == line && *p == '\0') { return -1; }*/
-    *_line = line; *_linesz = linesz;
-    return (size_t) (p - line);
-}
+#include "lib/bgetline.c"
 
 static void usage (void)
 {
@@ -181,7 +141,7 @@ int main (int argc, char *argv[])
 	add_rx ("./", &rx, &rxsz);
     }
     add_rx (p, &rx, &rxsz);
-    while (my_getline (file, &line, &linesz) >= 0) {
+    while (bgetline (file, line, linesz) >= 0) {
 	p = line; while (isws (*p)) { ++p; }
 	if (*p == '\0' || *p == '#') { continue; }
 	buf_puts ("\\|", 2, &rx, &rxsz);
