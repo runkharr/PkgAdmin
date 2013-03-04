@@ -6,7 +6,7 @@
 ## Copyright: (c) 2010, Boris Jakubith <runkharr@googlemail.com>
 ## License: GPL (version 2)
 ##
-## Debisn-changelog manipulator ...
+## Debian-changelog manipulator ...
 ##
 eval 'exec perl -wS $0 ${1+"$@"}'
     if $running_under_some_shell;
