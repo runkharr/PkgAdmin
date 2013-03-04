@@ -29,6 +29,7 @@
 
 #include "lib/mrmacs.c"
 #include "lib/set_prog.c"
+#include "lib/which1.c"
 
 static void report (int exitcode, int errcode, const char *format, ...)
 {
@@ -41,15 +42,6 @@ static void report (int exitcode, int errcode, const char *format, ...)
     fputs ("\n", stderr); fflush (stderr);
     if (exitcode > 0) { exit (exitcode); }
 }
-
-static void check_ptr (const char *where, void *ptr)
-{
-    ifnull (ptr) { report (EX_OSERR, errno, "(in %s)", where); }
-}
-
-#include "lib/cwd.c"
-
-#include "lib/which1.c"
 
 int main (int argc, char *argv[])
 {

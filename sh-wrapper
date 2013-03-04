@@ -57,12 +57,6 @@ for bn in run "$PROG"; do
     fi
 done
 
-# This part is simply makeup (renaming `run.bin´ as `run´) ...
-if [ -e "$PPATH/run" ] && ! rm -f "$PPATH/run" 2>/dev/null; then
-    echo 1>&2 "${PROG}: file '$PPATH/run' is in the way - please remove it!"
-fi
-mv "$PPATH/run.bin" "$PPATH/run"
-
 # Now execute the binary file (under the control of `run´, which fixes it's
 # argv[0] - the program's pathname).
-exec "$PPATH/run" "$PPATH/${PROG}.bin" as "$PPATH/${PROG}" ${1+"$@"}
+exec "$PPATH/run.bin" "$PPATH/${PROG}.bin" as "$PPATH/${PROG}" ${1+"$@"}
