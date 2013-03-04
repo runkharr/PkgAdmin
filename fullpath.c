@@ -171,13 +171,13 @@ int main (int argc, char *argv[])
 	    fprintf (stderr, "%s: '%s' - invalid\n", prog, p);
 	    ++errcc; continue;
 	}
-	sp = p;
+	sp = p; p += strlen (p);
 	while (level > 0) {
-	    --level; if (p == sp) { continue; }
+	    --level; if (p == sp) { level = 0; break; }
 	    while (p > sp && *p != '/') { --p; }
 	    if (p > sp) { *p-- = '\0'; }
 	}
-	fputs (p, stdout); puteol (stdout);
+	fputs (sp, stdout); puteol (stdout);
     }
     free (buf);
     return (errcc > 0 ? 1 : 0);
