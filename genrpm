@@ -24,6 +24,11 @@ if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
     exit 64
 fi
 
+keepbuild=
+if [ "x$1" = "x-k" -o "x$1" = "x--keep" ]; then
+    shift; keepbuild=1
+fi
+
 if [ $# -lt 3 ]; then
     echo 1>&2 "Usage: ${PROG} sourcefile specfile rpm-topdir"
     exit 0
@@ -59,5 +64,9 @@ sed -e "s|@VERSION@|$VERSION|" <"$specfile" >"$dspec"
 dmacros="$rpmdir/macros"
 rpmbuild --macros="/usr/lib/rpm/macros:$dmacros" -bb "$dspec"
 
-mv $rpmdir/RPMS/$(uname -m)/*.rpm $top
-rm -rf "$rpmdir"
+if [ -n "$keepbuild" -a $((keepbuild+0)) -ne 0 ]; then
+    cp $rpmdir/RPMS/$(uname -m)/*.rpm $top
+else
+    mv $rpmdir/RPMS/$(uname -m)/*.rpm $top
+    rm -rf "$rpmdir"
+fi
