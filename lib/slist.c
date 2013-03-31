@@ -1,4 +1,4 @@
-/* mrmacs.c
+/* slist.c
 **
 ** $Id: mrmacs.c 153 2013-03-03 20:47:13Z bj@rhiplox $
 **
@@ -7,8 +7,9 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Some macros for simplifying the use of `malloc()´, `realloc()´ and `free()´
-** ...
+** A simple type of linear lists of strings, a function which appends a new
+** element behind a given one and a function which deletes a given element and
+** all of it's successors ...
 **
 ** vim: set tabstop=8 shiftwidth=4 noexpandtab:
 */
@@ -35,7 +36,7 @@ _slist_append (slist_t *_last, const char *sval)
     ifnull (_last) { errno = EINVAL; return -1; }
     unlessnull (ne = t_allocp (struct slist, strlen (sval) + 1)) {
 	ne->next = NULL;
-	ne->sval = (char *)ne + sizeof(struct sval);
+	ne->sval = (char *)ne + sizeof(struct slist);
 	strcpy (ne->sval, sval);
 	unlessnull (*_last) {
 	    (*_last)->next = ne;
@@ -59,7 +60,7 @@ _slist_free (slist_t *_list)
 	lp->sval = NULL; lp->next = 0;
 	free (lp);
     }
-    *_slist = NULL;
+    *_list = NULL;
     return 0;
 }
 
