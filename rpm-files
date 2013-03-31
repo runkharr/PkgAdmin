@@ -1,0 +1,87 @@
+#! /bin/sh
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
+# Released under GPL v2.
+#
+# Utility for dynamically generating a list for the '%files'-section in the
+# '.spec'-file (RPM package generation control file)
+
+PROG="${0##*/}"
+PPATH="${0%/*}"; PPATH="${PPATH:-.}"
+PPATH="$("$PPATH/fullpath" "$PPATH")"
+
+usage() {
+    if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" "$@"; exit 64; fi
+    echo "Usage: ${PROG} [-s path]... directory"; exit 0
+}
+
+
+top="$("$PPATH/fullpath" "$PPATH/..")"
+cd "$top"
+
+if ! [ -f "$PPATH/genflist" -a -x "$PPATH/genflist" ]; then
+    echo 1>&2 "${PROG}: missing 'genflist'" \
+	      "- you are probably in the wrong context."
+    exit 64
+fi
+
+if [ $# -lt 1 ]; then usage; fi
+
+DIRPATH=; SETUIDS=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+	-s*) opt="$1"; shift
+	    if [ -z "${opt#-s}" ]; then
+		if [ $# -lt 1 ]; then 
+		    usage "missing argument for option '-s'"
+		fi
+		setuid="$1"; shift
+	    else
+		setuid="${opt#-s}"
+	    fi
+	    eval "SETUID${SETUIDS}='$(echo "$setuid"|sed -e "s/'/'\"'\"'/g")'"
+	    SETUIDS=$((SETUIDS+1))
+	    ;;
+	-h) usage ;;
+	-)  shift; break ;;
+	-*) usage "invalid option '$1'" ;;
+	*)  if [ ! -z "$DIRPATH" ]; then
+		usage "ambiguous 'directory' argument"
+	    fi
+	    DIRPATH="$1"; shift
+	    ;;
+    esac
+done
+
+if [ -z "$DIRPATH" ]; then
+    if [ -a $# -lt 1 ]; then usage "missing argument"; fi
+    DIRPATH="$1"; shift
+elif [ $# -gt 0 ]; then
+    usage "ambiguous 'directory' argument"
+fi
+
+IFS_save="$IFS"; IFS=
+
+echo "%defattr(-,root,root)"
+"$PPATH/genflist" "$DIRPATH" | \
+while read path; do
+    cc=0; is_setuid=
+    while [ $cc -lt $SETUIDS ]; do
+	eval 'setuid="$SETUID'$cc'"'
+	if [ "x$path" = "x$setuid" ]; then is_setuid=yes; break; fi
+	cc=$((cc+1))
+    done
+    if [ -z "$is_setuid" ]; then
+	echo "$path"
+    else
+	echo "%attr(4711,-,-) $path"
+    fi
+done
+
+rc=$?; IFS="$IFS_save"
+
+exit $rc
