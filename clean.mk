@@ -10,7 +10,7 @@
 # Small "cleanup"-Makefile for the admin directory ...
 #
 
-CLEAN_LIST = $(shell echo *.bin) run a.out core
+CLEAN_LIST = $(shell echo *.bin) *.o run a.out core
 
 clean:
 	@echo -n "Cleaning up admin ..."
