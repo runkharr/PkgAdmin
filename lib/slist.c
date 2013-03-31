@@ -61,7 +61,7 @@ _slist_free (slist_t *_list)
 	lp->sval = NULL; lp->next = 0;
 	free (lp);
     }
-    *_slist = NULL; errno = errsave;
+    *_list = NULL; errno = errsave;
     return 0;
 }
 
