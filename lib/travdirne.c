@@ -24,7 +24,7 @@
 #include "lib/slist.c"
 #include "lib/pbCopy.c"
 
-#include "lib/dirtrav-types.c"
+#include "lib/travdir-types.c"
 
 static int
 travdirne (char **_buf, size_t *_bufsz, const char *dirname,
