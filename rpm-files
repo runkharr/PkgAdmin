@@ -17,7 +17,7 @@ PPATH="$("$PPATH/fullpath" "$PPATH")"
 usage() {
     if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" "$@"; exit 64; fi
 #    echo "Usage: ${PROG} [-d|-f] [-n] [-o outfile] [-s path]... directory"
-    echo "Usage: ${PROG} [-o outfile] [-s path]... directory"
+    echo "Usage: ${PROG} [-n] [-o outfile] [-s path]... directory"
     exit 0
 }
 
@@ -53,6 +53,10 @@ while [ $# -gt 0 ]; do
 #	    GENFLISTOPTS="$GENFLISTOPTS $1"
 #	    shift
 #	    ;;
+	-n)
+	    GENFLISTOPTS="$GENFLISTOPTS $1"
+	    shift
+	    ;;
 	-o*)
 	    if getopt OUTFILE '-o' ${1+"$@"}; then shift; fi
 	    shift
