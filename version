@@ -105,12 +105,12 @@ case $1 in
 	esac
 	;;
     lxdist)
-	if ! [ -f /etc/issue ]; then echo unknown
-	elif fgrep -i 'Debian' /etc/issue >/dev/null 2>&1; then echo Debian
-	elif fgrep -i 'SuSE' /etc/issue >/dev/null 2>&1; then echo SuSE
-	elif fgrep -i 'Red Hat' /etc/issue >/dev/null 2>&1; then echo RedHat
-	elif fgrep -i 'Trustix' /etc/issue >/dev/null 2>&1; then echo Trustix
-	else echo unknown
+	if [ -f /etc/issue.net ]; then
+	    head -1 /etc/issue.net | cut -d' ' -f1
+	elif [ -f /etc/issue ]; then
+	    head -1 /etc/issue | cut -d' ' -f1
+	else
+	    echo unknown
 	fi
 	;;
     header)
