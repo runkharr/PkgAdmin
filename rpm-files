@@ -16,7 +16,22 @@ PPATH="$("$PPATH/fullpath" "$PPATH")"
 
 usage() {
     if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" "$@"; exit 64; fi
-    echo "Usage: ${PROG} [-s path]... directory"; exit 0
+#    echo "Usage: ${PROG} [-d|-f] [-n] [-o outfile] [-s path]... directory"
+    echo "Usage: ${PROG} [-o outfile] [-s path]... directory"
+    exit 0
+}
+
+getopt() {
+    local var="$1"; shift
+    local opt="$1"; shift
+    if [ -z "${1#$opt}" ]; then
+	if [ $# -lt 1 ]; then usage "missing argument for option '$opt'"; fi
+	shift; eval "${var}='$(echo "$1" | sed -e "s/'/'\"'\"'/g")'"
+	return 0;
+    else
+	eval "${var}='$(echo "${1#$opt}" | sed -e "s/'/'\"'\"'/g")'"
+	return 1
+    fi
 }
 
 
@@ -31,20 +46,21 @@ fi
 
 if [ $# -lt 1 ]; then usage; fi
 
-DIRPATH=; SETUIDS=0
+DIRPATH=; SETUIDS=0; GENFLISTOPTS=; OUTFILE=
 while [ $# -gt 0 ]; do
     case "$1" in
-	-s*) opt="$1"; shift
-	    if [ -z "${opt#-s}" ]; then
-		if [ $# -lt 1 ]; then 
-		    usage "missing argument for option '-s'"
-		fi
-		setuid="$1"; shift
-	    else
-		setuid="${opt#-s}"
-	    fi
-	    eval "SETUID${SETUIDS}='$(echo "$setuid"|sed -e "s/'/'\"'\"'/g")'"
+#	-[dfn])
+#	    GENFLISTOPTS="$GENFLISTOPTS $1"
+#	    shift
+#	    ;;
+	-o*)
+	    if getopt OUTFILE '-o' ${1+"$@"}; then shift; fi
+	    shift
+	    ;;
+	-s*)
+	    if getopt "SETUID$SETUIDS" '-s' ${1+"$@"}; then shift; fi
 	    SETUIDS=$((SETUIDS+1))
+	    shift
 	    ;;
 	-h) usage ;;
 	-)  shift; break ;;
@@ -66,8 +82,15 @@ fi
 
 IFS_save="$IFS"; IFS=
 
+if [ ! -z "$OUTFILE" ]; then
+    if [ -e "$OUTFILE" ]; then
+	echo "${PROG}: Can't overwrite existing '$OUTFILE'"; exit 1
+    fi
+    exec >"$OUTFILE"
+fi
+
 echo "%defattr(-,root,root)"
-"$PPATH/genflist" "$DIRPATH" | \
+"$PPATH/genflist" ${GENFLISTOPTS# } "$DIRPATH" | \
 while read path; do
     cc=0; is_setuid=
     while [ $cc -lt $SETUIDS ]; do
