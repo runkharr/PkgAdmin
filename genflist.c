@@ -44,7 +44,7 @@
 #include "lib/pbCopy.c"
 #include "lib/trans_path.c"
 #include "lib/travdir-types.c"
-#include "lib/travdirne.c"
+#include "lib/travdirnd.c"
 #include "lib/travdir.c"
 
 static
@@ -169,7 +169,7 @@ int main (int argc, char *argv[])
     /* Establish the configuration settings ... */
     if (opt_d) { pe.add_dot = 1; }
     if (opt_f) { pe.cut_prefix = 0; }
-    if (opt_n) { trav = travdirne; }
+    if (opt_n) { trav = travdirnd; }
 
     /* Check for one argument (ignore any remaining ones after the first one)
     * ...
