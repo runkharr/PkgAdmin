@@ -53,6 +53,7 @@ static int
 _slist_free (slist_t *_list)
 {
     slist_t lp;
+    int errsave = errno;
     ifnull (_list) { errno = EINVAL; return -1; }
     while (noNULL(lp = *_list)) {
 	*_list = lp->next;
@@ -60,7 +61,11 @@ _slist_free (slist_t *_list)
 	lp->sval = NULL; lp->next = 0;
 	free (lp);
     }
+<<<<<<< .mine
+    *_slist = NULL; errno = errsave;
+=======
     *_list = NULL;
+>>>>>>> .r176
     return 0;
 }
 
