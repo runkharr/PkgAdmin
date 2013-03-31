@@ -8,7 +8,7 @@
 # Licence: GPL(v2)
 
 PROG="${0##*/}" # $(basename "$0")
-PPATH="${0%/*}"; PPATH="${PPATH:=.}"
+PPATH="${0%/*}"; PPATH="${PPATH:-.}"
 PPATH="$("$PPATH/fullpath" "$PPATH")"
 
 top=$($PPATH/fullpath "$PPATH/..")
