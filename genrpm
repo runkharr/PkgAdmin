@@ -7,16 +7,11 @@
 # Copyright: © 2008, Boris Jakubith <fbj@blinx.de>
 # Licence: GPL(v2)
 
-PROG=$(basename "$0")
-PPATH=$(dirname "$0")
+PROG="${0##*/}" # $(basename "$0")
+PPATH="${0%/*}"; PPATH="${PPATH:=.}"
+PPATH="$("$PPATH/fullpath" "$PPATH")"
 
-abspath() {
-    local d="$(pwd)"
-    local p="$(echo "$1" | sed -e 's|^\./|'"$d"'/|')"
-    echo "$p" | sed -e 's|^\([^/]\)|'"$d"'/\1|'
-}
-
-top=$(echo "$PPATH" | sed -e 's|/\?admin$||; s|^\.\?$|'"$(pwd)"'|')
+top=$($PPATH/fullpath "$PPATH/..")
 cd "$top"
 
 if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
@@ -55,7 +50,9 @@ cp "$sourcefile" "$rpmdir/SOURCES"
 dspec="$rpmdir/SPECS/$(basename "${specfile}")"
 VERSION=$(cat "$top/VERSION")
 sed -e "s|@VERSION@|$VERSION|" <"$specfile" >"$dspec"
-(echo "%_topdir        $top/$rpmdir"
+(echo "%packager       Boris Jakubith <runkharr@googlemail.com>"
+ echo "%vendor         Boris Jakubith <runkharr@googlemail.com>"
+ echo "%_topdir        $top/$rpmdir"
  echo "%_tmppath       %{_topdir}/tmp"
  echo "%_buildrootdir  %{_topdir}/tmp"
  echo "%buildroot      %{_buildrootdir}/%{name}-%{version}-%{release}-root") \
