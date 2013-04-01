@@ -7,7 +7,7 @@
 # Copyright: © 2008, Boris Jakubith <fbj@blinx.de>
 # Licence: GPL(v2)
 
-PROG="${0##*/}" # $(basename "$0")
+PROG="${0##*/}"
 PPATH="${0%/*}"; PPATH="${PPATH:-.}"
 PPATH="$("$PPATH/fullpath" "$PPATH")"
 
