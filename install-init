@@ -7,20 +7,53 @@
 # Copyright: © 2008, Boris Jakubith <fbj@blinx.de>
 # Licence: GPL(v2)
 
-PROG=`basename "$0"`
-PPATH=$(dirname "$0")
+abspath() {
+    local pn="$1"
+    if [ "${pn#/}" == "$pn" ]; then
+	pn="$(cwd)/${pn#./}"; pn="${pn//\/\//\/}"; pn="${pn%/}"
+    fi
+    # Absolute PATH
+    pn="${pn%/*}"; : ${pn:=/}
+    echo "$pn"
+}
 
-top=`echo "$PPATH" | sed -e 's|/\?admin$||; s|^$|.|'`
+dirname() {
+    if [ "x$1" = x. ]; then
+	echo 1>&2 "${PROG}: dirname() - invalid argument"; exit 1
+    fi
+    local pn="${1%/*}"
+    if [ "x$pn" = "x$1" ]; then
+	pn=.; if [ "x${1#/}" != "x$1" ]; then pn=/; fi
+    fi
+    echo $pn
+}
+
+usage() {
+    if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" "$@"; exit 64; fi
+    cat <<-EOT
+	Usage: ${PROG} [-q] [-m fmask] daemon-path init-path
+	       ${PROG} -h
+	EOT
+    exit 0
+}
+
+lxdist() {
+    if [ -f /etc/issue.net ]; then
+	head -1 /etc/issue.net | cut -d' ' -f1 | tr 'A-Z' 'a-z'
+    elif [ -f /etc/issue ]; then
+	head -1 /etc/issue | cut -d' ' -f1 | tr 'A-Z' 'a-z'
+    else
+	echo unknown
+    fi
+}
+
+PROG="${0##*/}"
+PPATH="$(abspath "$(dirname "$0")")";
+
+top="$(dirname "$PPATH")";
 cd "$top"
 
-if ! [ -d initd -a -d admin -a -f admin/version -a -x admin/version ]; then
-    cat 1>&2 <<-EOT
-	${PROG}: you are probably in the wrong context.
-	EOT
-    exit 64
-fi
-
-LXDIST=`admin/version lxdist`
+LXDIST=$(lxdist)
 
 mode=0755
 OPTS=
@@ -31,56 +64,40 @@ while [ $# -gt 0 ]; do
 	     mode=`expr "$1" : '-m\(.*\)'`
 	     if [ "x$mode" = x ]; then
 		 if [ $# -lt 2 ]; then
-		    echo 1>&2 "${PROG}: missing argument for option '-m'"
-		    exit 64
+		    usage "missing argument for option '-m'"
 		 fi
 		 shift; OPTS="$OPTS $1"; mode="$1"
 	     fi
 	     shift
 	     ;;
-	-h)  echo "Usage: ${PROG} [-q] [-m fmask] daemon-path init-path"
-	     echo "       ${PROG} -h"
-	     exit 0
-	     ;;
-	--)  break ;;
-	-*) echo 1>&2 "${PROG}: invalid option '$1'"; exit 64 ;;
+	-h)  usage ;;
+	--)  shift; break ;;
+	-*)  usage "invalid option '$1'" ;;
 	*)   break ;;
     esac
 done
 
 if [ $# -lt 2 ]; then
-    echo "${PROG}: missing argument(s); try \"${PROG} -h\" for help, please!"
-    exit 64
+    usage "missing argument(s); try '${PROG} -h' for help, please!"
 fi
 
-daemon="$1"; shift
-init="$1"; shift
+daemon="$(abspath "$1")"; shift
+init="$(abspath "$1")"; shift
 
 if [ -d "$init" ]; then
-    initname=`basename "$daemon"`
+    initname="${daemon##*/}"
     init="$init/$initname"
-elif ! [ -d "`dirname \"$init\"`" ]; then
-    pi=`basename "$init"`
-    dn=`dirname "$init"`
-    initname="$pi"
+else
+    dn="$(dirname "$init")"
+    if ! [ -d "$dn" ]; then
+	initname="${init##*/}"
+    fi
     mkdir -p "$dn"
-#    n=0; while ! [ -d "$dn" ]; do
-#	n=`expr $n + 1`
-#	pi=`basename "$dn"`
-#	dn=`dirname "$dn"`
-#	eval "pr$n=\"$pi\""
-#    done
-#    while [ $n -gt 0 ]; do
-#	eval "dn=\"\$dn/\$pr$n\""
-#	eval "unset pr$n"
-#	mkdir -m "$mode" "$dn"
-#	n=`expr $n - 1`
-#    done
 fi
 
-name=`basename "$daemon"`
-dmdir=`dirname "$daemon"`
-prefix=`dirname "$dmdir"`
+name="${daemon##*/}"
+dmdir="$(dirname "$daemon")"
+prefix="$(dirname "$(abspath "$dmdir")")"
 initp="initd/$LXDIST"
 
 sed <"$initp" >"$init" \
