@@ -16,6 +16,9 @@
 #include <string.h>
 #include <errno.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #define PROG "install-init"
 
 #include "lib/set_prog.c"
@@ -24,6 +27,7 @@
 #include "lib/sdup.c"
 #include "lib/pbCopy.c"
 #include "lib/cwd.c"
+#include "lib/cuteol.c"
 
 static
 char *abspath (const char *path)
@@ -97,3 +101,83 @@ int file_replace (FILE *in, char **vars, char **values, FILE *out)
     }
     return (bl < 0 ? -1 : 0);
 }
+
+
+int lxdistrib (void)
+{
+    int errsave;
+    FILE *issue;
+    char line[1024];
+    if (!(issue = fopen ("/etc/issue.net"))) {
+	if (!(issue = fopen ("/etc/issue"))) { return -1; }
+    }
+    if (!fgets (line, sizeof(line), issue)) {
+	errsave = errno; fclose (issue); errno = errsave; return -1;
+    }
+    fclose (issue);
+    if (!cuteol (line)) { errno = EINVAL; return -1; }
+
+
+void usage (const char *format, ...)
+{
+    unlessnull (format) {
+	va_list ual;
+	fprintf (stderr, "%s: ", prog);
+	va_start (ual, format); vfprintf (stderr, format, ual); va_end (ual);
+	fputs ("\n", stderr);
+	exit (64);
+    }
+    printf ("Usage: %s [-q] [-m filemode] daemon-path init-path\n"
+	    "       %s -h\n"
+	    "\nArguments:"
+	    "\n  -q (quiet)"
+	    "\n    don't write installation messages to stdout"
+	    "\n  -m filemode (permissions)"
+	    "\n    change the permission bits of the init-file to the value of"
+	    " 'filemode'"
+	    "\n  -h (help)"
+	    "\n    write this text to stdout and terminate"
+	    "\n  daemon-path"
+	    "\n    the absolute pathname of the daemon program to be started"
+	    " by the init-"
+	    "\nscript"
+	    "\n  init-path"
+	    "\n    path to the init-script prototype\n",
+	    prog, prog);
+    exit (0);
+}
+
+
+int main (int argc, char *argv[])
+{
+    int optx, fmask = 0755, quiet = 0, opt_m = 0;
+    char *daemon = NULL, *init = NULL, *optstrg, *optarg;
+
+    set_prog (argc, argv);
+
+    for (optx = 1; optx < argc; ++optx) {
+	optstrg = argv[optx];
+	if (*optstrg != '-') { break; }
+	if (!strcmp (optstrg, "--")) { ++optx; break; }
+	++optstrg;
+	if (*optstrg == 'q' && !optstrg[1]) {
+	    quiet = 1; continue;
+	}
+	if (*optstrg == 'm') {
+	    if (!optstrg[1] && optx >= argc - 1) {
+		usage ("missing argument for option '-m'");
+	    }
+	    if (opt_m) { usage ("ambiguous option '-m'"); }
+	    optarg = (optstrg[1] ? &optstrg[1] : argv[++optx]);
+	    if ((fmask = get_fmode (optarg)) < 0) {
+		usage ("invalid argument for option '-m'");
+	    }
+	    opt_m = 1;
+	}
+	if (!strcmp (optstrg, "h") || !strcmp (optstrg, "-help")) {
+	    usage (NULL);
+	}
+    }
+    if (optx > argc - 2) { usage ("missing argument(s)"); }
+
+    daemon = argv[optx]; init = argv[optx + 1];
