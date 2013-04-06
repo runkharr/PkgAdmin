@@ -7,16 +7,38 @@
 # Copyright: © 2008, Boris Jakubith <fbj@blinx.de>
 # Licence: GPL(v2)
 
+# Like 'echo', but writes it's arguments to stderr instead ...
+#
+eecho() {
+    echo 1>&2 ${1+"$@"}
+}
+
+# Convert the value of a "boolean" variable into a "boolean" return-code which
+# then can be used in 'if' and 'while' conditions; may be that is slower than
+# using 'test $var ...', but it is far more clear in it's meaning ...
+#
+rc() {
+    if [ $# -lt 1 ]; then return 0; fi
+    if [ -z "$1" ]; then return 1; fi
+    if [ "x$1" = xyes -o "x$1" = xok -o "x$1" = xtrue ]; then return 0; fi
+    if [ "x$1" = xno -o "x$1" = xfalse ]; then return 1; fi
+    if [ $(($1+0)) -eq 0 ]; then return 1; fi
+    return 0
+}
+
+# Make a given path absolute ...
+#
 abspath() {
     local pn="$1"
     if [ "${pn#/}" == "$pn" ]; then
 	pn="$(pwd)/${pn#./}"; pn="${pn//\/\//\/}"; pn="${pn%/}"
     fi
     # Absolute PATH
-    pn="${pn%/*}"; : ${pn:=/}
     echo "$pn"
 }
 
+# Like the external program, but implemented as a shell function here ...
+#
 dirname() {
     if [ "x$1" = x. ]; then
 	echo 1>&2 "${PROG}: dirname() - invalid argument"; exit 1
@@ -28,15 +50,21 @@ dirname() {
     echo $pn
 }
 
+# Write either an error message to stderr (about wrong arguments etc.) and abort
+# with return-code 64 (EX_USAGE) - if such a message is supplied as argument(s),
+# or write a usage-message to stdout and terminate (with return-code 0) ...
+#
 usage() {
     if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" "$@"; exit 64; fi
     cat <<-EOT
-	Usage: ${PROG} [-q] [-m fmask] daemon-path init-path
+	Usage: ${PROG} [-q] [-p path-prefix] daemon-path init-path
 	       ${PROG} -h
 	EOT
     exit 0
 }
 
+# Try to determine the linux-distribution in use ...
+#
 lxdist() {
     if [ -f /etc/os-release ]; then
 	(. /etc/os-release; echo "$ID" | tr 'A-Z' 'a-z')
@@ -49,26 +77,29 @@ lxdist() {
     fi
 }
 
-PROG="${0##*/}"
-PPATH="$(abspath "$(dirname "$0")")";
+CMD="$(abspath "$0")"
+PROG="${CMD##*/}"
+PPATH="$(dirname "$CMD")"
 
-top="$(dirname "$PPATH")";
+# I'm always assuming that this program resides in a directory (probably
+# 'admin') directly below the top-level directory of the source tree ...
+top="$(dirname "$PPATH")"
 cd "$top"
 
 LXDIST=$(lxdist)
 
 mode=0755
-OPTS=
+OPTS=; pathprefix=
 while [ $# -gt 0 ]; do
     case "$1" in
 	-q|-Q)  OPTS="$OPTS $1"; shift ;;
-	-m*) OPTS="$OPTS $1"
-	     mode=`expr "$1" : '-m\(.*\)'`
-	     if [ "x$mode" = x ]; then
-		 if [ $# -lt 2 ]; then
-		    usage "missing argument for option '-m'"
-		 fi
-		 shift; OPTS="$OPTS $1"; mode="$1"
+	-p*) OPTS="$OPTS $1"
+	     pathprefix="$(expr "$1" : '-p\(.*\)')"
+	     if [ "x$pathprefix" = x ]; then
+		if [ $# -lt 2 ]; then
+		    usage "missing argument for option '-p'"
+		fi
+		shift; OPTS="$OPTS $1"; pathprefix="$1"
 	     fi
 	     shift
 	     ;;
@@ -83,28 +114,75 @@ if [ $# -lt 2 ]; then
     usage "missing argument(s); try '${PROG} -h' for help, please!"
 fi
 
+# The next argument is the path where the service-program ("daemon "in the terms
+# of a unix-system) resides when already installed. That means: you MUST NOT
+# prepend any instal-prefix here ...
+#
 daemon="$(abspath "$1")"; shift
+
+# The next argument is the path where the init-script resides when installed.
+# As this program is 'systemd'-aware, you MUST NO LONGER prepend any install-
+# prefix here; use the new option '-p' for supplying an install-prefix
+# instead ...
+#
 init="$(abspath "$1")"; shift
 
-if [ -d "$init" ]; then
+use_systemd=0
+if [ -f /bin/systemctl -a -x /bin/systemctl ]; then
+    # The underlying system has 'systemd' installed. This means that there is
+    # no init-script but a service description instead. This service description
+    # has (as far as i know) a fixed location. Additionally, this service
+    # description always ends in '.service'.
+    # Consequently, the service description path is constructed from the fixed
+    # pathname, the filename (minus path) of the service program and the suffix
+    # '.service' ...
+    #
+    use_systemd=1
+    init="/lib/systemd/system/${daemon##*/}.service"
+elif [ -d "$init" ]; then
+    # If only a directory has been supplied for the second argument, the
+    # complete pathname of the init-script is constructed from this directory
+    # path and the filename (not pathname) of the service-program ...
+    #
     initname="${daemon##*/}"
     init="$init/$initname"
-else
-    dn="$(dirname "$init")"
-    if ! [ -d "$dn" ]; then
-	initname="${init##*/}"
-    fi
-    mkdir -p "$dn"
 fi
 
+dn="$(dirname "$init")"
+initname="${init##*/}"
+if [ ! -z "$pathprefix" -o ! -d "$dn" ]; then
+    # The directory which later contains the init-script needs to be created,
+    # either because it simply doesn't exist or because we are in a package
+    # generation context, where this directory always must be created (the same
+    # holds for a service description here) ...
+    mkdir -p "$pathprefix$dn"
+fi
+
+
+# The "replacement" values ...
 name="${daemon##*/}"
 dmdir="$(dirname "$daemon")"
 prefix="$(dirname "$(abspath "$dmdir")")"
-initp="initd/$LXDIST"
 
-sed <"$initp" >"$init" \
+# The pathname of the template to be installed as init-script resp. service
+# description (systemd) is constructed here ...
+#
+if rc $use_systemd; then
+    initp="$(abspath initd/systemd)"
+else
+    initp="$(abspath "initd/$LXDIST")"
+fi
+
+
+# Generate the init-script / service description from the template ...
+#
+sed <"$initp" >"$pathprefix$init" \
     -e "s|%NAME%|$name|g; s|%PREFIX%|$prefix|g; s|%DAEMON%|$daemon|g" \
     -e "s|%INITNAME%|$initname|g; s|%DESC%|service|g" \
     -e "s|%DATE%|`date +%d-%b-%Y`|g" 
-    
-chmod a+x "$init"
+
+# Make an init-script executable, but not a service description ...
+#
+if ! rc $use_systemd; then
+    chmod a+x "$init"
+fi
