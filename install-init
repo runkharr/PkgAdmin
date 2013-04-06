@@ -38,7 +38,9 @@ usage() {
 }
 
 lxdist() {
-    if [ -f /etc/issue.net ]; then
+    if [ -f /etc/os-release ]; then
+	(. /etc/os-release; echo "$ID" | tr 'A-Z' 'a-z')
+    elif [ -f /etc/issue.net ]; then
 	head -1 /etc/issue.net | cut -d' ' -f1 | tr 'A-Z' 'a-z'
     elif [ -f /etc/issue ]; then
 	head -1 /etc/issue | cut -d' ' -f1 | tr 'A-Z' 'a-z'
@@ -105,5 +107,4 @@ sed <"$initp" >"$init" \
     -e "s|%INITNAME%|$initname|g; s|%DESC%|service|g" \
     -e "s|%DATE%|`date +%d-%b-%Y`|g" 
     
-
 chmod a+x "$init"
