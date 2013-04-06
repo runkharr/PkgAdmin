@@ -168,7 +168,7 @@ prefix="$(dirname "$(abspath "$dmdir")")"
 # description (systemd) is constructed here ...
 #
 if rc $use_systemd; then
-    initp="$(abspath initd/systemd)"
+    initp="$(abspath initd/systemd.service)"
 else
     initp="$(abspath "initd/$LXDIST")"
 fi
