@@ -10,7 +10,7 @@
 abspath() {
     local pn="$1"
     if [ "${pn#/}" == "$pn" ]; then
-	pn="$(cwd)/${pn#./}"; pn="${pn//\/\//\/}"; pn="${pn%/}"
+	pn="$(pwd)/${pn#./}"; pn="${pn//\/\//\/}"; pn="${pn%/}"
     fi
     # Absolute PATH
     pn="${pn%/*}"; : ${pn:=/}
