@@ -42,8 +42,10 @@ travdirnd (char **_buf, size_t *_bufsz, const char *dirname,
     while (noNULL(de = readdir (dirp))) {
 	if (!*de->d_name) { continue; }
 	if (*de->d_name == '.') {
-	    if (!de->d_name[1]) { continue; }
-	    if (de->d_name[1] == '.' && !de->d_name[2]) { continue; }
+	    if (!de->d_name[1]
+	    ||  (de->d_name[1] == '.' && !de->d_name[2])) {
+		continue;
+	    }
 	}
 	pathlen = strlen (dirname) + strlen (de->d_name) + 2;
 	if (pathlen >= *_bufsz) {
