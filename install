@@ -48,14 +48,14 @@ veshift() {
 usage() {
     if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" $*; exit 64; fi
     cat <<-EOT
-	Usage: $0 [-c] [-m mode] [-o user] [-g group] [-s] [-z] file... directory
-	       $0 [-c] [-m mode] [-o user] [-g group] [-s] [-z] file directory/file
+	Usage: $0 [-c] [-l] [-m mode] [-o user] [-g group] [-s] [-z] file... directory
+	       $0 [-c] [-l] [-m mode] [-o user] [-g group] [-s] [-z] file directory/file
 	       $0 [-m mode] [-o user] [-g group] -d directory
 	EOT
     exit 0
 }
 
-QUERY=0; strip=0; verbose=0
+QUERY=0; strip=0; verbose=0; deref=1
 
 if [ $# -lt 1 ]; then usage; fi
 
@@ -63,6 +63,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
 	-c) shift ;;
 	-h) usage ;;
+	-l) deref=0; shift ;;
 	-m*|-o*|-g*|-d*)
 	    opt="`echo $1 | sed -e 's/\(-.\)/\1/'`"
 	    xarg="`echo $1 | sed -e 's/^-.//'`"
@@ -109,8 +110,11 @@ fi
 for i in "$@"; do OUT="$i"; done
 
 if [ ! -d "$OUT" -a $# -gt 2 ]; then
-    usage 'if' more than two arguments are given, the last one must be a directory
+    usage 'if' more than two arguments are given, the last one must be a \
+	  directory
 fi
+
+dopt=; if [ $deref -eq 0 ]; then dopt='-d'; fi
 
 if [ ! -d "$OUT" ]; then
     nodel=0
@@ -128,7 +132,7 @@ if [ ! -d "$OUT" ]; then
 	    em="$(rm -f "$OUT" 2>&1)"
 	    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
 	fi
-	em="$(cp "$1" "$OUT" 2>&1)"
+	em="$(cp $dopt "$1" "$OUT" 2>&1)"
 	if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
 	if [ $strip -ne 0 ]; then strip -- "$OUT"; fi
 	if [ -n "$owner" ]; then chown "$owner" "$OUT"; fi
@@ -155,7 +159,7 @@ while [ $# -gt 1 ]; do
 	    em="$(rm -f "$OUT/$bn" 2>&1)"
 	    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
 	fi
-	em="$(cp "$1" "$OUT/$bn" 2>&1)"
+	em="$(cp $dopt "$1" "$OUT/$bn" 2>&1)"
 	if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
 	if [ $strip -ne 0 ]; then strip -- "$OUT/$bn"; fi
 	if [ -n "$owner" ]; then chown "$owner" "$OUT/$bn"; fi
