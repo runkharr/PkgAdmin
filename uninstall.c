@@ -107,11 +107,15 @@ print_state (const char *file, int verbosity, int rc)
 }
 
 static int
-is_directory (const char *path)
+is_directory (const char *path, int follow_link)
 {
     struct stat sb;
 
-    if (stat (path, &sb) != 0) { return -1; }
+    if (follow_link) {
+        if (stat (path, &sb) != 0) { return -1; }
+    } else {
+        if (lstat (path, &sb) != 0) { return -1; }
+    }
     return (S_ISDIR (sb.st_mode) ? 1 : 0);
 }
 
@@ -130,7 +134,7 @@ main (int argc, char *argv[])
                 if (dirname) { usage ("ambiguous '-%c'-option", opt); }
                 dirname = optarg;
 		if (opt == 'D') { remove_directory = 1; }
-		if ((rc = is_directory (dirname)) <= 0) {
+		if ((rc = is_directory (dirname, 1)) <= 0) {
 		    if (rc < 0) {
 			usage ("'%s' - %s", dirname, strerror (errno));
 		    }
@@ -163,13 +167,13 @@ main (int argc, char *argv[])
         if (!file) {
             fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
         }
-	isdir = is_directory (file);
+	isdir = is_directory (file, 0);
 	if (verbosity >= 2) {
 	    printf ("Removing%s %s ...",
 		    (isdir ? " directory" : " file"), file);
 	    fflush (stdout);
 	}
-	if (isdir) { rc = rmdir (file); } else { rc = unlink (file); }
+	if (isdir > 0) { rc = rmdir (file); } else { rc = unlink (file); }
 	if (rc != 0) { ++errcc; }
 	print_state (file, verbosity, rc);
     }
