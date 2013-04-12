@@ -90,7 +90,7 @@ int process_entry (const char *path, int filetype, void *data)
     if (pe->cut_prefix && is_pprefix (pe->prefix, path)) {
 	path += strlen (pe->prefix) + 1;
     }
-    if (!*path) {
+    if (!*path || !strcmp (path, ".")) {
 	if (slist_append (pe->flp, (pe->add_dot ? "." : "/"))) {
 	    return -1;
 	}
@@ -98,9 +98,9 @@ int process_entry (const char *path, int filetype, void *data)
 	return 0;
     }
     if (pe->add_dot) {
-	char *npath = t_allocv (char, strlen (path) + 2);
+	char *npath = t_allocv (char, strlen (path) + 3);
 	if (!npath) { return -1; }
-	*npath = '.'; pbCopy (npath + 1, path);
+	pbCopy (npath, "./"); pbCopy (npath + 2, path);
 	if (slist_append (pe->flp, npath)) { free (npath); return -1; }
 	free (npath);
     } else {
