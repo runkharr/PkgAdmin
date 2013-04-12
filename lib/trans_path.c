@@ -28,13 +28,14 @@
 #define S6 6
 
 static const char strans[7][4] = {
-    /*S0*/ { S6, S1, S6, S6 },
-    /*S1*/ { S5, S1, S2, S4 },
-    /*S2*/ { S5, S1, S3, S4 },
-    /*S3*/ { S5, S4, S4, S4 },
-    /*S4*/ { S5, S1, S4, S4 },
-    /*S5*/ { -1, -1, -1, -1 },
-    /*S6*/ { -2, -2, -2, -2 }
+	   /*CCEOS    CCSLASH  CCDOT    CCOTHER*/
+    /*S0*/ { S6,      S1,      S6,      S6 },
+    /*S1*/ { S5,      S1,      S2,      S4 },
+    /*S2*/ { S5,      S1,      S3,      S4 },
+    /*S3*/ { S5,      S4,      S4,      S4 },
+    /*S4*/ { S5,      S1,      S4,      S4 },
+    /*S5*/ { -1,      -1,      -1,      -1 },
+    /*S6*/ { -2,      -2,      -2,      -2 }
 };
 
 #define NOP 0
@@ -47,13 +48,14 @@ static const char strans[7][4] = {
 #define ERROR 7
 
 static const char saction[7][4] = {
-    /*S0*/ { ERROR, STORE, ERROR, ERROR },
-    /*S1*/ { TERMINATE, SKIP, SKIP, STORE },
-    /*S2*/ { TERMINATE, SKIP, SKIP, DOTSTORE },
-    /*S3*/ { BACK, BACK, DOTDOTSTORE, DOTDOTSTORE },
-    /*S4*/ { TERMINATE, STORE, STORE, STORE },
-    /*S5*/ { TERMINATE, ERROR, ERROR, ERROR },
-    /*S6*/ { ERROR, ERROR, ERROR, ERROR }
+	  /* CCEOS      CCSLASH  CCDOT        CCOTHER*/
+    /*S0*/ { ERROR,     STORE,   ERROR,       ERROR },
+    /*S1*/ { TERMINATE, SKIP,    SKIP,        STORE },
+    /*S2*/ { TERMINATE, SKIP,    SKIP,        DOTSTORE },
+    /*S3*/ { BACK,      BACK,    DOTDOTSTORE, DOTDOTSTORE },
+    /*S4*/ { TERMINATE, STORE,   STORE,       STORE },
+    /*S5*/ { TERMINATE, ERROR,   ERROR,       ERROR },
+    /*S6*/ { ERROR,     ERROR,   ERROR,       ERROR }
 };
 
 static
@@ -76,7 +78,9 @@ int trans_path (char *p, char *q)
 	    case STORE:
 		lastch = *q; *p++ = *q++; break;
 	    case SKIP:
-		lastch = *q; ++q; break;
+		/* When skipping, lastch must remain the same */
+		/*lastch = *q;*/
+		++q; break;
 	    case DOTSTORE:
 		lastch = *q; *p++ = '.'; *p++ = *q++; break;
 	    case BACK:
