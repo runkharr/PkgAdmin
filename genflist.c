@@ -12,15 +12,17 @@
 **
 ** Synopsis:
 **
-**    genflist [-f|-d] [-n] path
+**    genflist [-d|-f] [-e|-n] path
 **
 ** Options:
-**   -f (full-path)
-**     write the pathnames including the 'path'-parameter
 **   -d
 **     prepend a '.' to each pathname printed
-**   -n (no directiroes)
-**     don't write the names of directories
+**   -f (full-path)
+**     write the pathnames including the 'path'-parameter
+**   -e (no empty directories)
+**     don't write the pathnames of empty directories
+**   -n (no directories)
+**     don't write the pathnames of directories
 **
 ** vim: set tabstop=8 shiftwidth=4 noexpandtab:
 */
@@ -44,8 +46,9 @@
 #include "lib/pbCopy.c"
 #include "lib/trans_path.c"
 #include "lib/travdir-types.c"
-#include "lib/travdirnd.c"
 #include "lib/travdir.c"
+#include "lib/travdirnd.c"
+#include "lib/travdirne.c"
 
 static
 int get_filetype (const char *path, int *_filetype)
@@ -85,7 +88,7 @@ int process_entry (const char *path, int filetype, void *data)
 {
     struct pe_data *pe = (struct pe_data *) data;
     if (pe->cut_prefix && is_pprefix (pe->prefix, path)) {
-	path += strlen (pe->prefix);
+	path += strlen (pe->prefix) + 1;
     }
     if (!*path) {
 	if (slist_append (pe->flp, (pe->add_dot ? "." : "/"))) {
@@ -121,17 +124,19 @@ void usage (const char *format, ...)
 	fputs ("\n", stderr);
 	exit (64);
     }
-    printf ("Usage: %s [-d|-f] [-n] path\n"
+    printf ("Usage: %s [-d|-f] [-e|-n] path\n"
 	    "       %s -h\n"
 	    "\nOptions:"
 	    "\n  -d (dot-add)"
 	    "\n    prepend a '.' to each path printed"
+	    "\n  -e (no empty dirs)"
+	    "\n    do not process (print) the pathnames of empty directories"
 	    "\n  -f (full-path)"
 	    "\n    expand each entry's pathname to an absolute pathname"
 	    "\n  -h (help)"
 	    "\n    display this text and terminate"
-	    "\n  -n (no empty dirs)"
-	    "\n    do not process (print) the pathnames of empty directories\n",
+	    "\n  -n (no dirs)"
+	    "\n    do not process (print) the pathnames of directories\n",
 	    prog, prog);
     exit (0);
 }
@@ -140,7 +145,7 @@ int main (int argc, char *argv[])
 {
     char *buf = NULL, *path = NULL;
     size_t bufsz = 0;
-    int rc, optx, opt_f = 0, opt_d = 0, opt_n = 0;
+    int rc, optx, opt_d = 0, opt_e = 0, opt_f = 0, opt_n = 0;
     struct pe_data pe;
     slist_t lp;
     trav_t trav = travdir;
@@ -162,12 +167,20 @@ int main (int argc, char *argv[])
 	    opt_f = 1; continue;
 	}
 	if (!strcmp (argv[optx], "-h")) { usage (NULL); }
-	if (!strcmp (argv[optx], "-n")) { opt_n = 1; continue; }
+	if (!strcmp (argv[optx], "-e")) {
+	    if (opt_n) { usage ("can't use '-e' and '-n' together"); }
+	    opt_e = 1; continue;
+	}
+	if (!strcmp (argv[optx], "-n")) {
+	    if (opt_e) { usage ("can't use '-n' and '-e' together"); }
+	    opt_n = 1; continue;
+	}
 	usage ("invalid option '%s'", argv[optx]);
     }
 
     /* Establish the configuration settings ... */
     if (opt_d) { pe.add_dot = 1; }
+    if (opt_e) { trav = travdirne; }
     if (opt_f) { pe.cut_prefix = 0; }
     if (opt_n) { trav = travdirnd; }
 
@@ -178,7 +191,7 @@ int main (int argc, char *argv[])
 
     /* Make the argument an absolute pathname ... */
     if (*argv[optx] != '/') {
-	char *p;
+	char *p, *arg = argv[optx];
 	const char *wd = cwd ();
 	ifnull (path = t_allocv (char, strlen (wd) + strlen (argv[optx]) + 2)) {
 	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
