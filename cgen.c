@@ -524,6 +524,18 @@ bool is_lcprefix (const char *p, const char *s)
 }
 #endif
 
+static void
+dump_vec (const char *name, int veclen, char **vec, FILE *f)
+{
+    fprintf (f, "%s = {", name);
+    if (veclen > 0) {
+	int ix;
+	fprintf (f, " \"%s\"", vec[0]);
+	for (ix = 1; ix < veclen; ++ix) { fprintf (f, ", \"%s\"", vec[ix]); }
+    }
+    fputs (" }\n", f); fflush (f);
+}
+
 /* Display either the usage message and terminate (exit-code = 0) or an error
 ** message concerning the usage and abort the program (exit-code = 64).
 */
@@ -643,91 +655,220 @@ char *x_sdup (const char *s)
 
 #include "lib/nows.c"
 
+/*##0*/
+
+#define CC_EOS          0
+#define CC_WHITESPACE   1
+#define CC_DOUBLEQUOTE  2
+#define CC_SINGLEQUOTE  3
+#define CC_BACKSLASH    4
+#define CC_SEMICOLON    5
+#define CC_NORMAL       6
+#define NUMCC (CC_NORMAL + 1)
+
+#define S0 0
+#define S1 1
+#define S2 2
+#define S3 3
+#define S4 4
+#define S5 5
+#define S6 6
+#define S7 7
+#define NUMSTATES (S7 + 1)
+
+static int strans[NUMSTATES][NUMCC] = {
+/*CC_EOS CC_WHITESPACE CC_DOUBLEQUOTE CC_SINGLEQUOTE CC_BACKSLASH CC_SEMICOLON CC_NORMAL*/
+/*S0*/ { S7, S0, S1, S3, S4, S7, S5 },
+/*S1*/ { S6, S1, S5, S1, S2, S1, S1 },
+/*S2*/ { S6, S1, S1, S5, S1, S1, S1 },
+/*S3*/ { S6, S3, S2, S5, S3, S3, S3 },
+/*S4*/ { S6, S5, S5, S5, S5, S5, S5 },
+/*S5*/ { S6, S6, S1, S3, S4, S6, S5 },
+/*S6*/ { S6, S6, S6, S6, S6, S6, S6 },
+/*S7*/ { S7, S7, S7, S7, S7, S7, S7 }
+};
+
+#define AC_NOOP 0
+#define AC_INC1 1
+#define AC_INC2 2
+#define AC_INSCHR 3
+#define AC_INSNUL 4
+#define AC_INSBSL 5
+#define AC_RETN 6
+#define AC_RET2 7
+
+static const char *
+st_name (int state)
+{
+    switch (state) {
+	case S0: return "S0";
+	case S1: return "S1";
+	case S2: return "S2";
+	case S3: return "S3";
+	case S4: return "S4";
+	case S5: return "S5";
+	case S6: return "S6";
+	case S7: return "S7";
+	default: return "*unknown";
+    }
+}
+
+static const char *
+ac_name (int action)
+{
+    switch (action) {
+	case AC_NOOP:   return "AC_NOOP";
+	case AC_INC1:   return "AC_INC1";
+	case AC_INC2:   return "AC_INC2";
+	case AC_INSCHR: return "AC_INSCHR";
+	case AC_INSNUL: return "AC_INSNUL";
+	case AC_INSBSL: return "AC_INSBSL";
+	case AC_RETN:   return "AC_RETN";
+	case AC_RET2:   return "AC_RET2";
+	default     :   return "*unknown";
+    }
+}
+	
+
+static int r_action[NUMSTATES][NUMCC] = {
+       /*  EOS    ' '/'\t'   '"'      '\''     '\\'     ';'       ?   */
+/*S0*/ { AC_NOOP, AC_NOOP, AC_NOOP, AC_NOOP, AC_NOOP, AC_NOOP, AC_INC1 },
+/*S1*/ { AC_NOOP, AC_INC1, AC_NOOP, AC_INC1, AC_NOOP, AC_INC1, AC_INC1 },
+/*S2*/ { AC_INC2, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1 },
+/*S3*/ { AC_INC1, AC_INC1, AC_INC1, AC_NOOP, AC_INC1, AC_INC1, AC_INC1 },
+/*S4*/ { AC_INC2, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1 },
+/*S5*/ { AC_INC1, AC_INC1, AC_NOOP, AC_NOOP, AC_NOOP, AC_INC1, AC_INC1 },
+/*S6*/ { AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN },
+/*S7*/ { AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN }
+};
+
+static int
+sh_cclass (int ch)
+{
+    switch (ch) {
+	case '\0':
+	    return CC_EOS;
+	case ' ': case '\t':
+	    return CC_WHITESPACE;
+	case '"':
+	    return CC_DOUBLEQUOTE;
+	case '\'':
+	    return CC_SINGLEQUOTE;
+	case '\\':
+	    return CC_BACKSLASH;
+	case ';':
+	    return CC_SEMICOLON;
+	default:
+	    return CC_NORMAL;
+    }
+}
+
+static size_t
+nextword_len (const char *in, const char **_in)
+{
+    size_t cc = 0;
+    int state = S0, action;
+    while (state != S6 && state != S7) {
+	int ch = *in;
+	int cclass = sh_cclass (ch);
+	if (cclass != CC_EOS) { ++in; }
+	action = r_action[state][cclass];
+	state = strans[state][cclass];
+	switch (action) {
+	    case AC_NOOP: break;
+	    case AC_INC1: cc++; break;
+	    case AC_INC2: cc += 2; break;
+	}
+    }
+    *_in = in; return cc;
+}
+
+static int w_action[NUMSTATES][NUMCC] = {
+       /* EOS WS DQ SQ BS SC ? */
+/*S0*/ { AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_NOOP,
+	 AC_INSCHR },
+/*S1*/ { AC_INSNUL, AC_INSCHR, AC_NOOP,   AC_INSCHR, AC_NOOP,   AC_INSCHR,
+	 AC_INSCHR },
+/*S2*/ { AC_INSBSL, AC_INSCHR, AC_INSCHR, AC_INSCHR, AC_INSCHR, AC_INSCHR,
+	 AC_INSCHR },
+/*S3*/ { AC_INSNUL, AC_INSCHR, AC_INSCHR, AC_NOOP,   AC_INSCHR, AC_INSCHR,
+	 AC_INSCHR },
+/*S4*/ { AC_INSBSL, AC_INSCHR, AC_INSCHR, AC_INSCHR, AC_INSCHR, AC_INSCHR,
+	 AC_INSCHR },
+/*S5*/ { AC_INSNUL, AC_INSNUL, AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_INSNUL,
+	 AC_INSCHR },
+/*S6*/ { AC_RETN,   AC_RETN,   AC_RETN,   AC_RETN,   AC_RETN,   AC_RETN,
+	 AC_RETN   },
+/*S7*/ { AC_RET2,   AC_RET2,   AC_RET2,   AC_RET2,   AC_RET2,   AC_RET2,
+	 AC_RET2   },
+};
+
+static char *
+nextword_ins (const char *in, const char **_in, char **_out)
+{
+    size_t cc = 0;
+    int state = S0, action;
+    char *out = *_out, *word = NULL;
+    while (state != S6 && state != S7) {
+	int ch = *in;
+	int cclass = sh_cclass (ch);
+	if (cclass != CC_EOS) { ++in; }
+	action = w_action[state][cclass];
+	state = strans[state][cclass];
+	switch (action) {
+	    case AC_NOOP:   break;
+	    case AC_INSCHR: *out++ = ch; break;
+	    case AC_INSNUL: *out++ = '\0'; break;
+	    case AC_INSBSL: *out++ = '\\'; *out++ = '\0'; break;
+	}
+    }
+    if (state == S6) { word = *_out; }
+    *_out = out; *_in = in;
+    return word;
+}
+
 /* Split a string into a vector of strings using shell-alike word-detection.
 */
-static
-int shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
+static int
+shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 {
     const char *p;
-    char *buf, *r, **rv, quote = 0, c;
-    size_t bufsz = 0;
-    int wc = 0, ix;
+    char *buf, *b, *r, **rv, *v, quote = 0, c;
+    size_t bufsz = 0, wordsz, max_wsz;
+    int wc = 0, ix, jx, ec;
     bool word_open = false;
 
-    p = s; ix = 0;
-    while (*p) {
-	if (*p++ == ';') { ix += 2; }
-    }
-    bufsz = strlen (s) + ix + 1;
-    if (!(buf = tmalloc (bufsz, char))) { return -1; }
-    r = buf; p = s; ix = 0;
-    while ((c = *p++)) {
-	if (isws (c)) {
-	    if (quote) {
-		*r++ = c;
-	    } else if (word_open) {
-		*r++ = '\0'; word_open = false;
-	    }
-	} else if (c == '\\') {
-	    word_open = true; ++wc;
-	    if (quote == '\'') {
-		*r++ = c;
-	    } else {
-		*r = (*p ? *p++ : c);
-	    }
-	} else if (c == '\'' || c == '"') {
-	    if (!quote) {
-		quote = c; word_open = true; ++wc;
-	    } else if (c == quote) {
-		*r++ = '\0'; word_open = false;
-	    } else {
-		*r++ = c;
-	    }
-	} else if (c == ';' && !quote) {
-	    /* Break here, because it is the beginning of a new command ... */
-	    break;
-	} else {
-	    if (!word_open) {
-		word_open = true; ++wc;
-	    }
-	    *r++ = c;
-	}
+    p = s; max_wsz = 0;
+    while ((wordsz = nextword_len (p, &p))) {
+	++wc; if (wordsz > max_wsz) { max_wsz = wordsz; }
+	/*bufsz += wordsz;*/
     }
 
-    /* There is an open word, close this word and increase the word count ... */
-    if (word_open) { *r++ = '\0'; word_open = false; }
-
-    /* Allocate memory for a command vector ... */
-    if ((rv = tmalloc ((wc + 1), char *))) {
-	/* ... and fill it with copies of the strings stored in buffer ... */
-	ix = 0; r = buf;
-	while (wc-- > 0) {
-	    if (!(rv[ix++] = sdup (r))) {
-		int jx; for (jx = 0; jx < ix; ++jx) { free (rv[jx]); }
-		free (rv); rv = NULL; break;
-	    }
-	    r += strlen (r) + 1;
-	}
-	if (rv) { rv[ix] = NULL; }
+    if ((rv = (char **) malloc ((++wc) * sizeof(char *))) == NULL) {
+	return -1;
+    }
+    if ((buf = (char *) malloc (max_wsz)) == NULL) {
+	free (rv); return -1;
     }
 
-    /* Free the buffer which was allocated for the command parsing ... */
+    p = s; ix = 0; b = buf;
+    while ((r = nextword_ins (p, &p, &b))) {
+	if (!(v = sdup (r))) { goto ERREXIT; }
+	rv[ix++] = v; b = buf;
+    }
+    rv[ix] = NULL;
+    if (_rs) { *_rs = p; }
+    *_out = rv; *_outlen = ix;
     free (buf);
-
-    /* If there was a remaining command string (after a `;´) and there is a
-    ** valid return parameter `_rs´ for this string then return this string
-    ** through this parameter ...
-    */
-    if (c && _rs) { *_rs = p; }
-
-    /* Return the command vector through the parameter `_out´ and the number
-    ** of elements through `_outlen´ ...
-    */
-    if (rv) { *_out = rv; *_outlen = ix; return 0; }
-
-    /* Return -1 here - indicating a failure ... */
+    return 0;
+ERREXIT:
+    ec = errno;
+    for (jx = 0; jx < ix; ++jx) { free (rv[jx]); }
+    free (rv); free (buf);
+    errno = ec;
     return -1;
 }
+/*##1*/
 
 static
 void _argv_free (char ***_argv)
@@ -1324,6 +1465,7 @@ NX:
 
     /* End of the command vector */
     cmdv[ix] = NULL; cmdc = ix;
+
 
     /* Empty the `progv´ and `optv´ vectors (as their elements were moved to
     ** `cmdv´ ...

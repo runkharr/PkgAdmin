@@ -82,12 +82,12 @@ find . \( -name 'CVS' -o -path '*/CVS/*' \) -prune \
        -o -path 'debdir/*' -prune -o -print \
 | cpio -pdm debdir
 
+if false; then
 # Remove the debian sub-directory in the target, because it will be replaced
 # by another one ...
 #
-rm -rf debdir/debian
 
-# Copy the `debian' sub-directory from eithet $top or $adm to here ...
+# Copy the `debian' sub-directory from either $top or $adm to here ...
 #
 if [ -d "$top/debian" ]; then
     cpsrc="$top/debian"; d="$top"
@@ -105,7 +105,6 @@ find debian \( -name CVS -o -path '*/CVS/*' \) -prune \
 	    -o -print \
 | perl -ne "s|^\\Q$d\\E/|./|; "'print $_;' \
 | cpio -pdm "$oldwd/debdir"
-exit
 
 # Change back into $oldwd, but go a step further by changing into the sub-
 # directory `debdir´ below $oldwd, because this is out build-directory ...
@@ -114,12 +113,12 @@ cd "$oldwd/debdir"
 
 # Now modify (extend) the file `debian/changelog´ below the build-directory ...
 #
-"$adm"/dcedit
+"$adm/dcedit"
 
 # Use `dpkg-buildpackage' for generating the debian packages, but only the
 # binary packages and without signing these packages ...
 #
-dpkg-buildpackage -rfakeroot -b -us -uc
+dpkg-buildpackage -rfakeroot -b #-us -uc
 
 # Change back into parent directory and remove the build-directory
 # (`debdir´) ...
