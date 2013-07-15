@@ -1152,8 +1152,8 @@ is_dotordotdot (const char*s)
 
 /* Remove a directory - including (recursively) all of it' entries.
 */
-static
-int rmrec (const char *path, FILE *out)
+static int
+rmrec (const char *path, FILE *out)
 {
     int rc;
     DIR *dp;
@@ -1207,8 +1207,8 @@ ERREXIT:
     return -1;
 }
 
-static
-int rmfsentry (const char *path, FILE *out)
+static int
+rmfsentry (const char *path, FILE *out)
 {
     struct stat st;
     if (lstat (path, &st)) { return (errno == ENOENT ? 0 : -1); }
@@ -1218,8 +1218,8 @@ int rmfsentry (const char *path, FILE *out)
 
 /* Retrieve the current working diretory.
 */
-static
-char *mycwd()
+static char *
+mycwd()
 {
     size_t bsz = 1024;
     char *buf = tmalloc (bsz, char), *b, *wd;
@@ -1266,9 +1266,9 @@ cleanup (FILE *out, const char *wd, int verbose, int nfiles, char **files)
     return (errs ? 1 : 0);
 }
 
-static
-size_t sfx_subst (const char *w, const char *subst, size_t sl,
-		  const char **_w, char **_out)
+static size_t
+sfx_subst (const char *w, const char *subst, size_t sl,
+	   const char **_w, char **_out)
 {
     size_t xl;
     const char *sx, *w1;
@@ -1307,8 +1307,8 @@ NOSFXSUBST:
 /* Replace each occurrence of `pat´ (except when prefixed with `\´) in `where´
 ** with `subst´.
 */
-static char
-*rplc (const char *pat, const char *where, const char *subst)
+static char *
+rplc (const char *pat, const char *where, const char *subst)
 {
     const char *w; size_t pl = strlen (pat);
     char *res, *r; size_t ressz = 1;
@@ -1348,9 +1348,10 @@ static char
 /* Generate the command from the program (cmd), the value of the environment
 ** variable (envvar) and a list of arguments.
 */
-char **gen_cmd (const char *prog, const char *popts, bool split_prog,
-		action_t *act, const char *target, int argc, char **argv,
-		const char **_nxprog)
+char **
+gen_cmd (const char *prog, const char *popts, bool split_prog,
+	 action_t *act, const char *target, int argc, char **argv,
+	 const char **_nxprog)
 {
     int ix, jx, kx, nx, optc = 0, progc = 0, cmdc = 0, aviix, px[2], ac;
     const char *sv, *envval, *nxprog = NULL;
@@ -1504,8 +1505,8 @@ ERREXIT:
 /* Check if the argument points to a regular file which is executable for the
 ** calling user.
 */
-static
-bool is_xfile (const char *path)
+static bool
+is_xfile (const char *path)
 {
     struct stat st;
     if (stat (path, &st)) { return false; }
@@ -1517,8 +1518,8 @@ bool is_xfile (const char *path)
 ** absolute) pathname or try to find the argument in the PATH and return it's
 ** absolute pathname.
 */
-static
-char *which (const char *cmd)
+static char *
+which (const char *cmd)
 {
     size_t bsz = 0, pl, cl;
     char *PATH, *p, *q, *buf = NULL, *b, *res = NULL;
@@ -1563,9 +1564,10 @@ char *which (const char *cmd)
 ** corresponding command in a sub-process. Display the output depending on the
 ** `verbose´ argument.
 */
-int spawn (FILE *out, int verbose, bool split_prog,
-	   action_t *act, const char *prog, const char *popts,
-	   const char *target, int argc, char **argv, const char **_nxcmd)
+static int
+spawn (FILE *out, int verbose, bool split_prog,
+       action_t *act, const char *prog, const char *popts,
+       const char *target, int argc, char **argv, const char **_nxcmd)
 {
     extern char **environ;
     char **cmdv;
@@ -1611,7 +1613,8 @@ int spawn (FILE *out, int verbose, bool split_prog,
     return -1;
 }
 
-static void check_args (action_t *act, int argc)
+static void
+check_args (action_t *act, int argc)
 {
     if (argc < act->min_args) {
 	usage ("missing argument(s) for %s; see `%s help´ for more, please!",
@@ -1623,8 +1626,8 @@ static void check_args (action_t *act, int argc)
     }
 }
 
-static
-int do_help (action_t *act, const char *prog, int argc, char **argv)
+static int
+do_help (action_t *act, const char *prog, int argc, char **argv)
 {
     char *topic = NULL;
     if (prog) { usage ("%s=<program> not allowed here", act->pfx_name); }
@@ -1634,8 +1637,8 @@ int do_help (action_t *act, const char *prog, int argc, char **argv)
     return 0;
 }
 
-static
-int do_clean (action_t *act, const char *prog, int argc, char **argv)
+static int
+do_clean (action_t *act, const char *prog, int argc, char **argv)
 {
     int ix, verbosity;
     bool verbose = false, silent = false;
@@ -1699,8 +1702,8 @@ int do_clean (action_t *act, const char *prog, int argc, char **argv)
     return 0;
 }
 
-static
-int do_generate (action_t *act, const char *prog, int argc, char **argv)
+static int
+do_generate (action_t *act, const char *prog, int argc, char **argv)
 {
     int optx, ix, rc, cdesclen = 0, ac, verbose = 0;
     bool split_prog = false;
@@ -1756,8 +1759,8 @@ int do_generate (action_t *act, const char *prog, int argc, char **argv)
     return (rc ? 1 : 0);
 }
 
-static
-int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
+static int
+do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 {
     /* 1. Step: Set the program-name ... */
     char *target = NULL, **av, *opt, *nullarg[] = { NULL };
@@ -1765,6 +1768,7 @@ int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     int optx = 0, ac, rc;
     int verbose = 0;
 
+    if (!prog) { prog = act->default_cmd; }
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
 	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
@@ -1780,7 +1784,7 @@ int do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     ac = argc - optx; av = &argv[optx];
     rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av,
 		&nxprog);
-    while (rc == 0 && nxprog) {
+    while (rc == 0 && nxprog && *nxprog) {
 	prog = nxprog; nxprog = NULL;
 	rc = spawn (stdout, -1, true, act, prog, NULL, target, 0, nullarg,
 		    &nxprog);
