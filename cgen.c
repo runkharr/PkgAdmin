@@ -676,7 +676,7 @@ char *x_sdup (const char *s)
 #define S7 7
 #define NUMSTATES (S7 + 1)
 
-static int strans[NUMSTATES][NUMCC] = {
+static char strans[NUMSTATES][NUMCC] = {
 /*CC_EOS CC_WHITESPACE CC_DOUBLEQUOTE CC_SINGLEQUOTE CC_BACKSLASH CC_SEMICOLON CC_NORMAL*/
 /*S0*/ { S7, S0, S1, S3, S4, S7, S5 },
 /*S1*/ { S6, S1, S5, S1, S2, S1, S1 },
@@ -691,11 +691,12 @@ static int strans[NUMSTATES][NUMCC] = {
 #define AC_NOOP 0
 #define AC_INC1 1
 #define AC_INC2 2
-#define AC_INSCHR 3
-#define AC_INSNUL 4
-#define AC_INSBSL 5
-#define AC_RETN 6
-#define AC_RET2 7
+#define AC_BACK 3
+#define AC_INSCHR 4
+#define AC_INSNUL 5
+#define AC_INSBSL 6
+#define AC_RETN 7
+#define AC_RET2 8
 
 static const char *
 st_name (int state)
@@ -730,14 +731,14 @@ ac_name (int action)
 }
 	
 
-static int r_action[NUMSTATES][NUMCC] = {
+static char r_action[NUMSTATES][NUMCC] = {
        /*  EOS    ' '/'\t'   '"'      '\''     '\\'     ';'       ?   */
 /*S0*/ { AC_NOOP, AC_NOOP, AC_NOOP, AC_NOOP, AC_NOOP, AC_NOOP, AC_INC1 },
 /*S1*/ { AC_NOOP, AC_INC1, AC_NOOP, AC_INC1, AC_NOOP, AC_INC1, AC_INC1 },
 /*S2*/ { AC_INC2, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1 },
 /*S3*/ { AC_INC1, AC_INC1, AC_INC1, AC_NOOP, AC_INC1, AC_INC1, AC_INC1 },
 /*S4*/ { AC_INC2, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1, AC_INC1 },
-/*S5*/ { AC_INC1, AC_INC1, AC_NOOP, AC_NOOP, AC_NOOP, AC_INC1, AC_INC1 },
+/*S5*/ { AC_INC1, AC_INC1, AC_NOOP, AC_NOOP, AC_NOOP, AC_BACK, AC_INC1 },
 /*S6*/ { AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN },
 /*S7*/ { AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN, AC_RETN }
 };
@@ -778,13 +779,14 @@ nextword_len (const char *in, const char **_in)
 	    case AC_NOOP: break;
 	    case AC_INC1: cc++; break;
 	    case AC_INC2: cc += 2; break;
+	    case AC_BACK: --in; break;
 	}
     }
     *_in = in; return cc;
 }
 
-static int w_action[NUMSTATES][NUMCC] = {
-       /* EOS WS DQ SQ BS SC ? */
+static char w_action[NUMSTATES][NUMCC] = {
+       /* EOS ' '/'\t' '"' '\'' '\\' ';' ? */
 /*S0*/ { AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_NOOP,
 	 AC_INSCHR },
 /*S1*/ { AC_INSNUL, AC_INSCHR, AC_NOOP,   AC_INSCHR, AC_NOOP,   AC_INSCHR,
@@ -795,7 +797,7 @@ static int w_action[NUMSTATES][NUMCC] = {
 	 AC_INSCHR },
 /*S4*/ { AC_INSBSL, AC_INSCHR, AC_INSCHR, AC_INSCHR, AC_INSCHR, AC_INSCHR,
 	 AC_INSCHR },
-/*S5*/ { AC_INSNUL, AC_INSNUL, AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_INSNUL,
+/*S5*/ { AC_INSNUL, AC_INSNUL, AC_NOOP,   AC_NOOP,   AC_NOOP,   AC_BACK,
 	 AC_INSCHR },
 /*S6*/ { AC_RETN,   AC_RETN,   AC_RETN,   AC_RETN,   AC_RETN,   AC_RETN,
 	 AC_RETN   },
@@ -820,6 +822,7 @@ nextword_ins (const char *in, const char **_in, char **_out)
 	    case AC_INSCHR: *out++ = ch; break;
 	    case AC_INSNUL: *out++ = '\0'; break;
 	    case AC_INSBSL: *out++ = '\\'; *out++ = '\0'; break;
+	    case AC_BACK: --in; *out++ = '\0'; break;
 	}
     }
     if (state == S6) { word = *_out; }
@@ -1785,7 +1788,7 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 		&nxprog);
     while (rc == 0 && nxprog && *nxprog) {
 	prog = nxprog; nxprog = NULL;
-	rc = spawn (stdout, -1, true, act, prog, NULL, target, 0, nullarg,
+	rc = spawn (stdout, verbose, true, act, prog, NULL, target, 0, nullarg,
 		    &nxprog);
     }
     if (verbose == 0) { print_exitstate (stdout, rc); }
