@@ -1768,7 +1768,6 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     int optx = 0, ac, rc;
     int verbose = 0;
 
-    if (!prog) { prog = act->default_cmd; }
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
 	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
