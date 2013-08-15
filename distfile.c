@@ -25,7 +25,9 @@
 #include <regex.h>
 #include <errno.h>
 #include <utime.h>
+#include <fcntl.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 
@@ -75,71 +77,75 @@ static void usage (const char *fmt, ...)
 	va_end (ap);
 	exit (64);
     }
-    printf ("\nUsage: %s [-p 'packcmd' ] [-c 'cleancmd' ] [-x 'excludes']"
-	    " srcdist \\\n                   [suffix [dir]]"
-	    "\n       %s [-p 'packcmd' ] [-i 'installcmd' ] [-x 'excludes']"
-	    " bindist \\\n                   [prefix [suffix [dir]]]"
-	    "\n       %s -h"
-	    "\n       %s -V"
-	    "\n"
-	    "\nOptions:"
-	    "\n  -c 'cleancmd'"
-	    "\n     Specify a template for cleaning up (removing files from a"
-	    " previous build-"
-	    "\n     process (like a 'make cleanall')"
-	    "\n     (Default: '%s')"
-	    "\n  -i 'installcmd'"
-	    "\n     Specify a template for the command which installs the"
-	    " binary data to be"
-	    "\n     packed. A '%%p' is replaced with the target directory of"
-	    " the installation."
-	    "\n     (Default: '%s')"
-	    "\n  -p 'packcmd'"
-	    "\n     Specify a template for the packing-command. A '%%p' is"
-	    " replaced with the"
-	    "\n     name of the directory to be packed."
-	    "\n     (Default: '%s')"
-	    "\n  -x 'excludes'"
-	    "\n     A file which contains pathname-patterns to be excluded"
-	    " from the"
-	    "\n     'srcdist'/'bindist' process."
-	    "\n     (Default: a compiled builtin)"
-	    "\n  prefix"
-	    "\n     The installation prefix (e.g. /usr, /usr/local, ...)"
-	    "\n  suffix"
-	    "\n     An additional suffix to be inserted between the archive's"
-	    " name and the"
-	    "\n     packager's suffix (e.g. the `-bin´ in"
-	    " AVLtree-0.75-bin.tar.gz). For"
-	    "\n     `srcdist´, this defaults to an empty string, for `bindist´"
-	    " to \"-bin\"."
-	    "\n  dir"
-	    "\n     The directory wherein the 'srcdist'/'bindist' process"
-	    " creates the"
-	    "\n     temporary directory and leaves the archive after"
-	    " completion."
-	    "\n     (Default: The basename of the current directory plus a '-'"
-	    " plus the"
-	    "\n     content of (the first line of) the file 'VERSION' which"
-	    " resides in this"
-	    "\n     directory.)\n"
-	    "\nFor each of the `-c´, `-i´ and `-p´ options a non-negative"
-	    " integer may be"
-	    "\nspecified, which is then used for selecting a template from a"
-	    " list which is read"
-	    "\nfrom a file. If matching file exists, a hard-coded list is used"
-	    " instead."
-	    "\nFor"
-	    "\n  -c the file to be used is either `.cleanupcmds´ in the top-"
-	    "level directory"
-	    "\n      of the source tree or `admin/cleanupcmds´,"
-	    "\n  -i it is either `.installcmds´ (again at top-level) or"
-	    " `admin/installcmds´,"
-	    "\n  -p it is either `.packcmds´ or `admin/packcmds´.\n\n",
-	    prog, prog, prog, prog,
-	    def_cluptpls[0],
-	    def_insttpls[0],
-	    def_packtpls[0]
+    fprintf (stderr,
+	     "\nUsage: %s [-p 'packcmd'] [-c 'cleancmd'] [-x 'excludes']"
+	     " [-q] srcdist \\\n                   [suffix [dir]]"
+	     "\n       %s [-p 'packcmd'] [-i 'installcmd'] [-x 'excludes']"
+	     " [-q] bindist \\\n                   [prefix [suffix [dir]]]"
+	     "\n       %s -h"
+	     "\n       %s -V"
+	     "\n"
+	     "\nOptions:"
+	     "\n  -c 'cleancmd'"
+	     "\n     Specify a template for cleaning up (removing files from a"
+	     " previous build-"
+	     "\n     process (like a 'make cleanall')"
+	     "\n     (Default: '%s')"
+	     "\n  -i 'installcmd'"
+	     "\n     Specify a template for the command which installs the"
+	     " binary data to be"
+	     "\n     packed. A '%%p' is replaced with the target directory of"
+	     " the installation."
+	     "\n     (Default: '%s')"
+	     "\n  -p 'packcmd'"
+	     "\n     Specify a template for the packing-command. A '%%p' is"
+	     " replaced with the"
+	     "\n     name of the directory to be packed."
+	     "\n     (Default: '%s')"
+	     "\n  -q"
+	     "\n     suppress the output of the generation, cleanup and"
+	     " installation commands"
+	     "\n  -x 'excludes'"
+	     "\n     A file which contains pathname-patterns to be excluded"
+	     " from the"
+	     "\n     'srcdist'/'bindist' process."
+	     "\n     (Default: a compiled builtin)"
+	     "\n  prefix"
+	     "\n     The installation prefix (e.g. /usr, /usr/local, ...)"
+	     "\n  suffix"
+	     "\n     An additional suffix to be inserted between the archive's"
+	     " name and the"
+	     "\n     packager's suffix (e.g. the `-bin´ in"
+	     " AVLtree-0.75-bin.tar.gz). For"
+	     "\n     `srcdist´, this defaults to an empty string, for"
+	     " `bindist´ to \"-bin\"."
+	     "\n  dir"
+	     "\n     The directory wherein the 'srcdist'/'bindist' process"
+	     " creates the"
+	     "\n     temporary directory and leaves the archive after"
+	     " completion."
+	     "\n     (Default: The basename of the current directory plus a"
+	     " '-' plus the"
+	     "\n     content of (the first line of) the file 'VERSION' which"
+	     " resides in this"
+	     "\n     directory.)\n"
+	     "\nFor each of the `-c´, `-i´ and `-p´ options a non-negative"
+	     " integer may be"
+	     "\nspecified, which is then used for selecting a template from a"
+	     " list which is read"
+	     "\nfrom a file. If matching file exists, a hard-coded list is"
+	     " used instead."
+	     "\nFor"
+	     "\n  -c the file to be used is either `.cleanupcmds´ in the top-"
+	     "level directory"
+	     "\n      of the source tree or `admin/cleanupcmds´,"
+	     "\n  -i it is either `.installcmds´ (again at top-level) or"
+	     " `admin/installcmds´,"
+	     "\n  -p it is either `.packcmds´ or `admin/packcmds´.\n\n",
+	     prog, prog, prog, prog,
+	     def_cluptpls[0],
+	     def_insttpls[0],
+	     def_packtpls[0]
 	    );
     exit (0);
 }
@@ -243,12 +249,50 @@ static void conv_path (const char *p, size_t len, char **_buf, size_t *_bufsz)
 }
 
 
-int is_dir (const char *path)
+static int
+is_dir (const char *path)
 {
     struct stat sb;
     if (access (path, F_OK)) { return 0; }
     if (stat (path, &sb)) { return 0; }
     return (S_ISDIR (sb.st_mode) ? 1 : 0);
+}
+
+static int
+qcommand (const char *cmd, const char *outto)
+{
+    pid_t pid;
+    int wst, rc;
+    if ((pid = fork ())< 0) { return -1; }
+    if (pid == 0) {
+	extern char **environ;
+	const char *cmdv[] = { "/bin/sh", "-c", cmd, NULL };
+	if (outto) {
+	    int out = open (outto, O_CREAT|O_WRONLY|O_TRUNC, 0600);
+	    if (out < 0) {
+		fprintf (stderr, "%s: open() - %s\n", prog, strerror (errno));
+		exit (1);
+	    }
+	    fflush (stdout);
+	    if (dup2 (out, 1) < 0) {
+		fprintf (stderr, "%s: dup2() to stdout - %s\n",
+				 prog, strerror (errno));
+		exit (1);
+	    }
+	    fflush (stderr);
+	    if (dup2 (out, 2) < 0) {
+		fprintf (stderr, "%s: dup2() to stderr - %s\n",
+				 prog, strerror (errno));
+		exit (1);
+	    }
+	    close (out);
+	}
+	execve (cmdv[0], (char *const *)cmdv, environ);
+	exit (69);
+    }
+    rc = waitpid (pid, &wst, 0);
+    if (rc < 0) { return -1; }
+    return wst;
 }
 
 static const char *word_class = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_"
@@ -414,7 +458,7 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
     return append_regex (*_buf, _first, _last);
 }
 
-static int load_pattern_list (const char *filename, rxlist_t *_out)
+static int load_pattern_list (const char *filename, int quiet, rxlist_t *_out)
 {
     int errcnt = 0;
     FILE *file;
@@ -440,7 +484,7 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
 	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
 	}
 	fclose (file);
-    } else {
+    } else if (!quiet) {
 	fprintf(stderr, "WARNING! %s - %s\n", filename, strerror (errno));
     }
 
@@ -453,7 +497,7 @@ static int load_pattern_list (const char *filename, rxlist_t *_out)
 	    if (add_pattern (p, &first, &last, &buf, &bufsz) < 0) { ++errcnt; }
 	}
 	fclose (file);
-    } else {
+    } else if (!quiet) {
 	fprintf(stderr, "WARNING! %s - %s\n", p, strerror (errno));
     }
     cfree (line); cfree (buf);
@@ -895,7 +939,7 @@ ERROR:
 /*#### cleanup ####*/
 /* Perform a `cleanup´-operation in the supplied directory ...
 */
-static int cleanup (const char *packdir, const char *cluptpl)
+static int cleanup (const char *packdir, const char *cluptpl, int quiet)
 {
     int rc = 0;
     char *cmd = NULL;
@@ -905,7 +949,7 @@ static int cleanup (const char *packdir, const char *cluptpl)
     buf_puts (packdir, strlen (packdir), &cmd, &cmdsz);
     buf_puts ("'; ", 3, &cmd, &cmdsz);
     buf_puts (cluptpl, strlen (cluptpl), &cmd, &cmdsz);
-    rc = system (cmd);
+    rc = qcommand (cmd, (quiet ? "/dev/null" : NULL));
     buf_delete (&cmd, &cmdsz);
     return rc;
 }
@@ -1003,7 +1047,7 @@ static int pf_subst (struct rplc_struct *rs, const char *tpl,
 
 static int gen_package (const char *packcmd, const char *packdir,
 		        const char *suffix, const char *targetdir,
-			char **_package)
+			int quiet, char **_package)
 {
     char *cmd = NULL, *cp, *package = NULL;
     size_t cmdsz = 0;
@@ -1038,7 +1082,7 @@ static int gen_package (const char *packcmd, const char *packdir,
 	}
 	buf_delete (&fn, &fnsz);
     }
-    rc = system (cmd);
+    rc = qcommand (cmd, (quiet ? "/dev/null" : NULL));
     if (rc) { cfree (package); } else { *_package = package; }
 
     buf_delete (&cmd, &cmdsz);
@@ -1130,6 +1174,7 @@ static int gen_srcdist (rxlist_t exclude_pats,
 			const char *packcmd,
 			const char *suffix,
 			const char *newdir,
+			int quiet,
 			char **_package)
 {
     int rc;
@@ -1177,10 +1222,11 @@ static int gen_srcdist (rxlist_t exclude_pats,
     rc = copy_tree (".", packdir, exclude_pats);
     if (!rc) {
 	/* Nun wird im Zielverzeichnis aufgeräumt ... */
-	rc = cleanup (packdir, cluptpl);
+	rc = cleanup (packdir, cluptpl, quiet);
 	/* Anschließend wird das Archiv generiert ... */
 	if (!rc) {
-	    rc = gen_package (packtpl, packdir, suffix, newdir, &package);
+	    rc = gen_package (packtpl, packdir, suffix, newdir,
+			      quiet, &package);
 	}
     }
     /* Das Zielverzeichnis wird nun noch weggeräumt ... */
@@ -1340,6 +1386,7 @@ static int gen_bindist (rxlist_t exclude_pats,
 			const char *instpfx,
 			const char *suffix,
 			const char *newdir,
+			int quiet,
 			char **_package)
 {
     int rc;
@@ -1377,7 +1424,7 @@ static int gen_bindist (rxlist_t exclude_pats,
 
     buf_clear (&cmd, &cmdsz);
     pf_subst (r1, insttpl, &cmd, &cmdsz);
-    rc = system (cmd);
+    rc = qcommand (cmd, (quiet ? "/dev/null" : NULL));
 
     if (!rc) {
 	/* The cleanup-process which uses `exclude_pats´ is not ready yet ... */
@@ -1386,7 +1433,7 @@ static int gen_bindist (rxlist_t exclude_pats,
 
     if (!rc) {
 	/* Nun wird das Archiv generiert ... */
-	rc = gen_package (packtpl, packdir, suffix, newdir, &package);
+	rc = gen_package (packtpl, packdir, suffix, newdir, quiet, &package);
     }
 
     buf_delete (&cmd, &cmdsz);
@@ -1429,7 +1476,7 @@ static char *subst_version (const char *path)
 
 int main (int argc, char *argv[])
 {
-    int mode = -1, opt;
+    int mode = -1, opt, quiet = 0;
     const char *exclude_file = 0;
     char *mname, *instcmd = NULL, *packcmd = NULL, *newdir = NULL;
     char *pkgname = NULL, *clupcmd = NULL, *ipfx = NULL;
@@ -1437,8 +1484,8 @@ int main (int argc, char *argv[])
     rxlist_t exclude_pats = NULL;
     store_progpath (argv);
     if (argc < 2) { usage (NULL); }
-    /* get the `-c', `-h', `-i', `-p', `-V' and `-x' options */
-    while ((opt = getopt (argc, argv, "+c:hi:p:Vx:")) != -1) {
+    /* get the `-c', `-h', `-i', `-p', `-q´, `-V' and `-x' options */
+    while ((opt = getopt (argc, argv, "+c:hi:p:qVx:")) != -1) {
 	switch (opt) {
 	    case 'c':	/* -c 'cleancmd-template' (e.g. -c 'make cleanall') */
 		if (clupcmd) { usage ("ambiguous '-c'-option"); }
@@ -1453,6 +1500,9 @@ int main (int argc, char *argv[])
 	    case 'p':	/* -p 'packcmd-template' (e.g. -p 'zip -r %p.zip %p') */
 		if (packcmd) { usage ("ambiguous '-p'-option"); }
 		packcmd = x_strdup (optarg);
+		break;
+	    case 'q':	/* -q */
+		quiet = 1;
 		break;
 	    case 'V':	/* -V (version) */
 		printf ("%s %s\n", prog, VERSION); exit (0);
@@ -1477,7 +1527,7 @@ int main (int argc, char *argv[])
     } else {
 	usage ("invalid mode; use a (prefix of) 'srcdist' or 'bindist'");
     }
-    if (load_pattern_list (exclude_file, &exclude_pats)) {
+    if (load_pattern_list (exclude_file, quiet, &exclude_pats)) {
 	fprintf (stderr, "%s: errors found in '%s'\n", prog, argv[1]);
 	exit (1);
     }
@@ -1490,7 +1540,7 @@ int main (int argc, char *argv[])
 	    if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
 	    gen_srcdist (exclude_pats, clupcmd, packcmd,
-			 psfx, newdir, &pkgname);
+			 psfx, newdir, quiet, &pkgname);
 	    break;
 	case MODE_BINDIST:
 	    /* Three optional arguments (the install-prefix and then a package
@@ -1500,7 +1550,7 @@ int main (int argc, char *argv[])
 	    psfx = "-bin"; if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
 	    gen_bindist (exclude_pats, instcmd, packcmd, ipfx,
-			 psfx, newdir, &pkgname);
+			 psfx, newdir, quiet, &pkgname);
 	    break;
     }
     /* Der (Pfad-)Name des erzeugten Archivs muß nun noch in die Standard-
