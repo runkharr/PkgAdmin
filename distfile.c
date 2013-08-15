@@ -67,7 +67,8 @@ static const char *def_packtpls[] = {
     NULL
 };
 
-static void usage (const char *fmt, ...)
+static void
+usage (const char *fmt, ...)
 {
     va_list ap;
     if (fmt) {
@@ -150,7 +151,8 @@ static void usage (const char *fmt, ...)
     exit (0);
 }
 
-static void buf_clear (char **_buf, size_t *_bufsz)
+static void
+buf_clear (char **_buf, size_t *_bufsz)
 {
     if (!*_buf) {
 	char *buf = 0;
@@ -164,7 +166,8 @@ static void buf_clear (char **_buf, size_t *_bufsz)
     memset (*_buf, 0, *_bufsz);
 }
 
-static void buf_puts (const char *p, size_t pl, char **_buf, size_t *_bufsz)
+static void
+buf_puts (const char *p, size_t pl, char **_buf, size_t *_bufsz)
 {
     size_t bl = (*_buf ? strlen (*_buf) : 0), bs;
     char *buf = *_buf;
@@ -181,14 +184,16 @@ static void buf_puts (const char *p, size_t pl, char **_buf, size_t *_bufsz)
     buf += bl; memcpy (buf, p, pl); buf[pl] = '\0';
 }
 
-void buf_delete (char **_buf, size_t *_bufsz)
+static void
+buf_delete (char **_buf, size_t *_bufsz)
 {
     cfree (*_buf); *_bufsz = 0;
 }
 
 #define ccharp(c) ((const char *) &(c))
 
-static void conv_path (const char *p, size_t len, char **_buf, size_t *_bufsz)
+static void
+conv_path (const char *p, size_t len, char **_buf, size_t *_bufsz)
 {
     char cc;
     int brctx = 0;
@@ -300,7 +305,8 @@ static const char *word_class = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 static const char *digit_class = "0123456789";
 static const char *blank_class = "\t\n\f\r ";
 
-static int put_class (int class_type, int *_qmode, char **_buf, size_t *_bufsz)
+static int
+put_class (int class_type, int *_qmode, char **_buf, size_t *_bufsz)
 {
     const char *pfx, *x_class;
     char buf[10];
@@ -327,7 +333,8 @@ ESCAPED_CHAR:
     return 0;
 }
 
-static void put_special (char special, int qmode, char **_buf, size_t *_bufsz)
+static void
+put_special (char special, int qmode, char **_buf, size_t *_bufsz)
 {
     const char *cf = (qmode ? "\\%c" : "%c");
     char buf[10];
@@ -336,7 +343,8 @@ static void put_special (char special, int qmode, char **_buf, size_t *_bufsz)
 }
 
 
-static void unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
+static void
+unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
 {
     char cc;
     int qmode = 0;
@@ -362,7 +370,8 @@ static void unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
     }
 }
 
-static void quote_rx (const char *s, char **_buf, size_t *_bufsz)
+static void
+quote_rx (const char *s, char **_buf, size_t *_bufsz)
 {
     while (*s) {
 	switch (*s) {
@@ -385,7 +394,8 @@ struct rxlist_s {
     char s[1];
 };
 
-static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
+static int
+append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
 {
     int rc;
     char errbuf[1024];
@@ -411,8 +421,9 @@ static int append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
     return rc;
 }
 
-static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
-			char **_buf, size_t *_bufsz)
+static int
+add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
+	     char **_buf, size_t *_bufsz)
 {
     buf_clear (_buf, _bufsz);
     if (*p == '~') {
@@ -458,7 +469,8 @@ static int add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
     return append_regex (*_buf, _first, _last);
 }
 
-static int load_pattern_list (const char *filename, int quiet, rxlist_t *_out)
+static int
+load_pattern_list (const char *filename, int quiet, rxlist_t *_out)
 {
     int errcnt = 0;
     FILE *file;
@@ -505,7 +517,8 @@ static int load_pattern_list (const char *filename, int quiet, rxlist_t *_out)
     return (errcnt > 0 ? -1 : 0);
 }
 
-static int is_prefix (const char *p, const char *s)
+static int
+is_prefix (const char *p, const char *s)
 {
     size_t pl = strlen (p), sl = strlen (s);
     return (pl <= sl && strncmp (p, s, pl) == 0);
@@ -519,7 +532,8 @@ static int is_prefix (const char *p, const char *s)
 ** may be NULL even for a return-value of 0, so it must be checked nonetheless
 ** ...
 */
-static int read_tplfile (const char *tplfname, char ***_result)
+static int
+read_tplfile (const char *tplfname, char ***_result)
 {
     char *line = 0, **res = 0, *p, *q, *tpl;
     size_t linesz = 0, reslen = 0;
@@ -548,11 +562,12 @@ static int read_tplfile (const char *tplfname, char ***_result)
     return (int) reslen;
 }
 
-static const char *get_template (char tplopt,
-				 const char *tplcmd,
-				 const char *tplfname,
-				 const char *tpl_altfname,
-				 const char **def_list)
+static const char *
+get_template (char tplopt,
+	      const char *tplcmd,
+	      const char *tplfname,
+	      const char *tpl_altfname,
+	      const char **def_list)
 {
     long lv = 0;
     int rc, ix, jx;
@@ -627,7 +642,8 @@ static const char *get_template (char tplopt,
     return res;
 }
 
-static char *get_version (void)
+static char *
+get_version (void)
 {
     const char *novers = "unknown";
     char *line = 0, *res = 0;
@@ -656,7 +672,8 @@ static char *get_version (void)
     return res;
 }
 
-static char *get_thisdir (void)
+static char *
+get_thisdir (void)
 {
     char *pwdbuf = 0, *p, *res = 0;
     size_t pwdbufsz = 0;
@@ -683,7 +700,8 @@ static char *get_thisdir (void)
     return res;
 }
 
-static char *get_packdir (const char *packdir)
+static char *
+get_packdir (const char *packdir)
 {
     char *res = NULL, *wd, *vers, *p;
     size_t pl, resl;
@@ -714,7 +732,8 @@ static char *get_packdir (const char *packdir)
 typedef struct list_s *list_t;
 struct list_s { list_t next; };
 
-void distfile_list_free (list_t *_list)
+static void
+distfile_list_free (list_t *_list)
 {
     list_t lh;
     while ((lh = *_list)) {
@@ -731,7 +750,8 @@ struct sdlist_s {
     char *path;
 };
 
-static sdlist_t sdlist_add (sdlist_t sdlist, const char *sdpath)
+static sdlist_t
+sdlist_add (sdlist_t sdlist, const char *sdpath)
 {
     sdlist_t newit = t_allocv (struct sdlist_s, sizeof(struct sdlist_s) +
 					strlen (sdpath) + 1);
@@ -743,7 +763,8 @@ static sdlist_t sdlist_add (sdlist_t sdlist, const char *sdpath)
     return newit;
 }
 
-static void copy_xattrs (const char *src, const char *dst)
+static void
+copy_xattrs (const char *src, const char *dst)
 {
 #if HAVE_XATTR
     /* declare the variables here, so i need to enclose it in a block for
@@ -785,7 +806,8 @@ static void copy_xattrs (const char *src, const char *dst)
 /* copy the ownership, the permissions and the extended attributes from
 ** a source-file to the destination file ...
 */
-static void fix_perms (const char *src, const char *dst)
+static void
+fix_perms (const char *src, const char *dst)
 {
     struct stat sb;
     int mode, mask;
@@ -815,7 +837,8 @@ static void fix_perms (const char *src, const char *dst)
     }
 }
 
-static int icopy_file (const char *src, const char *dst)
+static int
+icopy_file (const char *src, const char *dst)
 {
     struct stat sb;
     if (link (src, dst) == 0) { return 0; }
@@ -853,7 +876,8 @@ static int icopy_file (const char *src, const char *dst)
     return 0;
 }
 
-static int copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
+static int
+copy_tree (const char *srcdir, const char *dstdir, rxlist_t excl)
 {
     char *spath = NULL, *dpath = NULL, *p;
     size_t spathsz = 0, dpathsz = 0;
@@ -939,11 +963,13 @@ ERROR:
 /*#### cleanup ####*/
 /* Perform a `cleanup´-operation in the supplied directory ...
 */
-static int cleanup (const char *packdir, const char *cluptpl, int quiet)
+static int
+cleanup (const char *packdir, const char *cluptpl, int quiet)
 {
     int rc = 0;
     char *cmd = NULL;
     size_t cmdsz = 0;
+return 0;
     buf_clear (&cmd, &cmdsz);
     buf_puts ("cd '", 4, &cmd, &cmdsz);
     buf_puts (packdir, strlen (packdir), &cmd, &cmdsz);
@@ -961,7 +987,8 @@ struct rplc_struct {
     const char *s;
 };
 
-static int pf_subst (struct rplc_struct *rs, const char *tpl,
+static int
+pf_subst (struct rplc_struct *rs, const char *tpl,
 		     char **_buf, size_t *_bufsz)
 {
     int ix, found, rplcc, pc, escm;
@@ -1045,9 +1072,10 @@ static int pf_subst (struct rplc_struct *rs, const char *tpl,
     return rplcc;
 }
 
-static int gen_package (const char *packcmd, const char *packdir,
-		        const char *suffix, const char *targetdir,
-			int quiet, char **_package)
+static int
+gen_package (const char *packcmd, const char *packdir,
+	     const char *suffix, const char *targetdir,
+	     int quiet, char **_package)
 {
     char *cmd = NULL, *cp, *package = NULL;
     size_t cmdsz = 0;
@@ -1091,7 +1119,8 @@ static int gen_package (const char *packcmd, const char *packdir,
 /*#### end gen_package #### */
 
 /*#### helper function for removing a file tree ####*/
-static int remove_tree (const char *dir, char **_buf, size_t *_bufsz)
+static int
+remove_tree (const char *dir, char **_buf, size_t *_bufsz)
 {
     int rc;
     char *path = NULL, *p;
@@ -1142,7 +1171,8 @@ ERROR:
 /*#### end of helper function for removing a file tree ####*/
 
 /*#### remove_packdir ####*/
-static int remove_packdir (const char *packdir)
+static int
+remove_packdir (const char *packdir)
 {
     int rc, ec;
     char *pbuf = NULL;
@@ -1169,13 +1199,14 @@ static int remove_packdir (const char *packdir)
 ** but only if the `packcmd´-template has the format "package_name\tpackcmd"
 ** ...
 */
-static int gen_srcdist (rxlist_t exclude_pats,
-			const char *cleanupcmd,
-			const char *packcmd,
-			const char *suffix,
-			const char *newdir,
-			int quiet,
-			char **_package)
+static int
+gen_srcdist (rxlist_t exclude_pats,
+	     const char *cleanupcmd,
+	     const char *packcmd,
+	     const char *suffix,
+	     const char *newdir,
+	     int quiet,
+	     char **_package)
 {
     int rc;
     char *packdir, *buf = NULL, *package = NULL;
@@ -1244,7 +1275,8 @@ static int gen_srcdist (rxlist_t exclude_pats,
 
 /*#### gen_bindist ####*/
 
-static const char *cwd (void)
+static const char *
+cwd (void)
 {
     static size_t wdsz = 0;
     static char *wd = NULL;
@@ -1268,7 +1300,8 @@ struct flist_s {
     char path[1];
 };
 
-static flist_t flist_add (flist_t fl, const char *path, int is_dir)
+static flist_t
+flist_add (flist_t fl, const char *path, int is_dir)
 {
     flist_t newfl = t_allocp (struct flist_s, strlen (path) + 1);
     if (newfl) {
@@ -1279,8 +1312,9 @@ static flist_t flist_add (flist_t fl, const char *path, int is_dir)
     return newfl;
 }
 
-static int collect_excludes (const char *dir, rxlist_t excl, flist_t *_xl,
-			     char **_buf, size_t *_bufsz)
+static int
+collect_excludes (const char *dir, rxlist_t excl, flist_t *_xl,
+		  char **_buf, size_t *_bufsz)
 {
     int ec;
     char *p;
@@ -1348,7 +1382,8 @@ ERROR:
     return -1;
 }
 
-static int exclude_binaries (const char *packdir, rxlist_t exclude_pats)
+static int
+exclude_binaries (const char *packdir, rxlist_t exclude_pats)
 {
     int rc, ec;
     const char *oldwd;
@@ -1380,14 +1415,12 @@ ERROR:
     return -1;
 }
 
-static int gen_bindist (rxlist_t exclude_pats,
-			const char *instcmd,
-			const char *packcmd,
-			const char *instpfx,
-			const char *suffix,
-			const char *newdir,
-			int quiet,
-			char **_package)
+static int
+gen_bindist (rxlist_t exclude_pats,
+	     const char *instcmd, const char *packcmd,
+	     const char *instpfx, const char *suffix,
+	     const char *newdir, int quiet,
+	     char **_package)
 {
     int rc;
     const char *packtpl = NULL, *insttpl = NULL;
@@ -1443,6 +1476,7 @@ static int gen_bindist (rxlist_t exclude_pats,
 	fprintf (stderr, "%s: attempt to remove '%s' failed - %s\n",
 			 prog, packdir, strerror (errno));
     }
+
     /* Zum Schluß wird der Name des erzeugten Archivs an den Ausgabe-parameter
     ** zugewiesen ...
     */
@@ -1455,7 +1489,8 @@ static int gen_bindist (rxlist_t exclude_pats,
 #define MODE_SRCDIST 0
 #define MODE_BINDIST 1
 
-static char *subst_version (const char *path)
+static char *
+subst_version (const char *path)
 {
     int rc;
     char *buf = NULL, *version = get_version ();
@@ -1474,9 +1509,10 @@ static char *subst_version (const char *path)
     return res;
 }
 
-int main (int argc, char *argv[])
+int
+main (int argc, char *argv[])
 {
-    int mode = -1, opt, quiet = 0;
+    int mode = -1, opt, quiet = 0, rc = 0;
     const char *exclude_file = 0;
     char *mname, *instcmd = NULL, *packcmd = NULL, *newdir = NULL;
     char *pkgname = NULL, *clupcmd = NULL, *ipfx = NULL;
@@ -1539,8 +1575,8 @@ int main (int argc, char *argv[])
 	    */
 	    if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
-	    gen_srcdist (exclude_pats, clupcmd, packcmd,
-			 psfx, newdir, quiet, &pkgname);
+	    rc = gen_srcdist (exclude_pats, clupcmd, packcmd,
+			      psfx, newdir, quiet, &pkgname);
 	    break;
 	case MODE_BINDIST:
 	    /* Three optional arguments (the install-prefix and then a package
@@ -1549,14 +1585,14 @@ int main (int argc, char *argv[])
 	    if (optind < argc) { ipfx = argv[optind++]; }
 	    psfx = "-bin"; if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
-	    gen_bindist (exclude_pats, instcmd, packcmd, ipfx,
-			 psfx, newdir, quiet, &pkgname);
+	    rc = gen_bindist (exclude_pats, instcmd, packcmd, ipfx,
+			      psfx, newdir, quiet, &pkgname);
 	    break;
     }
     /* Der (Pfad-)Name des erzeugten Archivs muß nun noch in die Standard-
     ** ausgabe geschrieben werden ...
     */
-    printf ("%s\n", pkgname);
-    return 0;
+    if (!rc) { printf ("%s\n", pkgname); }
+    return (rci ? 1 : 0);
 }
 /*#### end of main program ####*/

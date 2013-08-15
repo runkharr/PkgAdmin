@@ -38,7 +38,8 @@
 #include "lib/regfile.c"
 #include "lib/which2.c"
 
-static void usage (const char *fmt, ...)
+static void
+usage (const char *fmt, ...)
 {
     if (fmt) {
 	va_list ual;
@@ -47,12 +48,25 @@ static void usage (const char *fmt, ...)
 	fputs ("\n", stderr);
 	exit (64);
     }
-    printf ("Usage: %s [-cqQsvz] [-m mode] [-o owner] [-g group] file... target"
+    printf ("Usage: %s [-cpqQsvz] [-m mode] [-o owner] [-g group] file..."
+	    " target"
 	    "\n       %s [-qQv] -d [-m mode] [-o owner] [-g group] directory"
 	    "\n       %s -h\n"
 	    "\nOptions:"
 	    "\n  -c"
 	    "\n    ignored (kept for compatibility reasons)"
+	    "\n  -p"
+	    "\n    If the last file is a directory and any of the source names"
+	    " is a relative"
+	    "\n    pathname, append source and directory and create the"
+	    " directories between"
+	    "\n    them as necessary before creating the target file; the"
+	    " normal operation"
+	    "\n    would consist of concatenating the directory and the last"
+	    " element of the"
+	    "\n    source path and then creating the file pointed to by the"
+	    " constructed path"
+	    "\n    directly"
 	    "\n  -q"
 	    "\n    Ask for an existing file being overwritten"
 	    "\n  -Q"
@@ -81,7 +95,8 @@ static void usage (const char *fmt, ...)
     exit (0);
 }
 
-static int getmode (const char *mode)
+static int
+getmode (const char *mode)
 {
     int res = 0, dg;
     size_t len = strlen (mode);
@@ -104,7 +119,8 @@ static int getmode (const char *mode)
     return res;
 }
 
-static int getuser (const char *user)
+static int
+getuser (const char *user)
 {
     char *p;
     long v;
@@ -122,7 +138,8 @@ static int getuser (const char *user)
     return -1;
 }
 
-static int getgroup (const char *group)
+static int
+getgroup (const char *group)
 {
     char *p;
     long v;
@@ -285,11 +302,62 @@ install_directory (int query, int strip, int verbose, int compress,
 }
 
 static int
+is_dir (const char *path)
+{
+    struct stat sb;
+    if (lstat (path, &sb)) { return -1; }
+    return S_ISDIR (sb.st_mode);
+}
+
+static int
 install_files (int query, int strip, int verbose, int compress,
 	       const char *mode, const char *user, const char *group,
 	       const char *stripcmd, const char *gzipcmd,
 	       int filesc, char **files)
 {
+    int last_is_dir = 0, rc = 0;
+    if (filesc < 2) {
+	usage ("missing argument(s); please invoke '%s -h' for help, please!",
+	       prog);
+    }
+    last_is_dir = is_dir (files[filesc - 1]);
+    if (filesc > 2 && last_is_dir <= 0) {
+	if (last_is_dir < 0) {
+	    fprintf (stderr, "%s: %s - %s\n", prog, files[filesc - 1],
+					      strerror (errno));
+	    exit (69);
+	}
+	usage ("if more than two files are specified, the last one must be a"
+	       " directory");
+    }
+    if (last_is_dir) {
+	int ix, errs = 0;
+	const char *tgdir = files[filesc - 1], *file;
+	for (ix = 0; ix < filesc - 1; ++ix) {
+	    file = files[ix];
+	    rc = copy_to_dir (query, strip, verbose, compress,
+			      mode, user, group, stripcmd, gzipcmd,
+			      file, tgdir);
+	    if (rc) { ++errs; }
+	}
+	if (errs > 0) { rc = -1; }
+    } else {
+	rc = copy_file (query, strip, verbose, compress,
+			mode, user, group, stripcmd, gzipcmd,
+			files[filesc - 2], files[filesc - 1]);
+    }
     err (1, "not implemented (yet)");
     return 0;
 }
+
+static size_t pathsz = 0;
+static char *path = NULL;
+
+static int
+copy_to_dir (int query, int strip, int verbose, int compress,
+	     const char *mode, const char *user, const char *group,
+	     const char *stripcmd, const char *gzipcmd,
+	     const char *file, const char *tgdir)
+{
+    size_t pathsz = strlen (tgdir) + strlen (file) + 
+    char *path = 

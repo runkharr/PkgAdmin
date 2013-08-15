@@ -92,13 +92,16 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -n "$mkdir" ]; then
+    dir="$mkdir"; mkdir="$(which mkdir)"
+echo 1>&2 "##X0: |$mkdir|$dir|"
     if [ $# -gt 0 ]; then usage ambiguous argument to \`-d´; fi
-    vecho -n "Creating directory '$mkdir' ..."
-    em="$(mkdir -p "$mkdir")"
-    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
-    if [ -n "$owner" ]; then chown "$owner" "$mkdir"; fi
-    if [ -n "$group" ]; then chgrp "$group" "$mkdir"; fi
-    if [ -n "$mode" ]; then chmod "$mode" "$mkdir"; fi
+    vecho -n "Creating directory '$dir' ..."
+echo 1>&2 "##X1: \"$mkdir\" -p \"$dir\" 2>&1"
+    em="$("$mkdir" -p "$dir" 2>&1)"; rc=$?
+    if [ $rc -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+    if [ -n "$owner" ]; then chown "$owner" "$dir"; fi
+    if [ -n "$group" ]; then chgrp "$group" "$dir"; fi
+    if [ -n "$mode" ]; then chmod "$mode" "$dir"; fi
     vecho " done."
     exit 0
 fi
