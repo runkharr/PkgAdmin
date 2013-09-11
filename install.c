@@ -48,13 +48,17 @@ usage (const char *fmt, ...)
 	fputs ("\n", stderr);
 	exit (64);
     }
-    printf ("Usage: %s [-cpqQsvz] [-m mode] [-o owner] [-g group] file..."
+    printf ("Usage: %s [-clpqQsvz] [-m mode] [-o owner] [-g group] file..."
 	    " target"
 	    "\n       %s [-qQv] -d [-m mode] [-o owner] [-g group] directory"
 	    "\n       %s -h\n"
 	    "\nOptions:"
 	    "\n  -c"
 	    "\n    ignored (kept for compatibility reasons)"
+	    "\n  -l"
+	    "\n    keep symbolic links (don't follow them during the"
+	    " installation but copy"
+	    "\n    them directly)"
 	    "\n  -p"
 	    "\n    If the last file is a directory and any of the source names"
 	    " is a relative"
@@ -158,31 +162,44 @@ getgroup (const char *group)
 }
 
 static int
-install_directory (int query, int strip, int verbose, int compress,
+install_directory (int optflags,
 		   const char *mode, const char *user, const char *group,
 		   const char *stripcmd, const char *gzipcmd,
 		   int filesc, char **files);
 
 static int
 install_files (int query, int strip, int verbose, int compress,
+	       int tpe, int keeplinks,
 	       const char *mode, const char *user, const char *group,
 	       const char *stripcmd, const char *gzipcmd,
 	       int filesc, char **files);
 
+#define VERBOSE   1
+#define QUERYMODE1 2
+#define QUERYMODE2 4
+#define STRIPFILE 8
+#define COMPRESS  16
+#define INSTPATH  32
+#define KEEPLINKS 64
+
 int main (int argc, char *argv[])
 {
     int rc, opt, query = 0, strip = 0, verbose = 0, compress = 0, dirmode;
+    int tpe = 0, keeplinks = 0;
+    int optflags = 0;
     char *mode = NULL, *user = NULL, *group = NULL;
     char *gzipcmd = NULL, *stripcmd = NULL;
 
     set_prog (argc, argv);
 
     opterr = 0;
-    while ((opt = getopt (argc, argv, "+:Qcdg:hm:o:qsvz")) != -1) {
+    while ((opt = getopt (argc, argv, "+:Qcdg:hlm:o:pqsvz")) != -1) {
 	switch (opt) {
 	    case 'Q':
-		if (query) { usage ("ambiguous '-Q' option"); }
-		query = 2; break;
+		if (optflags & (QUERYMODE1|QUERYMODE2)) {
+		    usage ("ambiguous '-Q' option");
+		}
+		optflags |= QUERYMODE2; break;
 	    case 'c': break;
 	    case 'd': dirmode = 1; break;
 	    case 'g':
@@ -190,6 +207,7 @@ int main (int argc, char *argv[])
 		group = optarg;
 		break;
 	    case 'h': usage (NULL); break;
+	    case 'l': optflags |= KEEPLINKS; break;
 	    case 'm':
 		if (mode) { usage ("ambiguous '-m' option"); }
 		mode = optarg;
@@ -198,40 +216,81 @@ int main (int argc, char *argv[])
 		if (user) { usage ("ambiguous '-o' option"); }
 		user = optarg;
 		break;
+	    case 'p': optflags |= INSTPATH; break;
 	    case 'q':
-		if (query) { usage ("ambiguous '-q' option"); }
-		query = 1; break;
+		if (optflags & (QUERYMODE1|QUERYMODE2)) {
+		    usage ("ambiguous '-q' option");
+		}
+		optflags |= QUERYMODE1; break;
 	    case 's':
 		if (!stripcmd && !(stripcmd = which ("strip"))) {
 		    usage ("option '-s' not available; check if the 'strip'"
 			   " program is installed!");
 		}
-		strip = 1; break;
-	    case 'v':  verbose = 1; break;
+		optflags |= STRIPFILE; break;
+	    case 'v': optflags |= VERBOSE; break;
 	    case 'z':
 		if (!gzipcmd && !(gzipcmd = which ("gzip"))) {
 		    usage ("option '-z' not available; check if the 'gzip'"
 			   " program is installed!");
 		}
-		compress = 1; break;
+		optflags |= COMPRESS; break;
 	    case ':': usage ("missing argument for option '%s'", argv[optind]);
 	    default: usage ("invalid option '%s'", argv[optind]);
 	}
     }
     if (dirmode) {
-	rc = install_directory (query, strip, verbose, compress,
-				mode, user, group, stripcmd, gzipcmd,
+	rc = install_directory (optflags, mode, user, group, stripcmd, gzipcmd,
 				argc - optind, &argv[optind]);
     } else {
-	rc = install_files (query, strip, verbose, compress,
-			    mode, user, group, stripcmd, gzipcmd,
+	rc = install_files (optflags, mode, user, group, stripcmd, gzipcmd,
 			    argc - optind, &argv[optind]);
     }
     return rc;
 }
 
+static void
+msgvke (FILE *out, int flags, const char *format, ...)
+{
+    va_list args;
+    if (flags & VERBOSE) {
+	int ke = errno;
+	va_start (args, format);
+	vfprintf (out, format, args);
+	va_end (args);
+	fflush (out);
+	errno = ke;
+    }
+}
+
+#define DONE (done (stdout, optflags))
+static void
+done (FILE *out, int flags)
+{
+    msgvke (out, flags, " done\n");
+}
+
+#define FAILED (failed (stdout, optflags))
+static void
+failed (FILE *out, int flags)
+{
+    msgvke (out, flags, " failed\n");
+}
+
+
 static int
-install_directory (int query, int strip, int verbose, int compress,
+is_dir (const char *path, int err)
+{
+    struct stat sb;
+    if (lstat (path, &sb)) { return -1; }
+    if (!S_ISDIR (sb.st_mode)) {
+	errno = (err ? err : ENOTDIR); return 0;
+    }
+    return 1;
+}
+
+static int
+install_directory (int optflags,
 		   const char *mode, const char *user, const char *group,
 		   const char *stripcmd, const char *gzipcmd,
 		   int filesc, char **files)
@@ -242,10 +301,16 @@ install_directory (int query, int strip, int verbose, int compress,
     char *path = NULL, *p;
     size_t pathsz = 0;
     struct stat sb;
-    if (strip) {
+    if (optflags & KEEPLINKS) {
+	usage ("option '-l' is invalid when installing a directory");
+    }
+    if (optflags & USEPATH) {
+	usage ("option '-p' is invalid when installing a directory");
+    }
+    if (optflags & STRIPFILE) {
 	usage ("option '-s' is invalid when installing a directory");
     }
-    if (compress) {
+    if (optflags & COMPRESS) {
 	usage ("option '-z' is invalid when installing a directory");
     }
     if (mode && (pmask = getmode (mode)) < 0) {
@@ -266,51 +331,50 @@ install_directory (int query, int strip, int verbose, int compress,
 	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
 	}
 	p = path; if (*p == '/') { ++p; }
+	msgvke (stdout, optflags, "Installing directory %s ...", path);
 	for (;;) {
 	    while (*p && *p != '/') { ++p; }
 	    if (!*p) { break; }
 	    if (mkdir (path, 0755)) {
-		if (errno != EEXIST) { cfree (path); return -1; }
-		if (stat (path, &sb)) { cfree (path); return -1; }
-		if (!S_ISDIR (sb.st_mode)) {
-		    cfree (path); errno = EEXIST; return -1;
+		if (errno != EEXIST) { FAILED; cfree (path); return -1; }
+		if (is_dir (path, EEXIST) <= 0) {
+		    FAILED; cfree (path); return -1;
 		}
 	    }
 	    *p++ = '/';
 	}
 	if (mkdir (path, pmask)) {
-	    if (errno != EEXIST) { cfree (path); return -1; }
-	    if (stat (path, &sb)) { cfree (path); return -1; }
-	    if (!S_ISDIR (sb.st_mode)) {
-		cfree (path); errno = EEXIST; return -1;
+	    if (errno != EEXIST) { FAILED; cfree (path); return -1; }
+	    if (is_dir (path, EEXIST) <= 0) {
+		FAILED; cfree (path); return -1;
 	    }
 	}
 	if (user || group) {
 	    int fd = open (path, O_RDWR, 0);
 	    if (fd < 0) { cfree (path); return -1; }
-	    if (!fstat (fd, &sb)) { close (fd); cfree (path); return -1; }
-	    if (!S_ISDIR (sb.st_mode)) {
-		close (fd); cfree (path); errno = EEXIST; return -1;
+	    if (!fstat (fd, &sb)) {
+		FAILED; close (fd); cfree (path); return -1;
 	    }
-	    if (fchown (fd, uid, gid)) { close (fd); cfree (path); return -1; }
-	    if (fchmod (fd, pmask)) { close (fd); cfree (path); return -1; }
+	    if (!S_ISDIR (sb.st_mode)) {
+		FAILED; close (fd); cfree (path); errno = EEXIST; return -1;
+	    }
+	    if (fchown (fd, uid, gid)) {
+		FAILED; close (fd); cfree (path); return -1;
+	    }
+	    if (fchmod (fd, pmask)) {
+		FAILED; close (fd); cfree (path); return -1;
+	    }
 	    close (fd);
 	}
+	DONE;
     }
     if (path) { cfree (path); }
     return 0;
 }
 
 static int
-is_dir (const char *path)
-{
-    struct stat sb;
-    if (lstat (path, &sb)) { return -1; }
-    return S_ISDIR (sb.st_mode);
-}
-
-static int
 install_files (int query, int strip, int verbose, int compress,
+	       int tpe, int keeplinks,
 	       const char *mode, const char *user, const char *group,
 	       const char *stripcmd, const char *gzipcmd,
 	       int filesc, char **files)
@@ -335,7 +399,7 @@ install_files (int query, int strip, int verbose, int compress,
 	const char *tgdir = files[filesc - 1], *file;
 	for (ix = 0; ix < filesc - 1; ++ix) {
 	    file = files[ix];
-	    rc = copy_to_dir (query, strip, verbose, compress,
+	    rc = copy_to_dir (query, strip, verbose, compress, tpe,
 			      mode, user, group, stripcmd, gzipcmd,
 			      file, tgdir);
 	    if (rc) { ++errs; }
@@ -354,10 +418,14 @@ static size_t pathsz = 0;
 static char *path = NULL;
 
 static int
-copy_to_dir (int query, int strip, int verbose, int compress,
+copy_to_dir (int query, int strip, int verbose, int compress, int tpe,
 	     const char *mode, const char *user, const char *group,
 	     const char *stripcmd, const char *gzipcmd,
 	     const char *file, const char *tgdir)
 {
-    size_t pathsz = strlen (tgdir) + strlen (file) + 
-    char *path = 
+    size_t pz;
+    const char *f = file;
+    if (!tpe) {
+	xxx
+    = strlen (tgdir) + strlen (file) + 2;
+    if (
