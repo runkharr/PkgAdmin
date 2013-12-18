@@ -41,53 +41,53 @@
 **
 **    clean
 **       Remove any files and (recursively) directories specified in
-**       <clean-args>; errors during the removal process are ignored; if `-v´
+**       <clean-args>; errors during the removal process are ignored; if '-v'
 **       is specified, display each file (directory) to be removed before it's
 **       removal and display the success-status thereafter; otherwise, only a
-**       shore text-line `Cleaning up in <cwd>´ is (<cwd> is the current
-**       working directory) displayed either ` done´ or ` failed´ depending on
+**       shore text-line 'Cleaning up in <cwd>' is (<cwd> is the current
+**       working directory) displayed either ' done' or ' failed' depending on
 **       whether all specified files/directories could be removed or not.
 **
 **    compile[=<compiler-program>]
 **       Execute the program <compiler-program> (default: cc) with
-**       <compiler-args> as it's arguments; if `-v´ is specified, display the
+**       <compiler-args> as it's arguments; if '-v' is specified, display the
 **       complete command to be executed and also this program's output
 **       (stdout/stderr); otherwise, display only a text line
-**       `Compiling <target> ...´,  followed by either ` done´ or ` failed´
+**       'Compiling <target> ...',  followed by either ' done' or ' failed'
 **       - depending on the program's termination code. Any prefix of the word
-**       `compile´ can be specified here, such as `c´ `co´, `comp´ and the
+**       'compile' can be specified here, such as 'c' 'co', 'comp' and the
 **       like.
 **
 **    link=<linker-program>
 **       Execute the program <linker-program> (default: cc) with <linker-args>
-**       as it's arguments; the option `-v´ has the same effect as described
-**       above, with the exception that `Linking <target> ...´ is displayed.
-**       Again, instead of the word `link´, each of it's prefixes can be used.
+**       as it's arguments; the option '-v' has the same effect as described
+**       above, with the exception that 'Linking <target> ...' is displayed.
+**       Again, instead of the word 'link', each of it's prefixes can be used.
 **
 **    help
 **       display a short synopsis of cgen's arguments and terminate; any prefix
-**       of the word `help´ can be used.
+**       of the word 'help' can be used.
 **
 **    libgen
-**       generate a static library using `ar´ and `ranlib´ ...
+**       generate a static library using 'ar' and 'ranlib' ...
 **
 **    sogen
 **       generate a dynamic shared library using the specified linker program
-**       (default: `cc´). This command expects <linker-program> to understand
-**       the option `-shared´.
+**       (default: 'cc'). This command expects <linker-program> to understand
+**       the option '-shared'.
 **
 **    rogen
 **       generate a relocatable object file from a list of (relocatable) object
-**       files - using <linker-program> (default: `ld´); This command expects
-**       <linker-program> to understand the option `-r´.
+**       files - using <linker-program> (default: 'ld'); This command expects
+**       <linker-program> to understand the option '-r'.
 **
 **    <target>
-**       the name of the target to be displayed if `-v´ was not specified; any
-**       argument of the form `%t´ in the <compiler-args> and <linker-args>
+**       the name of the target to be displayed if '-v' was not specified; any
+**       argument of the form '%t' in the <compiler-args> and <linker-args>
 **       will be replaced with this (file-)name
 **
 **    <topic>
-**       One of `clean´, `compile´, `help´ or `link`
+**       One of 'clean', 'compile', 'help' or 'link'
 **
 **    <compiler-args>
 **       The arguments which (together with the name of the compiler program)
@@ -101,9 +101,9 @@
 **       the names of files and directories to be removed
 **
 ** Environment variables:
-**    `cgen´ recognizes the the environment variables COMPILER and LINKER and
+**    'cgen' recognizes the the environment variables COMPILER and LINKER and
 **    uses the values stored in these variables instead of the defaults for the
-**    `compile´- and `link´-actions. Additionally the variables COPTS (or
+**    'compile'- and 'link'-actions. Additionally the variables COPTS (or
 **    CFLAGS) and LOPTS (LFLAGS) are recognized; the corresponding value is
 **    (shell-splitted) inserted before <compiler-args> (respectively
 **    <linker-args>) ...
@@ -140,17 +140,17 @@
 
 #ifndef DEFAULT_LIBGENCMD
 # define DEFAULT_LIBGENCMD "ar rc %t @ARGV; ranlib %t"
-# define DEFAULT_LIBGENCMDTEXT "`ar rc %%t @ARGV; ranlib %%t´"
+# define DEFAULT_LIBGENCMDTEXT "'ar rc %%t @ARGV; ranlib %%t'"
 #endif
 
 #ifndef DEFAULT_SOGENCMD
 # define DEFAULT_SOGENCMD "ld -shared @ARGV -o %t"
-# define DEFAULT_SOGENCMDTEXT "`ld -shared @ARGV -o %%t´"
+# define DEFAULT_SOGENCMDTEXT "'ld -shared @ARGV -o %%t'"
 #endif
 
 #ifndef DEFAULT_ROGENCMD
 # define DEFAULT_ROGENCMD "ld -r @ARGV -o %t"
-# define DEFAULT_ROGENCMDTEXT "`ld -r @ARGV -o %t´"
+# define DEFAULT_ROGENCMDTEXT "'ld -r @ARGV -o %t'"
 #endif
 
 typedef struct action_s action_t;
@@ -190,17 +190,17 @@ struct action_s {
       "\n  clean"
       "\n    Remove any files and (recursively) directories specified in"
       " <clean-args>;"
-      "\n    errors during the removal process are ignored; if `-v´ is"
+      "\n    errors during the removal process are ignored; if '-v' is"
       " specified,"
       "\n    display each file (directory) to be removed before it's removal"
       " and display"
-      "\n    the success-status thereafter; if `-s´ is specified, display"
+      "\n    the success-status thereafter; if '-s' is specified, display"
       " nothing;"
-      "\n    otherwise, display only a shore text-line `Cleaning up in <cwd>´"
+      "\n    otherwise, display only a shore text-line 'Cleaning up in <cwd>'"
       " is (<cwd>"
       "\n    is the current working directory) displayed followed by either"
-      " ` done´ or"
-      "\n    ` failed´, depending on whether all specified files and/or"
+      " ' done' or"
+      "\n    ' failed', depending on whether all specified files and/or"
       " directories"
       "\n    could be removed or not."
       "\n"
@@ -208,12 +208,12 @@ struct action_s {
       "\n    Chdir into <new-directory> before performing the removal."
       "\n"
       "\n  -s (alt: --silent)"
-      "\n    Suppress the `Cleaning up in ...´ message"
+      "\n    Suppress the 'Cleaning up in ...' message"
       "\n"
       "\n  -v (alt: --verbose)"
       "\n    Display each file/directory to be removed (in a shell-alike"
       " manner) and"
-      "\n    the success status thereafter (` done´ or ` failed´)."
+      "\n    the success status thereafter (' done' or ' failed')."
       "\n"
       "\n  <clean-args>"
       "\n    The list of files and directories to be removed."
@@ -237,9 +237,9 @@ struct action_s {
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
-      "\n    `Compiling <target> ...´; additionally it can be inserted"
+      "\n    'Compiling <target> ...'; additionally it can be inserted"
       " anywhere into"
-      "\n    <compiler-args> (by using the place-holder `%t´ as argument"
+      "\n    <compiler-args> (by using the place-holder '%t' as argument"
       "\n"
       "\n  <compiler-args>"
       "\n    the arguments (options and source-file) which are used to"
@@ -258,22 +258,22 @@ struct action_s {
       "\n  -v (alt: --verbose)"
       "\n    Display each command line generated before it's executed instead"
       " of the"
-      "\n    short message `Compiling target ...´; also, allow the executed"
+      "\n    short message 'Compiling target ...'; also, allow the executed"
       " command"
       "\n    to display it's messages (stdout/stderr)."
       "\n"
       "\nThe command-template constructed from <compiler-program>, default-"
       "options and"
-      "\n<compiler-args> may contain constructs like `@ARGV´ (a), `%t[<newsfx>"
-      "/<oldsfx>]´"
-      "\n(b) and `%t´ (c). These constructs are replaced by\n"
+      "\n<compiler-args> may contain constructs like '@ARGV' (a), '%t[<newsfx>"
+      "/<oldsfx>]'"
+      "\n(b) and '%t' (c). These constructs are replaced by\n"
       "\n  (a) <compiler-args> - instead of appending <compiler-args> to"
       "\n      <compiler-program> and default-options,"
       "\n  (b) <target> - but with the suffix <oldsfx> replaced with <newsfx>"
       " and"
       "\n  (c) <target> - unchanged."
       "\n"
-      "\nOnly the first occurrence of `@ARGV´ is replaced; each further"
+      "\nOnly the first occurrence of '@ARGV' is replaced; each further"
       " occurrences"
       "\nremain unchanged. The announced \"default-options\" are supplied"
       " through an the"
@@ -309,9 +309,9 @@ struct action_s {
       "\n"
       "\n  <target>"
       "\n    The name to be displayed in the short (non-verbose) message"
-      "\n    `Linking <target> ...´; additionally it can be inserted anywhere"
+      "\n    'Linking <target> ...'; additionally it can be inserted anywhere"
       " into"
-      "\n    <linker-args> (by using the place-holder `%t´ each argument)"
+      "\n    <linker-args> (by using the place-holder '%t' each argument)"
       "\n"
       "\n  -c <rcfile> (alt: -f <rcfile>)"
       "\n    load <linker-program> and additional options from a configuration"
@@ -325,15 +325,15 @@ struct action_s {
       "\n  -v (alt: --verbose)"
       "\n    write the command-text which generates <target> to stdout prior"
       " to the"
-      "\n    execution of the command (instead of the message `Generating"
-      " <target> ... ´"
-      "\n    (followed by a status message of either `done´ or `failed´))"
+      "\n    execution of the command (instead of the message 'Generating"
+      " <target> ... '"
+      "\n    (followed by a status message of either 'done' or 'failed'))"
       "\n"
       "\nThe command-template constructed from <linker-program>, default-"
       "options and"
-      "\n<linker-args> may contain constructs like `@ARGV´ (a),"
-      " `%t[<newsfx>/<oldsfx>]´"
-      "\n(b) and `%t´ (c). These constructs are replaced by"
+      "\n<linker-args> may contain constructs like '@ARGV' (a),"
+      " '%t[<newsfx>/<oldsfx>]'"
+      "\n(b) and '%t' (c). These constructs are replaced by"
       "\n"
       "\n  (a) <linker-args> - instead of appending <linker-args> to <linker-"
       "program>"
@@ -342,7 +342,7 @@ struct action_s {
       " and"
       "\n  (c) <target> - unchanged."
       "\n"
-      "\nOnly the first occurrence of `@ARGV´ is replaced; each further"
+      "\nOnly the first occurrence of '@ARGV' is replaced; each further"
       " occurrences"
       "\nremain unchanged. The announced \"default options\" are supplied"
       " through an"
@@ -366,21 +366,21 @@ struct action_s {
       " which are"
       "\n    used for generating <target>; instead of supplying <libgen-"
       "commands>"
-      "\n    directly, the environment variable `LIBGENCMD´ can be used; if"
-      " `LIBGENCMD´"
-      "\n    is not defined or empty, `"DEFAULT_LIBGENCMD"´ is used instead."
-      "\n    The very first occurrence of `@ARGV´ is replaced by <object-"
+      "\n    directly, the environment variable 'LIBGENCMD' can be used; if"
+      " 'LIBGENCMD'"
+      "\n    is not defined or empty, '"DEFAULT_LIBGENCMD"' is used instead."
+      "\n    The very first occurrence of '@ARGV' is replaced by <object-"
       "files> (each"
-      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´"
+      "\n    other occurrence of '@ARGV' remains unchanged); if no '@ARGV'"
       " occurs in"
       "\n    <libgen-commands>, <object-files> is appended to <libgen-"
       "commands> instead."
-      "\n    In the completed command-template, the symbol `%t´ has a special"
+      "\n    In the completed command-template, the symbol '%t' has a special"
       "meaning:"
-      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with"
+      "\n      - '%t[<newsfx>/<oldsfx>]' is replaced with <target>, but with"
       " the suffix"
       "\n        <oldsfx> replaced with <newsfx> in target,"
-      "\n      - any other occurrences ot `%t´ are replaced with an unchanged"
+      "\n      - any other occurrences ot '%t' are replaced with an unchanged"
       " <target>."
       "\n"
       "\n  <target>"
@@ -394,9 +394,9 @@ struct action_s {
       "\n  -v (alt: --verbose)"
       "\n    write the command-text which generates <target> to stdout prior"
       " to the"
-      "\n    execution of the command (instead of the message `Generating"
-      " <target> ...´"
-      "\n    (followed by a status message of either ` done´ or ` failed´))"
+      "\n    execution of the command (instead of the message 'Generating"
+      " <target> ...'"
+      "\n    (followed by a status message of either ' done' or ' failed'))"
     },
     { "rogen", NULL, do_libgen, 1, 0, false,
       "ROGENCMD", DEFAULT_ROGENCMD, NULL, NULL, NULL,
@@ -415,21 +415,21 @@ struct action_s {
       " which are"
       "\n    used for generating <target>; instead of supplying <rogen-"
       "commands>"
-      "\n    directly, the environment variable `ROGENCMD´ can be used; if"
-      " `ROGENCMD´"
-      "\n    is not defined or empty, `"DEFAULT_ROGENCMD"´ is used instead."
-      "\n    The very first occurrence of `@ARGV´ is replaced by <object-"
+      "\n    directly, the environment variable 'ROGENCMD' can be used; if"
+      " 'ROGENCMD'"
+      "\n    is not defined or empty, '"DEFAULT_ROGENCMD"' is used instead."
+      "\n    The very first occurrence of '@ARGV' is replaced by <object-"
       "files> (each"
-      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´"
+      "\n    other occurrence of '@ARGV' remains unchanged); if no '@ARGV'"
       " occurs in"
       "\n    <rogen-commands>, <object-files> is appended to <rogen-commands>"
       " instead."
-      "\n    In the completed command-template, the symbol `%t´ has a special"
+      "\n    In the completed command-template, the symbol '%t' has a special"
       " meaning:"
-      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with"
+      "\n      - '%t[<newsfx>/<oldsfx>]' is replaced with <target>, but with"
       " the suffix"
       "\n        <oldsfx> replaced with <newsfx> in target,"
-      "\n      - any other occurrences ot `%t´ are replaced with an unchanged"
+      "\n      - any other occurrences ot '%t' are replaced with an unchanged"
       " <target>."
       "\n"
       "\n  <target>"
@@ -443,9 +443,9 @@ struct action_s {
       "\n  -v (alt: --verbose)"
       "\n    write the command-text which generates <target> to stdout prior"
       " to the"
-      "\n    execution of the command (instead of the message `Generating"
-      " <target> ...´"
-      "\n    (followed by a status message of either ` done´ or ` failed´))"
+      "\n    execution of the command (instead of the message 'Generating"
+      " <target> ...'"
+      "\n    (followed by a status message of either ' done' or ' failed'))"
     },
     { "sogen", NULL, do_libgen, 1, 0, false,
       "SOGENCMD", DEFAULT_SOGENCMD, NULL, NULL, NULL,
@@ -463,21 +463,21 @@ struct action_s {
       " which are"
       "\n    used for generating <target>; instead of supplying <sogen-"
       "commands>"
-      "\n    directly, the environment variable `SOGENCMD´ can be used; if"
-      " `SOGENCMD´"
-      "\n    is not defined or empty, `"DEFAULT_SOGENCMD"´ is used instead."
-      "\n    The very first occurrence of `@ARGV´ is replaced by <object-"
+      "\n    directly, the environment variable 'SOGENCMD' can be used; if"
+      " 'SOGENCMD'"
+      "\n    is not defined or empty, '"DEFAULT_SOGENCMD"' is used instead."
+      "\n    The very first occurrence of '@ARGV' is replaced by <object-"
       "files> (each"
-      "\n    other occurrence of `@ARGV´ remains unchanged); if no `@ARGV´"
+      "\n    other occurrence of '@ARGV' remains unchanged); if no '@ARGV'"
       " occurs in"
       "\n    <sogen-commands>, <object-files> is appended to <sogen-commands>"
       " instead."
-      "\n    In the completed command-template, the symbol `%t´ has a special"
+      "\n    In the completed command-template, the symbol '%t' has a special"
       " meaning:"
-      "\n      - `%t[<newsfx>/<oldsfx>]´ is replaced with <target>, but with"
+      "\n      - '%t[<newsfx>/<oldsfx>]' is replaced with <target>, but with"
       " the suffix"
       "\n        <oldsfx> replaced with <newsfx> in target,"
-      "\n      - any other occurrences ot `%t´ are replaced with an unchanged"
+      "\n      - any other occurrences ot '%t' are replaced with an unchanged"
       " <target>."
       "\n"
       "\n  <target>"
@@ -491,9 +491,9 @@ struct action_s {
       "\n  -v (alt: --verbose)"
       "\n    write the command-text which generates <target> to stdout prior"
       " to the"
-      "\n    execution of the command (instead of the message `Generating"
-      " <target> ...´"
-      "\n    (followed by a status message of either ` done´ or ` failed´))"
+      "\n    execution of the command (instead of the message 'Generating"
+      " <target> ...'"
+      "\n    (followed by a status message of either ' done' or ' failed'))"
     },
     { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL,
       NULL, NULL, NULL }
@@ -557,7 +557,7 @@ void usage (const char *fmt, ...)
 		if (act->eq_name && !strcmp (acname, act->eq_name)) { break; }
 	    }
 	    if (!act->pfx_name) {
-		fprintf (stderr, "%s: no topic for `%s´ available\n",
+		fprintf (stderr, "%s: no topic for '%s' available\n",
 				 progname, acname);
 		exit (64);
 	    }
@@ -589,7 +589,7 @@ GENERAL_DESC:
 	printf ("\n       %s ", progname);
 	printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
     }
-    printf ("\n\nFor further help issue `%s help <topic>´, where topic is"
+    printf ("\n\nFor further help issue '%s help <topic>', where topic is"
 	    " one of\n(", progname);
     for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
 	if (ix > 0) { printf (", "); }
@@ -994,7 +994,7 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 	    continue;
 	}
 	if (!(q = strchr (p, '='))) {
-	    ++errc; fprintf (stderr, "%s(line %d): expecting `=´\n", cgenrc,
+	    ++errc; fprintf (stderr, "%s(line %d): expecting '='\n", cgenrc,
 				     lc);
 	    continue;
 	}
@@ -1016,15 +1016,15 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 	    continue;
 	}
 
-	/* Set p to point behind the position of the `=´ ... */
+	/* Set p to point behind the position of the '=' ... */
 	p = q;
 
-	/* Search for `acname´ in the list of the already loaded values ... */
+	/* Search for 'acname' in the list of the already loaded values ... */
 	for (ix = 0; ix < ndesc; ++ix) {
 	    if (!strcmp (rcdef->acname, out[ix].acname)) { break; }
 	}
 
-	/* If the `acname´-configuration was not already loaded, then generate
+	/* If the 'acname'-configuration was not already loaded, then generate
 	** a new one ...
 	*/
 	if (ix >= ndesc) {
@@ -1040,7 +1040,7 @@ int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 	if ((rcdef->isopt && out[ix].popts)
 	||  (!rcdef->isopt && out[ix].prog)) {
 	    ++errc;
-	    fprintf (stderr, "%s(line %d): ambiguous `%s´\n", cgenrc, lc,
+	    fprintf (stderr, "%s(line %d): ambiguous '%s'\n", cgenrc, lc,
 			     rcdef->cfname);
 	    continue;
 	}
@@ -1117,7 +1117,7 @@ void print_command (FILE *out, char **cmd)
 }
 
 /* Write either " failed\n" or " done\n" (depending on the value of
-** `exitstate´) to the specified output channel.
+** 'exitstate') to the specified output channel.
 */ 
 static
 void print_exitstate (FILE *out, int exitstate)
@@ -1237,7 +1237,7 @@ mycwd()
     return wd;
 }
 
-/* Perform the `clean´-action (directly - not calling an external program for
+/* Perform the 'clean'-action (directly - not calling an external program for
 ** this reason).
 */
 static int
@@ -1307,8 +1307,8 @@ NOSFXSUBST:
     return sl;
 }
 
-/* Replace each occurrence of `pat´ (except when prefixed with `\´) in `where´
-** with `subst´.
+/* Replace each occurrence of 'pat' (except when prefixed with '\') in 'where'
+** with 'subst'.
 */
 static char *
 rplc (const char *pat, const char *where, const char *subst)
@@ -1329,8 +1329,8 @@ rplc (const char *pat, const char *where, const char *subst)
 	}
     }
 
-    /* 2. Allocate enough memory for the result and fill it with `where´ (with
-    **    each occurrence of `pat´ replaced with `subst´) ...
+    /* 2. Allocate enough memory for the result and fill it with 'where' (with
+    **    each occurrence of 'pat' replaced with 'subst') ...
     */
     if ((res = tmalloc (ressz, char))) {
 	w = where; r = res;
@@ -1369,7 +1369,7 @@ gen_cmd (const char *prog, const char *popts, bool split_prog,
 	if (!prog || !*prog) { prog = sv; }
 	/* Try the (compiled) default for this command second. Because this
 	** default may contain a complete command template instead of only a
-	** program-name, we need to assume that `split_prog´ was set; in other
+	** program-name, we need to assume that 'split_prog' was set; in other
 	** words: we will set it manually ...
 	*/
 	if (!prog || !*prog) { prog = act->default_cmd; split_prog = true; }
@@ -1379,40 +1379,40 @@ gen_cmd (const char *prog, const char *popts, bool split_prog,
     ** program ...
     */
     if (!prog) {
-	usage ("no valid %s specified; see `%s help´ for help, please!",
+	usage ("no valid %s specified; see '%s help' for help, please!",
 	       act->prog_desc, progname);
     }
     if (split_prog) {
-	/* If the `-s´-option was one of the options to `compile´ or `link´
-	** then split `prog´ into a vector of arguments (e.g. special calling
+	/* If the '-s'-option was one of the options to 'compile' or 'link'
+	** then split 'prog' into a vector of arguments (e.g. special calling
 	** of gcc); the splitting is done in a shell-alike manner ...
 	*/
 	if (shsplit (prog, &progv, &progc, &nxprog)) { return NULL; }
 
-	/* Increase the number of arguments by the length of the `prog´-
+	/* Increase the number of arguments by the length of the 'prog'-
 	** vector ...
 	*/
     } else {
-	/* If `split_prog´ was not requested, then allocate a vector with
+	/* If 'split_prog' was not requested, then allocate a vector with
 	** exactly one element ...
 	*/
 	if (!(progv = tmalloc (2, char *))) { return NULL; }
 	*progv = progv[1] = NULL; if (!(*progv = sdup (prog))) { goto ERREXIT; }
-	/* Increase the number of arguments by the length of the `prog´-
+	/* Increase the number of arguments by the length of the 'prog'-
 	** vector ...
 	*/
 	progc = 1;
     }
     cmdc += progc;
 
-    /* Retrieve the `options´-string ... */
+    /* Retrieve the 'options'-string ... */
     envval = NULL;
     if (!(act->env_opts && (envval = getenv (act->env_opts)) && *envval)) {
 	envval = NULL; if (act->env_flags) { envval = getenv (act->env_flags); }
     }
     if (!envval || !*envval) { envval = popts; }
 
-    /* And generate an `options´-vector from this string ... */
+    /* And generate an 'options'-vector from this string ... */
     if (envval && *envval) {
 	if (shsplit (envval, &optv, &optc, NULL)) { goto ERREXIT; }
 	/* Increase the number of arguments by the length of the options-
@@ -1471,14 +1471,14 @@ NX:
     cmdv[ix] = NULL; cmdc = ix;
 
 
-    /* Empty the `progv´ and `optv´ vectors (as their elements were moved to
-    ** `cmdv´ ...
+    /* Empty the 'progv' and 'optv' vectors (as their elements were moved to
+    ** 'cmdv' ...
     */
     for (jx = 0; jx < progc; ++jx) { progv[jx] = NULL; }
     for (jx = 0; jx < optc; ++jx) { optv[jx] = NULL; }
 
     /* After the command vector was filled, each argument is modifier by
-    ** substituting each `%t´ with `target´ ...
+    ** substituting each '%t' with 'target' ...
     */
     for (jx = 0; jx < ix; ++jx) {
 	char *sv = rplc ("%t", cmdv[jx], target);
@@ -1486,11 +1486,11 @@ NX:
 	free (cmdv[jx]); cmdv[jx] = sv;
     }
 
-    /* Remove the (no longer used) `progv´ and `optv´ vectors ... */
+    /* Remove the (no longer used) 'progv' and 'optv' vectors ... */
     if (progv) { argv_free (progv); progv = NULL; }
     if (optv) { argv_free (optv); optv = NULL; }
 
-    /* Return the remaining `prog´-cmdline through the `_nxprog´-argument (if
+    /* Return the remaining 'prog'-cmdline through the '_nxprog'-argument (if
     ** this argument is valid ...
     */
     if (_nxprog) { *_nxprog = nxprog; }
@@ -1544,7 +1544,7 @@ which (const char *cmd)
 	if (is_xfile (buf)) { res = sdup (buf); break; }
     }
     if (!res && *p) {
-	/* Remaining path element after the last `:´ ... */
+	/* Remaining path element after the last ':' ... */
 	q = p + strlen (p);
 	pl = (size_t) (q - p) + cl + 2;
 	if (bsz < pl) {
@@ -1563,9 +1563,9 @@ which (const char *cmd)
     return res;
 }
 
-/* Perform the requested action (`compile´ or `link´) by executing the
+/* Perform the requested action ('compile' or 'link') by executing the
 ** corresponding command in a sub-process. Display the output depending on the
-** `verbose´ argument.
+** 'verbose' argument.
 */
 static int
 spawn (FILE *out, int verbose, bool split_prog,
@@ -1620,11 +1620,11 @@ static void
 check_args (action_t *act, int argc)
 {
     if (argc < act->min_args) {
-	usage ("missing argument(s) for %s; see `%s help´ for more, please!",
+	usage ("missing argument(s) for %s; see '%s help' for more, please!",
 	       act->pfx_name, progname);
     }
     if (act->max_args > act->min_args && argc - 1 > act->max_args) {
-	usage ("too many arguments for %s; see `%s help´ for more, please!",
+	usage ("too many arguments for %s; see '%s help' for more, please!",
 	       act->pfx_name, progname);
     }
 }
@@ -1657,45 +1657,45 @@ do_clean (action_t *act, const char *prog, int argc, char **argv)
 	    verbose = false; silent = true; continue;
 	}
 	if (!strncmp (argv[ix], "-C", 2)) {
-	    if (newdir) { usage ("ambiguous option `-C´"); }
+	    if (newdir) { usage ("ambiguous option '-C'"); }
 	    if (argv[ix][2]) {
 		newdir = &argv[ix][2];
 	    } else if (ix + 1 < argc) {
 		newdir = argv[++ix];
 	    } else {
-		usage ("missing argument for option `%s´", argv[ix]);
+		usage ("missing argument for option '%s'", argv[ix]);
 	    }
 	    continue;
 	}
 	if (!strncmp (argv[ix], "--cd=", 5)) {
-	    if (newdir) { usage ("ambiguous option `--cd´"); }
+	    if (newdir) { usage ("ambiguous option '--cd'"); }
 	    if (!*(newdir = &argv[ix][5])) {
-		usage ("invalid empty argument for option `--cd´");
+		usage ("invalid empty argument for option '--cd'");
 	    }
 	    continue;
 	}
 	if (!strncmp (argv[ix], "--chdir=", 8)) {
-	    if (newdir) { usage ("ambiguous option `--chdir´"); }
+	    if (newdir) { usage ("ambiguous option '--chdir'"); }
 	    if (!*(newdir = &argv[ix][8])) {
-		usage ("invalid empty argument for option `--chdir´");
+		usage ("invalid empty argument for option '--chdir'");
 	    }
 	    continue;
 	}
 	if (!strcmp (argv[ix], "--cd") || !strcmp (argv[ix], "--chdir")) {
-	    if (newdir) { usage ("ambiguous option `%s´", argv[ix]); }
+	    if (newdir) { usage ("ambiguous option '%s'", argv[ix]); }
 	    if (ix + 1 < argc) {
-		usage ("missing argument for option `%s´", argv[ix]);
+		usage ("missing argument for option '%s'", argv[ix]);
 	    }
 	    continue;
 	}
 	if (*argv[ix] != '-') { break; }
-	usage ("invalid option `%s´", argv[ix]);
+	usage ("invalid option '%s'", argv[ix]);
     }
 
     check_args (act, argc - ix);
 
     if (newdir && chdir (newdir)) {
-	fprintf (stderr, "%s %s: failed to chdir into `%s´ - %s\n",
+	fprintf (stderr, "%s %s: failed to chdir into '%s' - %s\n",
 			 progname, act->pfx_name, newdir, strerror (errno));
 	exit (1);
     }
@@ -1717,12 +1717,12 @@ do_generate (action_t *act, const char *prog, int argc, char **argv)
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
 	if (is_prefix ("-c", opt) || is_prefix ("-f", opt)) {
-	    if (cf) { usage ("ambiguous `-c/-f´-option"); }
+	    if (cf) { usage ("ambiguous '-c/-f'-option"); }
 	    if (opt[2]) {
 		cf = &opt[2];
 	    } else {
 		if (optx >= argc - 1) {
-		    usage ("missing argument for option `-c/-f´");
+		    usage ("missing argument for option '-c/-f'");
 		}
 		cf = argv[++optx];
 	    }
@@ -1735,7 +1735,7 @@ do_generate (action_t *act, const char *prog, int argc, char **argv)
 	    verbose = 1; continue;
 	}
 
-	usage ("invalid option `%s´", opt);
+	usage ("invalid option '%s'", opt);
     }
 
     if (!cf && access (".cgenrc", F_OK) == 0) { cf = ".cgenrc"; }
@@ -1777,7 +1777,7 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 	    verbose = 1; continue;
 	}
 
-	usage ("invalid option `%s´", opt);
+	usage ("invalid option '%s'", opt);
     }
 
     check_args (act, argc - optx);
@@ -1887,7 +1887,7 @@ int main (int argc, char *argv[])
     }
 
     if (argc - 1 < 1) {
-	usage ("missing argument(s); see `%s help´ for more, please!",
+	usage ("missing argument(s); see '%s help' for more, please!",
 	       progname);
     }
 
@@ -1898,13 +1898,13 @@ int main (int argc, char *argv[])
 	*prog++ = '\0'; if (!*prog) { prog = NULL; }
     }
 
-    /* Select the action routine from the command-parameter `p´ ...
+    /* Select the action routine from the command-parameter 'p' ...
     */
     for (mode = 0; (act = &actions[mode], act->pfx_name); ++mode) {
 	if (is_prefix (p, act->pfx_name)) { break; }
 	if (act->eq_name && !strcmp (p, act->eq_name)) { break; }
     }
-    if (!act->pfx_name) { usage ("invalid command `%s´", p); }
+    if (!act->pfx_name) { usage ("invalid command '%s'", p); }
 
     return act->proc (act, prog, argc - 1, &argv[1]);
 }

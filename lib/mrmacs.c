@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Some macros for simplifying the use of `malloc()´, `realloc()´ and `free()´
+** Some macros for simplifying the use of 'malloc()', 'realloc()' and 'free()'
 ** ...
 **
 */

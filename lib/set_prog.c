@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Setting the program-name (`prog´) from the program's command line arguments
+** Setting the program-name ('prog') from the program's command line arguments
 ** ...
 **
 */

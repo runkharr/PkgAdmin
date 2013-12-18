@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Implementation of `which´, which uses an externally supplied buffer ...
+** Implementation of 'which', which uses an externally supplied buffer ...
 **
 */
 #ifndef BWHICH_C

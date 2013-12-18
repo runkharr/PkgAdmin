@@ -10,7 +10,7 @@
 ** Synopsis:
 **    const char *basename = bn (path);
 **
-** Returns a pointer to the last (UNIX) path-element of `path´ ...
+** Returns a pointer to the last (UNIX) path-element of 'path' ...
 **
 */
 #ifndef BN_C

@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Derived from `vfask()´, `fask()´ has a variable number of arguments ...
+** Derived from 'vfask()', 'fask()' has a variable number of arguments ...
 **
 */
 #ifndef FASK_C

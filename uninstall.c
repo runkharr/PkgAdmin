@@ -13,10 +13,10 @@
 **
 **     uninstall [-d|-D directory] [-q|-v] file-path...
 **
-** With `-d directory´ any element of `file-path´ which is a relative pathname
-** (e.g. a pure file-name) is searched below `directory´ and deleted if found;
-** additionally, if `directory´ is empty after removing all of the
-** `file-path...´-elements, the directory is removed itself ...
+** With '-d directory' any element of 'file-path' which is a relative pathname
+** (e.g. a pure file-name) is searched below 'directory' and deleted if found;
+** additionally, if 'directory' is empty after removing all of the
+** 'file-path...'-elements, the directory is removed itself ...
 **
 */
 #include <stdio.h>

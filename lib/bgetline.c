@@ -8,9 +8,9 @@
 ** Released under GPL v2.
 **
 ** Read a line from a file. The buffer for this line is supplied as a pair of
-** (reference-)arguments `_line' and `_linesz' and will eventually resized
+** (reference-)arguments '_line' and '_linesz' and will eventually resized
 ** during the retrieval of the line.
-** Result is either `-2' (error) or `-1' (no content read due to EOF)
+** Result is either '-2' (error) or '-1' (no content read due to EOF)
 ** or the length of the line read (without the EOL-character(s)) ...
 */
 #ifndef BGETLINE_C

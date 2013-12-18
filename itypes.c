@@ -8,7 +8,7 @@
 ** Released under GPL v2.
 **
 ** Replace all (valid) 'typedef <#typename#>' placeholders in a file with
-** a corresponding integer `typedef integer-type typename;´. The result
+** a corresponding integer 'typedef integer-type typename;'. The result
 ** is either written to a file (2nd argument to this program) or to
 ** stdout (if no 2nd argument were supplied or the 2nd argument was a single
 ** '-').
@@ -19,7 +19,7 @@
 **    itypes infile [-]         # read from 'infile', write to stdout
 **    itypes [- [-]]            # read from stdin, write to stdout
 **    itypes -h                 # display a usage-message
-**    itypes --help             # same as `itypes -h´
+**    itypes --help             # same as 'itypes -h'
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -127,9 +127,9 @@ static int process_line (const char *line, FILE *outfile)
         /* Skip trailing white space (ASCII BL/HT) ... */
         while (isws (*q)) { ++q; }
         
-        /* Is this really `typedef <#name#>´? */
+        /* Is this really 'typedef <#name#>'? */
         if (strncmp (q, "<#", 2) != 0) {
-            /* No, so write it out upto the position of `q´, advance to
+            /* No, so write it out upto the position of 'q', advance to
             ** this position and continue from there ...
             */
             fwrite (p, 1, (size_t) (q - p), outfile); line = q; continue;
@@ -142,7 +142,7 @@ static int process_line (const char *line, FILE *outfile)
             ++q;
         }
         if (strncmp (q, "#>", 2) != 0) {
-            /* Replace a broken `typedef <#...´ directive with a comment */
+            /* Replace a broken 'typedef <#...' directive with a comment */
             fputs ("/* broken 'typedef <#", outfile);
             fwrite (r, 1, (size_t) (q - r), outfile);
             fputs ("#>' (missing '#>') */", outfile);
@@ -151,7 +151,7 @@ static int process_line (const char *line, FILE *outfile)
             line = q; ++errs; continue;
         }
         if (ix >= sizeof(tname) - 1 || !isalpha (*tname)) {
-            /* Replace an invalid typedef <#...#>´ with a comment */
+            /* Replace an invalid typedef <#...#>' with a comment */
             fputs ("/* invalid name in 'typedef <#", outfile);
             fwrite (r, 1, (size_t) (q - r), outfile);
             fputs ("#>' */", outfile);
@@ -168,7 +168,7 @@ static int process_line (const char *line, FILE *outfile)
             }
         }
         if (as_type == NULL) {
-            /* Replace an unknown typedef <#...#>´ with a comment */
+            /* Replace an unknown 'typedef <#...#>' with a comment */
             fprintf (outfile,
                      "/* invalid 'typedef <#%s#>' (unknown name) */",
                      tname);

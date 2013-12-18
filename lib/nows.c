@@ -10,7 +10,7 @@
 ** Synopsis:
 **    int flag = nows (char_value);
 **
-** Returns true if `char_value´ is neither '\0' nor '\t' nor ' ' ...
+** Returns true if 'char_value' is neither '\0' nor '\t' nor ' ' ...
 **
 */
 #ifndef NOWS_C

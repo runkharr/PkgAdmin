@@ -10,8 +10,8 @@
 ** Synopsis:
 **    int eoltype = cuteol (line);
 **
-** Removes the `end of line´ characters from the string `line´; returns
-**  0  -  if the string was not terminated by any `end of line´ characters,
+** Removes the 'end of line' characters from the string 'line'; returns
+**  0  -  if the string was not terminated by any 'end of line' characters,
 **  1  -  if the string was terminated by "\n" (UNIX-EOL),
 **  2  -  if the string was terminated by "\r" (MacOS-EOL),
 **  3  -  if the string was terminated by "\r\n" (DOS/Windows-EOL)

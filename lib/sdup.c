@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Small `strdup´ replacement ...
+** Small 'strdup()' replacement ...
 **
 */
 #ifndef SDUP_C

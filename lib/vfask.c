@@ -8,9 +8,9 @@
 ** Released under GPL v2.
 **
 ** Function for interactively communicating to a user by asking a question
-** - which must be answered (by the user) with either `yes´ (`ja´) or `no´
-** (`nein´) or any prefix of these possible answers. This function uses
-** a `va_list´-value as it's last argument, so it can be used by derived
+** - which must be answered (by the user) with either 'yes' ('ja') or 'no'
+** ('nein') or any prefix of these possible answers. This function uses
+** a 'va_list'-value as it's last argument, so it can be used by derived
 ** functions which use a variable number of arguments ...
 **
 */

@@ -10,7 +10,7 @@
 ** Synopsis:
 **   int isaprefix = is_lprefix (probe, string);
 **
-** Returns true if the string `probe´ is a prefix of `string´ (ignoring
+** Returns true if the string 'probe' is a prefix of 'string' (ignoring
 ** the letter case) ...
 **
 */

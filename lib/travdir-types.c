@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** The constants and function types required for `travdir.c´ and `travdirne.c´
+** The constants and function types required for 'travdir.c' and 'travdirne.c'
 **
 */
 #ifndef TRAVDIR_TYPES_C

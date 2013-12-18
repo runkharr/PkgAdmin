@@ -8,9 +8,9 @@
 ** Released under GPL v2.
 **
 ** Returns the current working directory. Because the working directory is
-** never changed in any of the programs in `PkgAdmin´, this function allocates
+** never changed in any of the programs in 'PkgAdmin', this function allocates
 ** the memory required for the result only once (storing it in a static local
-** variable) and returns the value as `const char *´ ...
+** variable) and returns the value as 'const char *' ...
 **
 */
 #ifndef CWD_C

@@ -10,8 +10,8 @@
 ** Synopsis:
 **    fullpath [-b level] pathname
 **
-** Expands pathname to an absolute pathname (removing occurrences of `.´ and
-** `..´) and then shortens it by `level´ items ...
+** Expands pathname to an absolute pathname (removing occurrences of '.' and
+** '..') and then shortens it by 'level' items ...
 **
 */
 #include <stdio.h>

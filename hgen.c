@@ -8,14 +8,14 @@
 ** Released under GPL v2.
 **
 ** Generate a header file from a template and a list of input header files.
-** Only parts of the between lines consisting entirely of `##EXPORT##´ and
-** `##END##´ (both enclosed in comment brackets with no blanks between the
+** Only parts of the between lines consisting entirely of '##EXPORT##' and
+** '##END##' (both enclosed in comment brackets with no blanks between the
 ** brackets and the tags) are included into the generated file.
 **
 ** Synopsis:
 **    hgen -o outfile template [headerfile...]
 **
-** If `-o outfile´ is not supplied, the result is written to stdout ...
+** If '-o outfile' is not supplied, the result is written to stdout ...
 **
 */
 #include <stdio.h>

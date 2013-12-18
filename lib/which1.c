@@ -7,8 +7,8 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** One possible implementation of `which()´, which searches in the PATH for an
-** executable with the name which were supplied as argument to `which()´ ...
+** One possible implementation of 'which()', which searches in the PATH for an
+** executable with the name which were supplied as argument to 'which()' ...
 **
 */
 #ifndef WHICH1_C

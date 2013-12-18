@@ -8,7 +8,7 @@
 ** Released under GPL v2.
 **
 ** Simple method for grabbing "configuration" values from a C-sourcefile by
-** extracting the corresponding `#define´-lines ...
+** extracting the corresponding '#define'-lines ...
 **
 */
 #include <stdio.h>

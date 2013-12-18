@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Second implementation of `which´ ...
+** Second implementation of 'which' ...
 **
 */
 #ifndef WHICH2_C

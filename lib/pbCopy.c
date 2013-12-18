@@ -8,7 +8,7 @@
 ** Released under GPL v2.
 **
 ** Copy a string into another and return the end-position of the destination
-** string - alot alike `stpcpy()´; required, because `stpcpy()´ is not always
+** string - alot alike 'stpcpy()'; required, because 'stpcpy()' is not always
 ** available (it's a GNU-extension) ...
 **
 */

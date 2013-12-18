@@ -76,7 +76,7 @@ int main (int argc, char *argv[])
 	optx = 1;
 	if (argc < 2) { usage (NULL); }
 	if ((cmd = cmdnum (argv[1])) <= 0) {
-	    usage ("invalid cmd; try `%s cmd -h´ for help, please!", prog);
+	    usage ("invalid cmd; try '%s cmd -h' for help, please!", prog);
 	}
     }
     while ((opt = getopt (argc - optx, argv + optx, "ef:hr")) != -1) {
@@ -84,7 +84,7 @@ int main (int argc, char *argv[])
 	    case 'e':
 		break;
 	    case 'f':
-		if (format) { usage ("ambiguous argument to option `-f´"); }
+		if (format) { usage ("ambiguous argument to option '-f'"); }
 		format = optarg; cmd = 3;
 		break;
 	    case 'h':

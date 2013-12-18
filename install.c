@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** File installer (resembles the program `install´ from the `coreutils´), but
+** File installer (resembles the program 'install' from the 'coreutils'), but
 ** allows for (partly) interactive operations ...
 **
 */

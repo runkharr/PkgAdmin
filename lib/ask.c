@@ -7,7 +7,7 @@
 ** Copyright: (c) 2013, Boris Jakubith <runkharr@googlemail.com>
 ** Released under GPL v2.
 **
-** Derived from `vfask()´, `ask()´ has a variable number of arguments and uses
+** Derived from 'vfask()', 'ask()' has a variable number of arguments and uses
 ** stdin/stdout for it's communication with the user ...
 **
 */

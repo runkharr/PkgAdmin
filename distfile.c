@@ -7,7 +7,7 @@
 ** Copyright: (c) 2009, Boris Jakubith <fbj@blinx.de>
 ** License: GPL (version 2)
 **
-** C-implementation of my small `admin/distfile' utility.
+** C-implementation of my small 'admin/distfile' utility.
 **
 ** Synopsis: distfile [-x exclude-file] [-c 'cleancmd-template'] \
 **                    [-p 'packcmd-template' ] srcdist [suffix [dir]]
@@ -116,10 +116,10 @@ usage (const char *fmt, ...)
 	     "\n  suffix"
 	     "\n     An additional suffix to be inserted between the archive's"
 	     " name and the"
-	     "\n     packager's suffix (e.g. the `-bin´ in"
+	     "\n     packager's suffix (e.g. the '-bin' in"
 	     " AVLtree-0.75-bin.tar.gz). For"
-	     "\n     `srcdist´, this defaults to an empty string, for"
-	     " `bindist´ to \"-bin\"."
+	     "\n     'srcdist', this defaults to an empty string, for"
+	     " 'bindist' to \"-bin\"."
 	     "\n  dir"
 	     "\n     The directory wherein the 'srcdist'/'bindist' process"
 	     " creates the"
@@ -130,19 +130,19 @@ usage (const char *fmt, ...)
 	     "\n     content of (the first line of) the file 'VERSION' which"
 	     " resides in this"
 	     "\n     directory.)\n"
-	     "\nFor each of the `-c´, `-i´ and `-p´ options a non-negative"
+	     "\nFor each of the '-c', '-i' and '-p' options a non-negative"
 	     " integer may be"
 	     "\nspecified, which is then used for selecting a template from a"
 	     " list which is read"
 	     "\nfrom a file. If matching file exists, a hard-coded list is"
 	     " used instead."
 	     "\nFor"
-	     "\n  -c the file to be used is either `.cleanupcmds´ in the top-"
+	     "\n  -c the file to be used is either '.cleanupcmds' in the top-"
 	     "level directory"
-	     "\n      of the source tree or `admin/cleanupcmds´,"
-	     "\n  -i it is either `.installcmds´ (again at top-level) or"
-	     " `admin/installcmds´,"
-	     "\n  -p it is either `.packcmds´ or `admin/packcmds´.\n\n",
+	     "\n      of the source tree or 'admin/cleanupcmds',"
+	     "\n  -i it is either '.installcmds' (again at top-level) or"
+	     " 'admin/installcmds',"
+	     "\n  -p it is either '.packcmds' or 'admin/packcmds'.\n\n",
 	     prog, prog, prog, prog,
 	     def_cluptpls[0],
 	     def_insttpls[0],
@@ -449,7 +449,7 @@ add_pattern (const char *p, rxlist_t *_first, rxlist_t *_last,
 	    quote_rx (++p, _buf, _bufsz);
 	    buf_puts (")", 1, _buf, _bufsz);
 	} else {
-	    /* Sub-string match (default after `!´) */
+	    /* Sub-string match (default after '!') */
 	    if (*p == ':') { ++p; }
 	    buf_puts ("(", 1, _buf, _bufsz);
 	    quote_rx (p, _buf, _bufsz);
@@ -528,7 +528,7 @@ is_prefix (const char *p, const char *s)
 ** packing-templates) into a (dynamically allocated) vector of strings which
 ** is returned via the second argument of this function. The return-value is
 ** -1 if the template file couldn't be opened because it doesn't exist, -2 on
-** each other error from `fopen()' and 0 otherwise. The returned string-vector
+** each other error from 'fopen()' and 0 otherwise. The returned string-vector
 ** may be NULL even for a return-value of 0, so it must be checked nonetheless
 ** ...
 */
@@ -574,22 +574,22 @@ get_template (char tplopt,
     const char *res = NULL;
     char *p, **tpls = 0;
     const char *tpl_file;
-    /* Examine `tplcmd´ only if it holds a value; otherwise, the default
-    ** (index-)value of `lv´ (0) is used ...
+    /* Examine 'tplcmd' only if it holds a value; otherwise, the default
+    ** (index-)value of 'lv' (0) is used ...
     */
     if (tplcmd) {
-	/* In the first step, assume that `tplcmd´ holds a decimal number */
+	/* In the first step, assume that 'tplcmd' holds a decimal number */
 	lv = (long) strtol (tplcmd, &p, 10);
 	if (p && *p == '\0') {
 	    if (lv < 0) { 
 		/* It is an error if the conversion succeeded but resulted in a
 		** negative number ...
 		*/
-		fprintf (stderr, "%s: argument of option `-%c' out of range\n",
+		fprintf (stderr, "%s: argument of option '-%c' out of range\n",
 				 prog, tplopt);
 		return res;
 	    }
-	    /* if `tplcmd' was not a number, it is assumed that it is already a
+	    /* if 'tplcmd' was not a number, it is assumed that it is already a
 	    ** valid template, so it is returned directly in this case ...
 	    */
 	    return tplcmd;
@@ -623,7 +623,7 @@ get_template (char tplopt,
 	while (lv > 0 && tpls[ix]) { --lv; ++ix; }
 
 	/* Keep only either the last template or the one which matches the
-	** number which was supplied instead of a valid `tplcmd´ ...
+	** number which was supplied instead of a valid 'tplcmd' ...
 	*/
 	for (jx = 0; tpls[jx]; ++jx) {
 	    if (jx == ix) { continue; }
@@ -961,7 +961,7 @@ ERROR:
 /*#### end copy_tree #### */
 
 /*#### cleanup ####*/
-/* Perform a `cleanup´-operation in the supplied directory ...
+/* Perform a 'cleanup'-operation in the supplied directory ...
 */
 static int
 cleanup (const char *packdir, const char *cluptpl, int quiet)
@@ -1189,14 +1189,14 @@ remove_packdir (const char *packdir)
 /*#### gen_srcdist ####*/
 
 /* Generate a source-archive using all files in the current source-tree which
-** match none of the regular expressions in `exclude_pats´; the commands for
-** generating the archive are generated from the templates `cleanupcmd´
+** match none of the regular expressions in 'exclude_pats'; the commands for
+** generating the archive are generated from the templates 'cleanupcmd'
 ** (issuing a cleanup in the temporary directory created for generating the
-** archive) and `packcmd´ (the commands which really generate the requested
-** archive). The parameter `newdir´ is currently not used, but may be (in a
-** later version). On success, `gen_srcdist()´ returns 0, on failure -1.
-** `gen_srcdist()´ may return the name of the generated archive (on success!),
-** but only if the `packcmd´-template has the format "package_name\tpackcmd"
+** archive) and 'packcmd' (the commands which really generate the requested
+** archive). The parameter 'newdir' is currently not used, but may be (in a
+** later version). On success, 'gen_srcdist()' returns 0, on failure -1.
+** 'gen_srcdist()' may return the name of the generated archive (on success!),
+** but only if the 'packcmd'-template has the format "package_name\tpackcmd"
 ** ...
 */
 static int
@@ -1246,7 +1246,7 @@ gen_srcdist (rxlist_t exclude_pats,
     }
     /* "Intelligentes" Kopieren der Daten aus dem aktuellen Verzeichnis in
     ** das zu packende Zielverzeichnis. Die Dateien werden nach Möglichkeit
-    ** nur referentiell kopiert (`link()'). Nur wenn das nicht funktioniert
+    ** nur referentiell kopiert ('link()'). Nur wenn das nicht funktioniert
     ** werden die Dateien physisch kopiert ...
     */
     rc = -1;
@@ -1460,7 +1460,7 @@ gen_bindist (rxlist_t exclude_pats,
     rc = qcommand (cmd, (quiet ? "/dev/null" : NULL));
 
     if (!rc) {
-	/* The cleanup-process which uses `exclude_pats´ is not ready yet ... */
+	/* The cleanup-process which uses 'exclude_pats' is not ready yet ... */
 	rc = exclude_binaries (packdir, exclude_pats);
     }
 
@@ -1520,7 +1520,7 @@ main (int argc, char *argv[])
     rxlist_t exclude_pats = NULL;
     store_progpath (argv);
     if (argc < 2) { usage (NULL); }
-    /* get the `-c', `-h', `-i', `-p', `-q´, `-V' and `-x' options */
+    /* get the '-c', '-h', '-i', '-p', '-q', '-V' and '-x' options */
     while ((opt = getopt (argc, argv, "+c:hi:p:qVx:")) != -1) {
 	switch (opt) {
 	    case 'c':	/* -c 'cleancmd-template' (e.g. -c 'make cleanall') */
@@ -1551,7 +1551,7 @@ main (int argc, char *argv[])
 	}
     }
     if (optind >= argc) {
-	usage ("missing argument(s); Please call `%s -h' for help!", prog);
+	usage ("missing argument(s); Please call '%s -h' for help!", prog);
     }
     mname = argv[optind++];
     if (is_prefix (mname, "srcdist")) {

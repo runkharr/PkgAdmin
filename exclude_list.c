@@ -10,7 +10,7 @@
 ** Small C-program which reads a file line by line, treats
 ** all lines which are not empty and don't start with a '#'
 ** as pathnames of files and converts them into a single regular
-** expression suitable for the `-regex'-option of a `find'-command
+** expression suitable for the '-regex'-option of a 'find'-command
 ** ...
 ** 
 */
