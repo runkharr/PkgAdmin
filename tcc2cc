@@ -1,0 +1,54 @@
+#! /bin/sh
+# admin/tcc2cc
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: jakubith@strato-rz.de
+# Copyright: (c) 2014, Boris Jakubith <jakubith@strato-rz.de>
+# Released under GPL v2.
+#
+# Small helper script which converts '#! .../tcc -run'-scripts in matching
+# C source files which can be used as input to any C-compiler ...
+#
+PROG="${0##*/}"
+
+if [ $# -lt 1 ]; then
+    echo 1>&2 "Usage: $PROG tcc-script [c-source]"; exit 0
+fi
+
+if [ "x$1" = x-v ]; then
+    shift; VERBOSE=1
+fi
+
+if [ $# -lt 1 ]; then
+    echo 1>&2 \
+        "${PROG}: Missing argument(s); try '$PROG' (no args) for help, please!"
+    exit 64
+fi
+
+TCCSCRIPT="$1"; shift
+if [ $# -gt 0 ]; then CSOURCE="$1"; shift; fi
+
+if ! scriptmagic="$(head -1 "$TCCSCRIPT")"; then
+    echo 1>&2 "${PROG}: '$TCCSCRIPT' could not be opened"; exit 1
+fi
+
+if ! expr >/dev/null "$scriptmagic" : '\(#! *.*/tcc\( .*\)\? -run *\)$'; then
+    echo 1>&2 "${PROG}: '$TCCSCRIPT' is no tcc-script"; exit 1
+fi
+
+if [ -n "$CSOURCE" ]; then
+    if [ -f "$CSOURCE" ]; then
+        echo 1>&2 "${PROG}: '$CSOURCE' already exists"; exit 1
+    fi
+    exec 1> "$CSOURCE"
+fi
+
+if [ 0$VERBOSE -ne 0 ]; then
+    test -n "$CSOURCE" || CSOURCE=stdout
+    echo 1>&2 "Converting '$TCCSCRIPT' to '$CSOURCE' ..."
+fi
+
+echo '#line 2'
+exec tail -n +2 -- "$TCCSCRIPT"
