@@ -34,7 +34,8 @@ if ! scriptmagic="$(head -1 "$TCCSCRIPT")"; then
     echo 1>&2 "${PROG}: '$TCCSCRIPT' could not be opened"; exit 1
 fi
 
-if ! expr >/dev/null "$scriptmagic" : '\(#! *.*/tcc\( .*\)\? -run *\)$'; then
+if ! expr >/dev/null "$scriptmagic" : '\(#! *.*/tcc -run\( [^ ]\+\)\? *\)$'
+then
     echo 1>&2 "${PROG}: '$TCCSCRIPT' is no tcc-script"; exit 1
 fi
 
