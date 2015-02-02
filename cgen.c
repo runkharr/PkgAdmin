@@ -258,7 +258,7 @@ struct action_s {
       "\n  -v (alt: --verbose)"
       "\n    Display each command line generated before it's executed instead"
       " of the"
-      "\n    short message 'Compiling target ...'; also, allow the executed"
+      "\n    short message 'Generating target ...'; also, allow the executed"
       " command"
       "\n    to display it's messages (stdout/stderr)."
       "\n"
