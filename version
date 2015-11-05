@@ -4,7 +4,7 @@
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
-# Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Copyright: Â© 2005, Boris Jakubith <bj@isv-gmbh.de>
 # Licence: GPL(v2)
 
 prog="$0"
@@ -66,7 +66,7 @@ if ! [ -d admin -a -f "$top/VERSION" ]; then
     exit 64
 fi
 
-# Get the version number from the `VERSION´ file in the top-level directory ...
+# Get the version number from the `VERSIONÅ½ file in the top-level directory ...
 #
 VERSION="`cat "$top/VERSION"`"
 

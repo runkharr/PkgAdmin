@@ -4,7 +4,7 @@
 #
 # Author: Boris Jakubith
 # E-Mail: bj@isv-gmbh.de
-# Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Copyright: Â© 2005, Boris Jakubith <bj@isv-gmbh.de>
 # Licence: GPL(v2)
 
 # Mimic the behaviour of the `install'-command from the `fileutils'-package.
@@ -94,7 +94,7 @@ done
 if [ -n "$mkdir" ]; then
     dir="$mkdir"; mkdir="$(which mkdir)"
 echo 1>&2 "##X0: |$mkdir|$dir|"
-    if [ $# -gt 0 ]; then usage ambiguous argument to \`-d´; fi
+    if [ $# -gt 0 ]; then usage ambiguous argument to \`-dÅ½; fi
     vecho -n "Creating directory '$dir' ..."
 echo 1>&2 "##X1: \"$mkdir\" -p \"$dir\" 2>&1"
     em="$("$mkdir" -p "$dir" 2>&1)"; rc=$?
