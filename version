@@ -66,7 +66,7 @@ if ! [ -d admin -a -f "$top/VERSION" ]; then
     exit 64
 fi
 
-# Get the version number from the `VERSIONŽ file in the top-level directory ...
+# Get the version number from the `VERSION´ file in the top-level directory ...
 #
 VERSION="`cat "$top/VERSION"`"
 
