@@ -133,11 +133,23 @@ if [ ! -d "$OUT" ]; then
 	vecho -n "Installing '$1' as '$OUT' ..."
 	if [ -e "$OUT" ]; then
 	    em="$(rm -f "$OUT" 2>&1)"
-	    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+	    if [ $? -ne 0 ]; then
+		vecho " failed."; veshift 2; eecho "$em"; exit 1
+	    fi
 	fi
-	em="$(cp $dopt "$1" "$OUT" 2>&1)"
-	if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
-	if [ $strip -ne 0 ]; then strip -- "$OUT"; fi
+	if [ -h "$1" ]; then
+	    laddr="$(readlink "$1")"
+	    em="$(ln -s "$laddr" "$OUT")"
+	    if [ $? -ne 0 ]; then
+		vecho " failed."; veshift 2; eecho "$em"; exit 1
+	    fi
+	else
+	    em="$(cp $dopt "$1" "$OUT" 2>&1)"
+	    if [ $? -ne 0 ]; then
+		vecho " failed."; veshift 2; eecho "$em"; exit 1
+	    fi
+	    if [ $strip -ne 0 ]; then strip -- "$OUT"; fi
+	fi
 	if [ -n "$owner" ]; then chown "$owner" "$OUT"; fi
 	if [ -n "$group" ]; then chgrp "$group" "$OUT"; fi
 	if [ -n "$mode" ]; then chmod "$mode" "$OUT"; fi
