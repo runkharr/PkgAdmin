@@ -1593,6 +1593,6 @@ main (int argc, char *argv[])
     ** ausgabe geschrieben werden ...
     */
     if (!rc) { printf ("%s\n", pkgname); }
-    return (rci ? 1 : 0);
+    return (rc ? 1 : 0);
 }
 /*#### end of main program ####*/
