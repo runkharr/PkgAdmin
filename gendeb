@@ -102,10 +102,11 @@ fi
 # directory in the previous directory ...
 #
 cd "$d"
+d1="$(echo "$d" | sed -e 's/\([.*]\|\[\|\]\|\\\)/\\\1/g')"
 find debian \( -name CVS -o -path '*/CVS/*' \) -prune \
 	    -o \( -name .svn -o -path '*/.svn/*' \) -prune \
 	    -o -print \
-| perl -ne 's|^\Q'"$d"'\E/|./|; print $_;' \
+| sed -e "s|^$d1/|./|" \
 | cpio -pdm "$bld"
 
 # Change back into $cur, but go a step further by changing into the sub-
