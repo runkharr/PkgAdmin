@@ -1769,7 +1769,7 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     char *target = NULL, **av, *opt, *nullarg[] = { NULL };
     const char *nxprog = NULL;
     int optx = 0, ac, rc;
-    int verbose = 0;
+    int verbose = 0, verb1;
 
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
@@ -1786,9 +1786,10 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     ac = argc - optx; av = &argv[optx];
     rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av,
 		&nxprog);
+    verb1 = (verbose > 0 ? verbose : -1);
     while (rc == 0 && nxprog && *nxprog) {
 	prog = nxprog; nxprog = NULL;
-	rc = spawn (stdout, verbose, true, act, prog, NULL, target, 0, nullarg,
+	rc = spawn (stdout, verb1, true, act, prog, NULL, target, 0, nullarg,
 		    &nxprog);
     }
     if (verbose == 0) { print_exitstate (stdout, rc); }
