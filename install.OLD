@@ -1,0 +1,187 @@
+#! /bin/sh
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
+# Licence: GPL(v2)
+
+# Mimic the behaviour of the `install'-command from the `fileutils'-package.
+
+PROG="`basename $0`"
+
+ask() {
+    local p q
+    if [ $# -lt 1 ]; then
+	echo "${PROG}: missing argument for \`ask()'"; exit 64;
+    fi
+    while true; do
+	echo -n "$1 "; read q
+	if [ "x$q" = xyes -o "x$q" = xja ]; then return 0; fi
+	if [ "x$q" = xno -o "x$q" = xnein ]; then return 1; fi
+	echo "*** Please answer only with 'yes' ('ja') or 'no' ('nein')!"
+	echo ''
+    done
+}
+
+vecho() {
+    if [ -n "$verbose" ] && [ $verbose -ne 0 ]; then
+	echo ${1+"$@"}
+    fi
+}
+
+eecho() {
+    echo 1>&2 ${1+"$@"}
+}
+
+veecho() {
+    if [ -n "$verbose" ] && [ $verbose -ne 0 ]; then
+	eecho ${1+"$@"}
+    fi
+}
+
+veshift() {
+    local cc="$1"; shift; while [ $cc -gt 0 ]; do veecho -n " "; cc=$((cc - 1)); done
+}
+
+usage() {
+    if [ $# -gt 0 ]; then echo 1>&2 "${PROG}:" $*; exit 64; fi
+    cat <<-EOT
+	Usage: $0 [-c] [-l] [-m mode] [-o user] [-g group] [-s] [-z] file... directory
+	       $0 [-c] [-l] [-m mode] [-o user] [-g group] [-s] [-z] file directory/file
+	       $0 [-m mode] [-o user] [-g group] -d directory
+	EOT
+    exit 0
+}
+
+QUERY=0; strip=0; verbose=0; deref=1
+
+if [ $# -lt 1 ]; then usage; fi
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+	-c) shift ;;
+	-h) usage ;;
+	-l) deref=0; shift ;;
+	-m*|-o*|-g*|-d*)
+	    opt="`echo $1 | sed -e 's/\(-.\)/\1/'`"
+	    xarg="`echo $1 | sed -e 's/^-.//'`"
+	    if [ -z "$xarg" ]; then
+		if [ $# -lt 1 ]; then
+		    echo "$0: missing argument for option \`$opt'" 1>&2
+		    exit 1
+		fi
+		shift; xarg="$1"
+	    fi
+	    shift
+	    if [ "$opt" = "-m" ]; then mode="$xarg"
+	    elif [ "$opt" = "-o" ]; then owner="$xarg"
+	    elif [ "$opt" = "-g" ]; then group="$xarg"
+	    elif [ "$opt" = "-d" ]; then mkdir="$xarg"
+	    fi
+	    ;;
+	-q) QUERY=1; shift ;;
+	-Q) QUERY=2; shift ;;
+	-s) strip=1; shift ;;
+	-v) verbose=1; shift ;;
+	-z) compress=1; shift ;;
+	-*) usage invalid option "$1" ;;
+	*) break ;;
+    esac
+done
+
+if [ -n "$mkdir" ]; then
+    dir="$mkdir"; mkdir="$(which mkdir)"
+#echo 1>&2 "##X0: |$mkdir|$dir|"
+    if [ $# -gt 0 ]; then usage ambiguous argument to \`-d´; fi
+    vecho -n "Creating directory '$dir' ..."
+#echo 1>&2 "##X1: \"$mkdir\" -p \"$dir\" 2>&1"
+    em="$("$mkdir" -p "$dir" 2>&1)"; rc=$?
+    if [ $rc -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+    if [ -n "$owner" ]; then chown "$owner" "$dir"; fi
+    if [ -n "$group" ]; then chgrp "$group" "$dir"; fi
+    if [ -n "$mode" ]; then chmod "$mode" "$dir"; fi
+    vecho " done."
+    exit 0
+fi
+
+if [ $# -lt 2 ]; then
+    usage missing "argument(s)"
+fi
+
+for i in "$@"; do OUT="$i"; done
+
+if [ ! -d "$OUT" -a $# -gt 2 ]; then
+    usage 'if' more than two arguments are given, the last one must be a \
+	  directory
+fi
+
+dopt=; if [ $deref -eq 0 ]; then dopt='-d'; fi
+
+if [ ! -d "$OUT" ]; then
+    nodel=0
+    if [ -f "$OUT" -a $QUERY -ne 0 ]; then
+	nodel=1
+	if [ $QUERY -le 1 ]; then
+	    if ask "Do you want to overwrite '$OUT'?"; then nodel=0; fi
+	else
+	    echo "*** Please check the file '$OUT'!";
+	fi
+    fi
+    if [ $nodel -eq 0 ]; then
+	vecho -n "Installing '$1' as '$OUT' ..."
+	if [ -e "$OUT" ]; then
+	    em="$(rm -f "$OUT" 2>&1)"
+	    if [ $? -ne 0 ]; then
+		vecho " failed."; veshift 2; eecho "$em"; exit 1
+	    fi
+	fi
+	if [ -h "$1" ]; then
+	    laddr="$(readlink "$1")"
+	    em="$(ln -s "$laddr" "$OUT")"
+	    if [ $? -ne 0 ]; then
+		vecho " failed."; veshift 2; eecho "$em"; exit 1
+	    fi
+	else
+	    em="$(cp $dopt "$1" "$OUT" 2>&1)"
+	    if [ $? -ne 0 ]; then
+		vecho " failed."; veshift 2; eecho "$em"; exit 1
+	    fi
+	    if [ $strip -ne 0 ]; then strip -- "$OUT"; fi
+	fi
+	if [ -n "$owner" ]; then chown "$owner" "$OUT"; fi
+	if [ -n "$group" ]; then chgrp "$group" "$OUT"; fi
+	if [ -n "$mode" ]; then chmod "$mode" "$OUT"; fi
+	vecho " done."
+    fi
+    exit 0
+fi
+
+while [ $# -gt 1 ]; do
+    bn="`basename $1`"; nodel=0
+    if [ -f "$OUT/$bn" -a $QUERY -ne 0 ]; then
+	nodel=1
+	if [ $QUERY -le 1 ]; then
+	    if ask "Do you want to overwrite '$OUT/$bn'?"; then nodel=0; fi
+	else
+	    echo "*** Please check the file '$OUT/$bn'!";
+	fi
+    fi
+    if [ $nodel -eq 0 ]; then
+	vecho -n "Installing '$1' in '$OUT' ..."
+	if [ -e "$OUT/$bn" ]; then
+	    em="$(rm -f "$OUT/$bn" 2>&1)"
+	    if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+	fi
+	em="$(cp $dopt "$1" "$OUT/$bn" 2>&1)"
+	if [ $? -ne 0 ]; then vecho " failed."; veshift 2; eecho "$em"; exit 1; fi
+	if [ $strip -ne 0 ]; then strip -- "$OUT/$bn"; fi
+	if [ -n "$owner" ]; then chown "$owner" "$OUT/$bn"; fi
+	if [ -n "$group" ]; then chgrp "$group" "$OUT/$bn"; fi
+	if [ -n "$mode" ]; then chmod "$mode" "$OUT/$bn"; fi
+	if [ -n "$compress" ]; then gzip -9f "$OUT/$bn"; fi
+	vecho " done."
+    fi
+    shift
+done

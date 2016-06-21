@@ -456,7 +456,7 @@ install_files (int opt_flags,
 	    usage ("If more than two files are specified, the last one must"
 		   " be a directory");
 	}
-	tdir = files[filesc - 1]; --filesc;
+	if (last_is_dir > 0) { tdir = files[filesc - 1]; --filesc; }
     }
     if (tdir) {
 	int ix, errs = 0;
@@ -820,7 +820,7 @@ static int rc_check (int rc, int flags, const char *fn, const char *file)
     int rmdst = (flags & OPT_RMDST) != 0;
     if (rc == 0) { return 0; }
     if (rmdst) { restore_file (file); }
-    if (verbose) { vout (" %s() failed (%s)\n", strerror (ec)); }
+    if (verbose) { vout (" %s() failed (%s)\n", fn, strerror (ec)); }
     errno = ec;
     return -1;
 }
@@ -848,6 +848,7 @@ static int set_ownermode (int opt_flags, mode_t pmask, uid_t uid, gid_t gid,
     ** value (if this is requested) ...
     */
     if (pmask) {
+	pmask &= ~ S_IFMT;
 	rc = rc_check (chmod (file, pmask), opt_flags, "chmod", file);
 	if (rc) { return rc; }
     }
@@ -929,10 +930,12 @@ static int recreate_link (int opt_flags, const char *mode,
 	if (verbose) { vout (" failed (invalid group)\n"); }
 	return -1;
     }
+#if 0 /* The permission flags of symbolic can normally not be modified ... */
     if ((pmask = get_mode (sp->st_mode, mode)) == S_IFMT) {
 	if (verbose) { vout (" failed (invalid mode)\n"); }
 	return -1;
     }
+#endif
     if ((opt_flags & OPT_RMDST) != 0) {
 	if (save_file (dst)) {
 	    vout (" rename() failed (%s)\n", current_error ()); return -1;
@@ -940,7 +943,7 @@ static int recreate_link (int opt_flags, const char *mode,
     }
     rc = rc_check (symlink (ltarget, dst), opt_flags, "symlink", dst);
     if (rc) { return rc; }
-    rc = set_ownermode (opt_flags, pmask, uid, gid, dst);
+    rc = set_ownermode (opt_flags, 0, uid, gid, dst);
     if (rc) { return rc; }
     if ((opt_flags & OPT_RMDST) != 0) { remove_saved (dst); }
     if (verbose) { vout (" done\n"); }
