@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#define DBG(tag, ...) (fprintf(stderr,#tag ": " __VA_ARGS__))
+
 #define PROG "install"
 
 #include "lib/mrmacs.c"
@@ -384,6 +386,7 @@ static int install_directory (int optflags, const char *mode,
 	for (;;) {
 	    while (*p && *p != '/') { ++p; }
 	    if (!*p) { break; }
+	    *p = '\0';
 	    if (mkdir (path, 0755)) {
 		if (errno != EEXIST) { FAILED; cfree (path); return -1; }
 		if (is_dir (path, EEXIST) <= 0) {
@@ -560,16 +563,14 @@ static gid_t get_group (const char *group)
 ** permission mask. This existing mask is that one of the source file, supplied
 ** via the 'struct stat *' first argument ...
 */
-static
-mode_t
-get_mode (mode_t st_mode, const char *mode)
+static mode_t get_mode (mode_t st_mode, const char *mode)
 {
     const char *p, *x;
     mode_t res;
     int what_mode = 0;
     unsigned long lv, max = 07777;
     /* No permission mask specified ==> return 0 ... */
-    if (mode && *mode != '\0') {
+    if (! mode || *mode == '\0') {
 	res = st_mode & (S_IRWXU|S_IRWXG|S_IRWXO);
 	return res | S_IFREG;
     }
