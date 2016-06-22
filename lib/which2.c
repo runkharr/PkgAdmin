@@ -36,7 +36,7 @@ static char *which (const char *file)
 	    if (!(bp = lappend (buf, bufsz, NULL, p, (q - p)))) { return NULL; }
 	    if (!(bp = append (buf, bufsz, bp, "/"))) { return NULL; }
 	    if (!(bp = append (buf, bufsz, bp, file))) { return NULL; }
-	    if (is_regfile (buf) > 0 && access (file, X_OK) == 0) {
+	    if (is_regfile (buf) > 0 && access (buf, X_OK) == 0) {
 		res = sdup (buf); cfree (buf); return res;
 	    }
 	    p = q + 1;
@@ -45,7 +45,7 @@ static char *which (const char *file)
 	    if (!(bp = append (buf, bufsz, NULL, p))) { return NULL; }
 	    if (!(bp = append (buf, bufsz, bp, "/"))) { return NULL; }
 	    if (!(bp = append (buf, bufsz, bp, file))) { return NULL; }
-	    if (is_regfile (buf) > 0 && access (file, X_OK) == 0) {
+	    if (is_regfile (buf) > 0 && access (buf, X_OK) == 0) {
 		res = sdup (buf); cfree (buf); return res;
 	    }
 	}
