@@ -96,11 +96,13 @@ usage (const char *format, ...)
 
 static void emesg (int exit_code, const char *format, ...)
 {
+    int ec = errno;
     va_list args;
     fprintf (stderr, "%s: ", prog);
     va_start (args, format); vfprintf (stderr, format, args); va_end (args);
     fputs ("\n", stderr);
     if (exit_code > 0) { exit (exit_code); }
+    errno = ec;
 }
 
 static const char *current_error (void)
@@ -225,7 +227,7 @@ int main (int argc, char *argv[])
 		    usage ("The options '-%c' and '-q' are mutually exclusive",
 			   opt);
 		}
-		optflags |= OPT_QUERY2; break;
+		optflags |= OPT_QUERY1; break;
 	    case 'c':
 		/* Only for compatibility reasons, but ignored */
 		break;
@@ -268,7 +270,7 @@ int main (int argc, char *argv[])
 		    usage ("The options '-%c' and '-Q' are mutually exclusive",
 			   opt);
 		}
-		optflags |= OPT_QUERY1; break;
+		optflags |= OPT_QUERY2; break;
 	    case 's':
 		/* Strip a regular file if it is a program or shared library
 		** file ...
@@ -318,7 +320,7 @@ int main (int argc, char *argv[])
 	rc = install_files (optflags, mode, user, group, stripcmd, gzipcmd,
 			    tdir, argc - optind, &argv[optind]);
     }
-    return rc;
+    return (rc ? 1 : 0);
 }
 
 #define DONE do { if (verbose) vout (" done\n"); } while (0)
@@ -475,11 +477,26 @@ install_files (int opt_flags,
     return rc;
 }
 
-static int do_cmd (const char *cmdprog, const char *file)
+#define do_cmd(x, ...) (_do_cmd ((x), __VA_ARGS__, NULL))
+
+static int _do_cmd (const char *cmdprog, ...)
 {
     extern char **environ;
     pid_t pid;
-    const char *cmd[] = { cmdprog, file, NULL };
+    const char **cmd = NULL, *arg;
+    int ix, nargs;
+    va_list args, acopy;
+    va_start (args, cmdprog);
+    nargs = 2; va_copy (acopy, args);
+    while ((arg = va_arg (acopy, const char *))) { ++nargs; }
+    va_end (acopy);
+    if (! (cmd = (const char **) malloc (nargs * sizeof(const char *)))) {
+	emesg (1, "_do_cmd() - %s\n", current_error ());
+    }
+    ix = 0; cmd[ix++] = cmdprog;
+    while ((arg = va_arg (args, const char *))) { cmd[ix++] = arg; }
+    cmd[ix] = NULL;
+    va_end (args);
     switch (pid = fork ()) {
 	case -1:	/* FAILED */
 	    emesg (0, "fork() failed - %s", current_error ());
@@ -498,7 +515,7 @@ static int do_cmd (const char *cmdprog, const char *file)
 	    if (WIFEXITED (wstat)) {
 		int exit_code = WEXITSTATUS (wstat);
 		if (exit_code == 0) { return 0; }
-		emesg (0, "'%s' terminated with code %d", exit_code);
+		emesg (0, "'%s' terminated with code %d", cmdprog, exit_code);
 		return -1;
 	    }
 	    return -1;
@@ -1001,6 +1018,7 @@ static int copy_to (int opt_flags, const char *mode,
 	if (verbose) { vout (" ... failed (%s)\n", strerror (ec)); }
 	errno = ec; return -1;
     }
+    fflush (dfp); fclose (dfp); fclose (sfp);
     rc = set_ownermode (opt_flags, pmask, uid, gid, dst);
     if (rc) { return rc; }
     if (rm_dst) { remove_saved (dst); }
@@ -1024,14 +1042,23 @@ static int copy_file (int opt_flags,
 		      const char *stripcmd, const char *gzipcmd,
 		      const char *src, const char *dst)
 {
-    int rc = 0, allow_xcmd = 0;
+    int rc = 0, allow_xcmd = 0, verbose = (opt_flags & OPT_VERBOSE) != 0;
     struct stat sb;
     if (lstat (dst, &sb) == 0) {
 	if ((opt_flags & OPT_QUERY1) != 0) {
-	    errno = EEXIST; return -1;
+	    errno = EEXIST;
+	    if (verbose) {
+		vout ("Installing '%s' failed (%s)\n", src, current_error ());
+	    }
+	    return -1;
 	} else if ((opt_flags & OPT_QUERY2) != 0) {
 	    if (! ask (-1, "Ok to overwrite %s", dst)) {
-		errno = EEXIST; return -1;
+		errno = EEXIST;
+		if (verbose) {
+		    vout ("Installing '%s' failed (%s)\n",
+			  src, current_error ());
+		}
+		return -1;
 	    }
 	}
 	opt_flags |= OPT_RMDST;
