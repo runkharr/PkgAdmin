@@ -54,7 +54,7 @@ static int vfask (FILE *in, FILE *out, int defaultans, const char *prompt,
 	p = ans; while (isblank (*p)) { ++p; }
 	q = p + strlen (p);
 	while (q > p && isblank (*--q)) { *q = '\0'; }
-	if (q == p) {
+	if (*p == '\0') {
 	    answer = (defaultans > 0 ? +1 : (defaultans == 0 ? 0 : -1));
 	} else if (is_lprefix (p, "yes") || is_lprefix (p, "ja")) {
 	    answer = +1;
