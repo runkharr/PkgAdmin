@@ -52,7 +52,11 @@ static int isateol (const char *s)
 #define ENDTAG "/*##END##*/"
 #define ENDTAG_LEN (sizeof(ENDTAG) - 1)
 
-static int copy_header_parts (const char *infile, const char *tfname, int tlc,
+/* Copy the part of a header-file between BEGINTAG and ENDTAG (both on separate
+** lines) to an output file, marking the starting lines in the output file with
+** '#line' pragmas ...
+*/
+static int copy_header_parts (const char *infile, const char *ofname, int oflc,
 			      FILE *out)
 {
     FILE *in;
@@ -60,7 +64,7 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
     char line[1024];
     if (!(in = fopen (infile, "r"))) {
 	fprintf (stderr, "%s: in %s(line %d): %s - %s\n",
-			 prog, tfname, tlc, infile, strerror (errno));
+			 prog, ofname, oflc, infile, strerror (errno));
 	fprintf (out, "#error \"%s\" - %s\n", infile, strerror (errno));
 	return -1;
     }
@@ -79,7 +83,7 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
 	    &&  isateol (line + ENDTAG_LEN)) {
 		if (tf) {
 		    fprintf (out, "/* End %s (%d) */\n", infile, lc - 1);
-		    fprintf (out, "#line %d \"%s\"\n", tlc, tfname);
+		    fprintf (out, "#line %d \"%s\"\n", oflc, ofname);
 		}
 		tf = 0; continue;
 	    }
@@ -97,14 +101,37 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
     fclose (in);
     if (tf) {
 	fprintf (out, "/* End %s (%d) */\n", infile, lc - 1);
-	fprintf (out, "#line %d \"%s\"\n", tlc, tfname);
+	fprintf (out, "#line %d \"%s\"\n", oflc, ofname);
     }
     return 0;
 }
 
+/* The two possible tags marking the point where text from the source files
+** are inserted into the output file.
+*/
+
+/* In the first case, the original template
+** file behaves like a normal header file which includes each source file
+** with a '#include "<sourcefilename>"' command. This '#include" command is
+** is then replaced with the corresponding source file.
+*/
 #define INCLTAG "#include"
 #define INCLTAG_LEN (sizeof(INCLTAG) - 1)
 
+/* In the second case, all source files are inserted (respectively a part of
+** them) are inserted contiguously at the same position - inplace of the tag -
+** into the output file. This second case preferred by 'write_header_file()',
+** so if both, this tag and some '#include ' commands occur in the template
+** file, only this tag will be substituted. Besides, only the first occurrence
+** of this tag will be substituted. Each further occurrence remains unchanged.
+*/
+#define INCLTAG1 "/*##IMPORT##*/"
+#define INCLTAG1_LEN (sizeof(INCLTAG1) - 1)
+
+#define FNTAG "{filename}"
+#define FNTAG_LEN (sizeof(FNTAG) - 1)
+
+/* Define the maximum length, a name within the source template may have. */
 #if NAME_MAX < 1024
 #define LMAX 1024
 #else
@@ -113,6 +140,8 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
 
 #include "lib/bn.c"
 
+/* Find a file in a list of files ...
+*/
 static char *find_file (const char *file, int filesc, char *files[])
 {
     int ix;
@@ -124,78 +153,138 @@ static char *find_file (const char *file, int filesc, char *files[])
     return NULL;
 }
 
+/* Construct a new header file from a template and a list of source header
+** files in the output channel 'out' ...
+*/
 static int write_header_file (const char *tfname, const char *ofname,
 			      int filesc, char *files[], FILE *out)
 {
     FILE *tf;
     size_t len;
-    int lc = 0, ix, errs = 0;
-    char ifname[LMAX + 1], line[LMAX + 20], *ifn, *p;
+    int lc = 0, ix, errs = 0, all_at_once = 0, atbol;
+    char ifname[LMAX + 1], line[LMAX + 41], *ifn, *p, *q;
     if (!(tf = fopen (tfname, "r"))) { return -1; }
+    atbol = 1;
     while (fgets (line, sizeof(line), tf)) {
 	++lc;
-	if (!strncmp (line, INCLTAG, INCLTAG_LEN)) {
-	    p = &line[INCLTAG_LEN]; while (isws (*p)) { ++p; }
-	    if (*p == '"') {
-		++p; ix = 0;
-		while (*p && *p != '"') {
-		    if (ix < sizeof(ifname) - 1) { ifname[ix++] = *p; }
-		    ++p;
-		}
-		if (*p != '"' || ix >= sizeof(ifname) - 1) {
-		    fputs ("#error - invalid include directive\n", out);
-		    while (!haseol (line)) {
-			if (!fgets (line, sizeof(line), tf)) { break; }
-		    }
-		    ++errs; continue;
-		}
-		ifname[ix] = '\0';
-		if (filesc > 0) {
-		    /* Get the filename from the files list ... */
-		    ifn = find_file (ifname, filesc, files);
-		} else {
-		    /* Try the extracted filename directly ... */
-		    ifn = ifname;
-		}
-		if (!ifn) {
-		    fputs (line, out);
-		} else {
-		    if (copy_header_parts (ifn, ofname, lc, out)) { ++errs; }
-		}
-	    } else {
-		fputs (line, out);
-	    }
-	} else if (lc == 1 && !strncmp (line, "/* ", sizeof("/* ") - 1)) {
-	    p = &line[sizeof("/* ") - 1];
-	    if (!strncmp (p, tfname, (len = strlen (tfname)))
-	    &&  isateol (p + len)) {
-		fputs ("/* ", out); fputs (ofname, out);
-		p += len; fputs (p, out);
-	    } else {
-		fputs (line, out);
-	    }
-	} else if (lc == 1 && !strncmp (line, "// ", sizeof("// ") - 1)) {
-	    p = &line[sizeof("// ") - 1];
-	    if (!strncmp (p, tfname, (len = strlen (tfname)))
-	    &&  isateol (p + len)) {
-		fputs ("// ", out); fputs (ofname, out);
-		p += strlen (tfname); fputs (p, out);
-	    } else {
-		fputs (line, out);
-	    }
-	} else {
-	    fputs (line, out);
+	if (atbol && !strncmp (line, INCLTAG1, INCLTAG1_LEN)) {
+	    all_at_once = 1; break;
 	}
-	/* Write the remaining part of the line to the output file ... */
-	while (!haseol (line)) {
-	    if (!fgets (line, sizeof(line), tf)) { break; }
-	    fputs (line, out);
+	atbol = haseol (line);
+    }
+    fflush (tf); rewind (tf); lc = 0; atbol = 1;
+    if (all_at_once) {
+	while (fgets (line, sizeof(line), tf)) {
+	    if (atbol) { ++lc; }
+	    if (atbol && !strncmp (line, INCLTAG1, INCLTAG1_LEN)) { break; }
+	    p = line;
+	    if (atbol) {
+		/* Substitute the output filename for FNTAG, but only in the
+		** first part read. This is no problem, as most text files have
+		** lines far shorter then the current size of the buffer 'line'
+		** and FNTAG should not occur that often within the template
+		** file ...
+		*/
+		while ((q = strstr (p, FNTAG))) {
+		    *q = '\0'; fputs (p, out); p = q + FNTAG_LEN;
+		    fputs (ofname, out);
+		}
+	    }
+	    fputs (p, out); atbol = haseol (p);
+	}
+	for (ix = 0; ix < filesc; ++ix) {
+	    if (copy_header_parts (files[ix], ofname, lc, out)) { ++errs; }
+	}
+	/* Skip the remaining part of the line ... */
+	while (! atbol && fgets (line, sizeof(line), tf)) {
+	    atbol = haseol (line);
+	}
+	/*fprintf (out, "#line %d \"%s\"\n", lc, ofname);*/
+	/* Transfer the remaining part of the template file ... */
+	while (fgets (line, sizeof(line), tf)) {
+	    p = line;
+	    if (atbol) {
+		/* Again, substitute the output filename for each FNTAG in the
+		** first part of the line ...
+		*/
+		while ((q = strstr (p, FNTAG))) {
+		    *q = '\0'; fputs (p, out); p = q + FNTAG_LEN;
+		    fputs (ofname, out);
+		}
+	    }
+	    fputs (p, out); atbol = haseol (p);
+	}
+    } else {
+	while (fgets (line, sizeof(line), tf)) {
+	    ++lc;
+	    if (!strncmp (line, INCLTAG, INCLTAG_LEN)) {
+		p = &line[INCLTAG_LEN]; while (isws (*p)) { ++p; }
+		if (*p == '"') {
+		    ++p; ix = 0;
+		    while (*p && *p != '"') {
+			if (ix < sizeof(ifname) - 1) { ifname[ix++] = *p; }
+			++p;
+		    }
+		    if (*p != '"' || ix >= sizeof(ifname) - 1) {
+			fputs ("#error - invalid include directive\n", out);
+			while (!haseol (line)) {
+			    if (!fgets (line, sizeof(line), tf)) { break; }
+			}
+			++errs; continue;
+		    }
+		    ifname[ix] = '\0';
+		    if (filesc > 0) {
+			/* Get the filename from the files list ... */
+			ifn = find_file (ifname, filesc, files);
+		    } else {
+			/* Try the extracted filename directly ... */
+			ifn = ifname;
+		    }
+		    if (!ifn) {
+			fputs (line, out);
+		    } else {
+			if (copy_header_parts (ifn, ofname, lc, out)) {
+			    ++errs;
+			}
+		    }
+		} else {
+		    fputs (line, out);
+		}
+	    } else if (lc == 1 && !strncmp (line, "/* ", sizeof("/* ") - 1)) {
+		p = &line[sizeof("/* ") - 1];
+		if (!strncmp (p, tfname, (len = strlen (tfname)))
+		&&  isateol (p + len)) {
+		    fputs ("/* ", out); fputs (ofname, out);
+		    p += len; fputs (p, out);
+		} else {
+		    fputs (line, out);
+		}
+	    } else if (lc == 1 && !strncmp (line, "// ", sizeof("// ") - 1)) {
+		p = &line[sizeof("// ") - 1];
+		if (!strncmp (p, tfname, (len = strlen (tfname)))
+		&&  isateol (p + len)) {
+		    fputs ("// ", out); fputs (ofname, out);
+		    p += strlen (tfname); fputs (p, out);
+		} else {
+		    fputs (line, out);
+		}
+	    } else {
+		fputs (line, out);
+	    }
+	    /* Write the remaining part of the line to the output file ... */
+	    while (!haseol (line)) {
+		if (!fgets (line, sizeof(line), tf)) { break; }
+		fputs (line, out);
+	    }
 	}
     }
     fclose(tf);
     return errs;
 }
 
+/* The much-loved 'usage()' function, which either displays usage errors or
+** a "help"-message, describing the program invocation ...
+*/
 static void usage (const char *fmt, ...)
 {
     if (fmt) {
@@ -216,6 +305,8 @@ static void usage (const char *fmt, ...)
     exit (0);
 }
 
+/* Now we are at the main program ...
+*/
 int main (int argc, char *argv[])
 {
     FILE *out;
