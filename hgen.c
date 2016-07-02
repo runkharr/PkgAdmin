@@ -294,13 +294,15 @@ static void usage (const char *fmt, ...)
 	fputs ("\n", stderr);
 	exit (64);
     }
-    printf ("Usage: %s [-o out-header] header-template [header-file...]\n"
+    printf ("Usage: %s [-o out-header] [-v] header-template [header-file...]\n"
 	    "       %s -h\n"
 	    "\nOptions:"
 	    "\n  -h (alt: -help, --help)"
-	    "\n    write this text to stdout and terminate"
+	    "\n    Write this text to stdout and terminate."
 	    "\n  -o out-header (alt: --output=out-header)"
-	    "\n    write result to 'out-header' (instead of stdout)\n",
+	    "\n    Write result to 'out-header' (instead of stdout)."
+	    "\n  -v (alt: -verbose, --verbose)"
+	    "\n    Write out what you are doing.\n",
 	    prog, prog);
     exit (0);
 }
@@ -310,7 +312,7 @@ static void usage (const char *fmt, ...)
 int main (int argc, char *argv[])
 {
     FILE *out;
-    int optc = 1, errs, filesc;
+    int optc = 1, ix, verbose = 0, errs, filesc;
     char *outfile = NULL, *tfname, **files;
 
     set_prog (argc, argv);
@@ -320,6 +322,10 @@ int main (int argc, char *argv[])
 	if (!strcmp (opt, "-h") || !strcmp (opt, "-help")
 	||  !strcmp (opt, "--help")) {
 	    usage (NULL);
+	}
+	if (!strcmp (opt, "-v") || !strcmp (opt, "-verbose")
+	||  !strcmp (opt, "--verbose")) {
+	    verbose = (verbose > 0 ? 2 : 1); continue;
 	}
 	if (!strncmp (opt, "-o", 2)) {
 	    if (outfile) { usage ("ambiguous option '-o'"); }
@@ -370,7 +376,18 @@ int main (int argc, char *argv[])
     }
 
     filesc = argc - optc; files = &argv[optc];
+    if (verbose) {
+	fprintf (stderr, "Generating '%s'", outfile);
+	if (verbose > 1) {
+	    fprintf (stderr, " from %s", files[0]);
+	    for (ix = 1; ix < filesc; ++ix) {
+		fprintf (stderr, ", %s", files[ix]);
+	    }
+	}
+	fputs (" ...", stderr);
+    }
     errs = write_header_file (tfname, outfile, filesc, files, out);
+    if (verbose) { fputs ((errs > 0 ? " failed.\n" : " done.\n"), stderr); }
 
     if (outfile) { fclose (out); out = NULL; }
 
