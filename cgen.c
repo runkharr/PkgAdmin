@@ -1160,21 +1160,21 @@ rmrec (const char *path, FILE *out)
 {
     int rc;
     DIR *dp;
-    struct dirent de, *dep;
+    struct dirent *de;
     size_t bsz = 0, pl; char *buf = NULL, *p;
     dlist_t subdirs = NULL, ne;
     struct stat st;
 
     if (!(dp = opendir (path))) { return -1; }
-    while ((rc = readdir_r (dp, &de, &dep)) == 0 && dep != NULL) {
-	if (is_dotordotdot (de.d_name)) { continue; }
-	pl = strlen (path) + strlen (de.d_name) + 2;
+    while ((de = readdir (dp))) {
+	if (is_dotordotdot (de->d_name)) { continue; }
+	pl = strlen (path) + strlen (de->d_name) + 2;
 	if (pl > bsz) {
 	    bsz = pl + 1023; bsz -= bsz % 1024;
 	    if (!(p = (char *) realloc (buf, bsz))) { goto ERREXIT; }
 	    buf = p; 
 	}
-	snprintf (buf, bsz, "%s/%s", path, de.d_name);
+	snprintf (buf, bsz, "%s/%s", path, de->d_name);
 	if (lstat (buf, &st)) {
 	    if (errno == ENOENT) { continue; }
 	    goto ERREXIT;
