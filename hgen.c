@@ -28,6 +28,10 @@
 
 #define PROG "hgen"
 
+#include "lib/mrmacs.c"
+
+#include "lib/check_ptr.c"
+
 #include "lib/set_prog.c"
 
 #include "lib/isws.c"
@@ -312,11 +316,14 @@ static void usage (const char *fmt, ...)
 int main (int argc, char *argv[])
 {
     FILE *out;
-    int optc = 1, ix, verbose = 0, errs, filesc;
+    int optc = 1, ix, verbose = 0, errs, filesc, filesx;
     char *outfile = NULL, *tfname, **files;
 
     set_prog (argc, argv);
-    while (optc < argc && *argv[optc] == '-') {
+    check_ptr ("main", files = t_allocv(char *, argc));
+    filesc = 0; filesx = 0;
+
+    while (optc < argc) {
 	char *opt = argv[optc++];
 	if (!strcmp (opt, "--")) { break; }
 	if (!strcmp (opt, "-h") || !strcmp (opt, "-help")
@@ -353,14 +360,16 @@ int main (int argc, char *argv[])
 	    }
 	    outfile = argv[optc++]; continue;
 	}
-	usage ("invalid option '%s'", opt);
+	if (*opt == '-') { usage ("invalid option '%s'", opt); }
+	files[filesc++] = opt;
     }
+    while (optc < argc) { files[filesc++] = argv[optc++]; }
 
-    if (argc - optc < 1) { usage ("missing argument(s)"); }
+    if (filesc < 1) { usage ("Missing arguments."); }
 
-    tfname = argv[optc++];
+    tfname = files[filesx++];
 
-    if (optc >= argc) {
+    if (filesx >= filesc) {
 	fprintf (stderr, "%s: WARNING! Header files determined by names"
 			 " extracted from the\n"
 			 "    template may sometimes not be found\n", prog);
@@ -375,18 +384,17 @@ int main (int argc, char *argv[])
 	out = stdout;
     }
 
-    filesc = argc - optc; files = &argv[optc];
     if (verbose) {
 	fprintf (stderr, "Generating '%s'", outfile);
 	if (verbose > 1) {
 	    fprintf (stderr, " from %s", files[0]);
-	    for (ix = 1; ix < filesc; ++ix) {
+	    for (ix = filesx; ix < filesc; ++ix) {
 		fprintf (stderr, ", %s", files[ix]);
 	    }
 	}
 	fputs (" ...", stderr);
     }
-    errs = write_header_file (tfname, outfile, filesc, files, out);
+    errs = write_header_file (tfname, outfile, filesc - 1, &files[1], out);
     if (verbose) { fputs ((errs > 0 ? " failed.\n" : " done.\n"), stderr); }
 
     if (outfile) { fclose (out); out = NULL; }

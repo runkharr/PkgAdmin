@@ -1,4 +1,4 @@
-#! /usr/bin/env make -f
+#! /usr/bin/make -f
 #
 # $Id$
 #
@@ -12,7 +12,11 @@
 
 CLEAN_LIST = $(shell echo *.bin) *.o run a.out core
 
+PROG=$(lastword $(MAKEFILE_LIST))
+DIR="$(shell dirname "$(PROG)")"
+
+
 clean:
-	@echo -n "Cleaning up admin ..."
-	@rm -f $(CLEAN_LIST)
+	@echo -n "Cleaning up $(DIR) ..."
+	@cd "$(DIR)"; rm -f $(CLEAN_LIST)
 	@echo " done."
