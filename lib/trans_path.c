@@ -64,6 +64,7 @@ static int trans_path (char *p, const char *q)
 		++p;
 		break;
 	    case STOP:
+		if (*--p != '/') { ++p; } else if (p <= sp) { ++p; }
 		*p = '\0'; return 0;
 	}
     }
