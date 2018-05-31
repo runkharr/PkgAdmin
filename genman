@@ -1,0 +1,44 @@
+#! /bin/sh
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: bj@isv-gmbh.de
+# Copyright: © 2008, Boris Jakubith <bj@isv-gmbh.de>
+# Licence: GPL(v2)
+#
+# vim: set sw=2:
+#
+# Small utility script which either invokes 'asciidoctor' or 'a2x' (from
+# 'asciidoc') for generating manual pages from 'asciidoc'-documents ...
+
+PROG="$(basename "$0")"
+PPATH="$(dirname "$0")"
+
+VERSION="$($PPATH/version get)"
+
+if GENMAN="$(which asciidoctor)"; then
+
+  GENMAN_OPTS="-b manpage"
+elif GENMAN="$(which a2x)"; then
+  GENMAN_OPTS="-f manpage"
+else
+  cat 1>&2 <<-EOT
+	${PROG}: Neither 'asciidoctor' nor 'a2x' could be found.
+	    Please install either 'asciidoctor' or 'asciidoc'!
+	EOT
+  exit 99
+fi
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $PROG <asciidoc-file>"
+    exit 0
+fi
+
+adocfile="$1"; shift
+if [ ! -f "$adocfile" ]; then
+    echo "${PROG}: '$adocfile' does not exist or is no regular file."
+    exit 1
+fi
+
+exec "$GENMAN" $GENMAN_OPTS "$adocfile"
