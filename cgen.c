@@ -448,7 +448,7 @@ struct action_s {
       "\n    (followed by a status message of either ' done' or ' failed'))"
     },
     { "sogen", NULL, do_libgen, 1, 0, false,
-      "SOGENCMD", DEFAULT_SOGENCMD, NULL, NULL, NULL,
+      "SOGENCMD", DEFAULT_SOGENCMD, NULL, "SOOPTS", NULL,
       "%s[=%s] [-v] <target> <object-files>",
       "<sogen-commands>", NULL,
       "Generating %s ...",
@@ -937,7 +937,12 @@ int lccmp (const char *l, const char *r)
 }
 #endif
 
-typedef struct { const char *acname, *cfname; int isopt, len; } rcdef_t;
+typedef struct {
+    const char *acname,		/* action name */
+	       *cfname;		/* configuration name */
+    int isopt,			/* cfname is an parameter */
+	len;			/* length of configuration name */
+} rcdef_t;
 
 static
 rcdef_t rcdefs[] = {
@@ -951,6 +956,8 @@ rcdef_t rcdefs[] = {
     { "link", "linker_options", 1, 14 },
     { "link", "ldopts", 1, 6 },
     { "link", "lopts", 1, 5 },
+    { "sogen", "sogen", 0, 5 },
+    { "sogen", "soopts", 1, 6 },
     { NULL, NULL, -1, 0 }
 };
 
