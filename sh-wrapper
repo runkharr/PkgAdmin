@@ -24,6 +24,32 @@ if ! type >/dev/null cc; then
     echo 1>&2 "${PROG}: 'cc' not found - can't continue!"; exit 1
 fi
 
+# NEW! Build the binary in the given directory/with the given filename
+# instead of executing it ...
+if [ $# -gt 0 -a "x$1" = x--build ]; then
+    shift
+    if [ $# -lt 1 ]; then
+	echo 1>&2 "${PROG}: Need a target-path for building '$bn'"; exit 1
+    fi
+    tgt="$1"; shift; cf="$PPATH/$PROG.c"
+    if [ ! -f "$cf" ]; then
+	echo 1>&2 "${PROG}: required '$cf' doesn't exist or is no plain file"
+	exit 1
+    fi
+    if [ -d "$tgt" ]; then
+	tgt="$tgt/$PROG"
+    elif [ -e "$tgt" ] && [ -h "$tgt" -o ! -f "$tgt" ]; then
+	echo 1>&2 "${PROG}; Target exists and is no regular file"; exit 1
+    fi
+    tp=; if [ -e "$tgt" ]; then tp="$(stat -c '%d:%i' "$tgt")"; fi
+    me="$(stat -c '%d:%i' "$0")"
+    if [ "$me" = "$tp" ]; then
+	echo 1>&2 "${PROG}: Using me ($0) as target is illegal"; exit 1
+    fi
+    exec cc -I$PPATH "$cf" -o "$tgt"
+fi
+	
+
 # Check for two programs and try to (re-)generate them (from the corresponding
 # `.c´ source files) if necessary ...
 for bn in run "$PROG"; do
