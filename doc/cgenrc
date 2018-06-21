@@ -1,0 +1,5 @@
+cc=cc
+ccopts=-Wall -g @ARGV -c %t -o %t[.o/.c]
+ld=cc
+ldopts=-g %t
+#ldopts=-g %t @ARGV -o %t[/.o]

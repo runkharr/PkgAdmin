@@ -1,0 +1,28 @@
+S0+'\0'		==> ERROR, S6
+S0+'/'		==> Store, S1				ccslash
+S0+'.'		==> ERROR, S6
+S0+OTHER	==> ERROR, S6
+
+S1+'\0'		==> TERMINATE, S5			cceos
+S1+'/'		==> Skip, S1				ccslash
+S1+'.'		==> Skip, S2				ccdot
+S1+OTHER	==> Store, S4				ccother
+
+S2+'\0'		==> TERMINATE, S5			cceos
+S2+'.'		==> Save, S3				ccdot
+S2+'/'		==> Skip, S1				ccslash
+S2+OTHER	==> Store '.', Store, S4		ccother
+
+S3+'\0'		==> Go back, S5				cceos
+S3+'/'		==> Go back, S4				ccslash
+S3+'.'		==> Store '.', Store '.', Store, S4	ccother
+S3+OTHER	==> Store '.', Store '.', Store, S4	ccother
+
+S4+'\0'		==> S5					cceos
+S4+'/'		==> Store, S1				ccslash
+S4+'.'		==> Store, S4
+S4+OTHER	==> Store, S4				ccother
+
+S5		==> truncate trailing '/'
+
+S6		==> ERROR!

@@ -1,0 +1,72 @@
+Idee: Ein C-Programm, das eine Datei `.confgenrc´ (irgendwo im Quelldateibaum)
+einliest, danach Tests durchführt und - abhängig von diesen Tests - eine C-
+Headerdatei erzeugt, die entsprechende Konfigurationen enthält ...
+
+Die Datei `.confgenrc´ könnte z.B. folgendes Format haben:
+
+# Testing for the existence of `socklen_t´ and generating a definition if
+# not ...
+#
+socktype:
+compile EOT:1
+	#include <sys/socket.h>
+	int main (void)
+	{
+	    socklen_t x = 0;
+	    return 0;
+	}
+	EOT
+iffalse insert EOT:1
+	/* Define `socklen_t´, because it was not found in the system */
+	typedef int socklen_t;
+
+	EOT
+end
+
+# Testing for the existence of `clearenv()´ and generating code for it if
+# not ...
+#
+clearenv:
+compile EOT:4
+    #include <stdlib.h>
+    int main (void)
+    {
+        clearenv ();
+    }
+    EOT
+iffalse insert EOT:4
+    #ifdef REQUIRE_CLEARENV
+    static void clearenv (void)
+    {
+        extern char **environ;
+        environ = NULL;
+    }
+    EOT
+end
+
+procfspath:
+run <procfspath> EOT
+mount | grep '^proc\(fs\)\? ' | cut -d' ' -f3 | (
+IFS=
+pfspath=
+while read line; do
+    if [ -z "$pfspath" ]; then
+	pfspath="$line"
+    elif [ ${#line} -lt ${#pfspath} ]; then
+	pfspath="$line"
+    fi
+done
+if [ -z "$pfspath" ]; then
+    echo 1>&2 "${PROG}: no procfs installed or mounted"; exit 1
+fi
+echo "$pfspath"
+EOT
+iftrue insert
+/* Define PROCFSPATH ... */
+#define PROCFSPATH "%output%"
+EOT
+end
+
+...
+
+Also:
