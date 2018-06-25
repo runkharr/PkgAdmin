@@ -956,8 +956,9 @@ rcdef_t rcdefs[] = {
     { "link", "linker_options", 1, 14 },
     { "link", "ldopts", 1, 6 },
     { "link", "lopts", 1, 5 },
-    { "sogen", "sogen", 0, 5 },
-    { "sogen", "soopts", 1, 6 },
+    { "libgen", "libgencmd", 0, 6 },
+    { "rogen", "rogencmd", 0, 5 },
+    { "sogen", "sogencmd", 0, 5 },
     { NULL, NULL, -1, 0 }
 };
 
@@ -1773,18 +1774,50 @@ static int
 do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 {
     /* 1. Step: Set the program-name ... */
-    char *target = NULL, **av, *opt, *nullarg[] = { NULL };
+    char *target = NULL, *cf = NULL, **av, *opt, *nullarg[] = { NULL };
     const char *nxprog = NULL;
-    int optx = 0, ac, rc;
+    //const char *popts = NULL;
+    int optx = 0, ac, rc, cdesclen = 0, ix;
     int verbose = 0, verb1;
+    cdesc_t cdesc = NULL;
 
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
+	if (is_prefix ("-c", opt) || is_prefix ("-f", opt)) {
+	    if (cf) { usage ("ambiguous '-c/-f'-option"); }
+	    if (opt[2]) {
+		cf = &opt[2];
+	    } else {
+		if (optx >= argc - 1) {
+		    usage ("missing argument for option '-c/-f'");
+		}
+		cf = argv[++optx];
+	    }
+	    continue;
+	}
 	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
 	    verbose = 1; continue;
 	}
 
 	usage ("invalid option '%s'", opt);
+    }
+
+    if (!cf && access (".cgenrc", F_OK) == 0) { cf = ".cgenrc"; }
+    if (cf) {
+	rc = read_cgenrc (cf, &cdesc, &cdesclen);
+	if (rc > 0) {
+	    fprintf (stderr, "%s: errors in configuration file\n", progname);
+	    exit (1);
+	}
+	if (cdesc) {
+	    for (ix = 0; ix < cdesclen; ++ix) {
+		if (!strcmp (act->pfx_name, cdesc[ix].acname)) {
+		    //popts = cdesc[ix].popts;
+		    if (!prog) { prog = cdesc[ix].prog; }
+		    break;
+		}
+	    }
+	}
     }
 
     check_args (act, argc - optx);

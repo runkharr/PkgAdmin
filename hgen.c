@@ -291,11 +291,19 @@ int main (int argc, char *argv[])
     FILE *out;
     int optc = 1, errs, filesc;
     char *outfile = NULL, *tfname, **files, *dir = NULL, *v;
+    char **non_optv = NULL;
+    int non_optc = 0, nox;
 
     set_prog (argc, argv);
-    for (optc = 1; optc < argc && *argv[optc] == '-'; ++optc) {
+    if (!(non_optv = malloc ((argc + 1) * sizeof(char *)))) {
+	fprintf (stderr, "%s: Failed to allocate memory\n", prog);
+	exit (1);
+    }
+    memset (non_optv, 0, (argc + 1) * sizeof(char *));
+
+    for (optc = 1; optc < argc; ++optc) {
 	char *opt = argv[optc];
-	if (!strcmp (opt, "--")) { break; }
+	if (!strcmp (opt, "--")) { ++optc; break; }
 	if (!strcmp (opt, "-h") || !strcmp (opt, "-help")
 	||  !strcmp (opt, "--help")) {
 	    usage (NULL);
@@ -316,12 +324,19 @@ int main (int argc, char *argv[])
 	    if (outfile) { usage ("ambiguous option '--outfile'"); }
 	    outfile = v; continue;
 	}
-	usage ("invalid option '%s'", opt);
+	if (*opt == '-') { usage ("invalid option '%s'", opt); }
+	/* Push any non-option argument to 'non_optv' ... */
+	non_optv[non_optc++] = opt;
     }
+    /* Push the remaining arguments (after a '--') to 'non_optv' ... */
+    while (optc < argc) {
+	non_optv[non_optc++] = argv[optc++];
+    }
+    non_optv[non_optc] = NULL;
 
-    if (argc - optc < 1) { usage ("missing argument(s)"); }
+    if (non_optc < 1) { usage ("missing argument(s)"); }
 
-    tfname = argv[optc++];
+    nox = 0; tfname = non_optv[nox++];
 
     if (optc >= argc) {
 	fprintf (stderr, "%s: WARNING! Header files determined by names"
@@ -344,7 +359,7 @@ int main (int argc, char *argv[])
 	out = stdout;
     }
 
-    filesc = argc - optc; files = &argv[optc];
+    filesc = non_optc - nox; files = &non_optv[nox];
     errs = write_header_file (tfname, outfile, filesc, files, out);
 
     if (outfile) { fclose (out); out = NULL; }
