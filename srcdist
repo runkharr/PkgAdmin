@@ -13,47 +13,82 @@
 SFX=.tar
 ARCMODE="tar cf"
 COMPRESS="gzip -9f"
-if [ $# -ge 1 ]; then
-    case $1 in
-	bz2|bzip2)
-	    SFX=.tar; ARCMODE="tar cf"; COMPRESS="bzip2 -9f"; shift
-	    ;;
-	gz|gzip)
-	    SFX=.tar; ARCMODE="tar cf"; COMPRESS="gzip -9f"; shift
-	    ;;
-	zip)
-	    SFX=.zip; ARCMODE="zip -9rq"; unset COMPRESS; shift
-	    ;;
-	*)
-	    echo "${0##*/}: unknown archive mode '$1'."; exit 64
-	    ;;
-    esac
-fi
 
-echo "Creating srcdist ($ARCMODE${COMPRESS+, }$COMPRESS)"
+verbose=false
+if [ $# -gt 0 -a "x$1" = x-v ]; then shift; verbose=true; fi
+
+vecho() {
+    $verbose && echo ${1+"$@"} || true
+}
+
+necho() {
+    $verbose || echo ${1+"$@"}
+}
+
+test $# -lt 1 && mode=auto || { mode="$1"; shift; }
+case "$mode" in
+    bz2|bzip2)
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="bzip2 -9f"; shift
+	;;
+    gz|gzip)
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="gzip -9f"; shift
+	;;
+    xz)
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="xz -9f"; shift
+	;;
+    zip)
+	SFX=.zip; ARCMODE="zip -9rq"; unset COMPRESS; shift
+	;;
+    Z)
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="compress -f"; shift
+	;;
+    auto)
+	SFX=.tar; ARCMODE="tar cf"; shift
+	if prg="$(which xz)"; then COMPRESS="$prg -9f"
+	elif prg="$(which bzip2)"; then COMPRESS="$prg -9f"
+	elif prg="$(which gzip)"; then COMPRESS="$prg -9f"
+	elif prg="$(which compress)"; then COMPRESS="$prg -f"
+	else
+	    echo 1>&2 "${0##*/}: Warning! Using '$ARCMODE' without" \
+		      "compression."
+	    unset COMPRESS
+	fi
+	;;
+    *)
+	echo "${0##*/}: unknown archive mode '$1'."; exit 64
+	;;
+esac
+
+vecho "Creating srcdist ($ARCMODE${COMPRESS+, }$COMPRESS)"
 
 DISTDIR=`admin/version directory`
 
 if [ -e "$DISTDIR" ]; then rm -rf "$DISTDIR"; fi
 
-echo "  creating directory"
+vecho "  creating directory"
 mkdir "$DISTDIR"
 
-echo "  copying files"
+vecho "  copying files"
 find . \( -path '*/CVS/*' -o -path '*/CVS' \) -prune -o \
+       \( -path './.svn/*' -o -path './.svn' \) -prune -o \
+       \( -path './.git/*' -o -path './.git' \) -prune -o \
+       \( -path './.hg/*' -o -path './.hg' \) -prune -o \
        \( -path "./$DISTDIR/*" -o -path "./$DISTDIR" \) -prune -o \
        -print \
 | cpio -pdm "$DISTDIR" >/dev/null 2>&1
 
 
-echo "  archiving"
+vecho "  archiving"
 $ARCMODE "${DISTDIR}$SFX" "$DISTDIR"
+outname="${DISTDIR}$SFX"
 if [ -n "$COMPRESS" ]; then
-    echo "  compressing"
+    vecho "  compressing"
     $COMPRESS "${DISTDIR}$SFX"
+    outname="$(echo "$outname"*)"
 fi
-echo "  removing directory"
+vecho "  removing directory"
 rm -rf "$DISTDIR"
-echo "  moving archive outside of `pwd`"
+vecho "  moving archive outside of `pwd`"
 mv "${DISTDIR}$SFX"* ..
-echo "done."
+vecho "done."
+necho "../$outname"
