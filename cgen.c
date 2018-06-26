@@ -17,9 +17,9 @@
 **    cgen help [<topic>]
 **    cgen link[=<linker-program>] [-c <rcfile>] [-v] [-s] <target> \
 **         <linker-args>
-**    cgen libgen[=<libgen-commands>] <target> <object-files>
-**    cgen sogen[=<sogen-commands>] [<library-path>] <object-files>
-**    cgen rogen[=<rogen-commands>] <object-files>
+**    cgen libgen[=<libgen-commands>] [-c <rcfile>] <target> <object-files>
+**    cgen sogen[=<sogen-commands>] [-c <rcfile>] [<target>] <object-files>
+**    cgen rogen[=<rogen-commands>] [-c <rcfile>] [<target>] <object-files>
 **
 ** Arguments/Options:
 **
@@ -1571,6 +1571,52 @@ which (const char *cmd)
     return res;
 }
 
+typedef struct buflist *buflist_t;
+struct buflist {
+    buflist_t next;
+    size_t buflen;
+    char *buf;
+};
+
+static
+int buflist_append (buflist_t *_first, buflist_t *_last,
+		    const char *buf, size_t buflen)
+{
+    buflist_t res = malloc (sizeof(struct buflist) + buflen);
+    if (! res) { return -1; }
+    res->next = NULL;
+    res->buflen = buflen;
+    res->buf = (char *)res + sizeof(struct buflist);
+    memcpy (res->buf, buf, res->buflen);
+    if (*_first) {
+	(*_last)->next = res; (*_last) = res;
+    } else {
+	(*_first) = res; (*_last) = res;
+    }
+    return 0;
+}
+
+static
+void buflist_out (FILE *out, buflist_t head)
+{
+    while (head) {
+	buflist_t next = head->next;
+	fwrite (head->buf, sizeof(char), head->buflen, out);
+	head = next;
+    }
+}
+
+static
+void buflist_free (buflist_t *_head)
+{
+    while (*_head) {
+	buflist_t next = (*_head)->next;
+	memset ((*_head), 0, sizeof(struct buflist) + (*_head)->buflen);
+	free (*_head);
+	*_head = next;
+    }
+}
+    
 /* Perform the requested action ('compile' or 'link') by executing the
 ** corresponding command in a sub-process. Display the output depending on the
 ** 'verbose' argument.
@@ -1584,40 +1630,74 @@ spawn (FILE *out, int verbose, bool split_prog,
     char **cmdv;
     const char *cmd, *nxcmd = NULL;
     pid_t child;
-    int out_fd, waitstat, excode;
+    int out_fd, waitstat, excode, cmdout[2];
     cmdv = gen_cmd (prog, popts, split_prog, act, target, argc, argv, &nxcmd);
     if (_nxcmd) { *_nxcmd = nxcmd; }
     if (!cmdv) { return -1; }
     if (!(cmd = which (cmdv[0]))) { return -1; }
+    cmdout[0] = -1; cmdout[1] = -1;
     if (verbose > 0) {
 	print_command (out, cmdv);
     } else if (verbose == 0) {
 	fprintf (out, act->short_msg, target);
+	if (pipe (cmdout) < 0) { return -1; }
     }
-    if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }
+    /*if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }*/
     fflush (stdout); fflush (stderr);
     switch (child = fork ()) {
 	case -1: /* ERROR (fork failed) */
 	    close (out_fd);
 	    return -1;
 	case 0:  /* CHILD */
-	    if (verbose <= 0) { dup2 (out_fd, 1); dup2 (out_fd, 2); }
-	    close (out_fd);
+	    if (verbose <= 0) {
+		close (cmdout[0]);
+		dup2 (cmdout[1], 1); dup2 (cmdout[1], 2);
+		close (cmdout[1]);
+	    }
+	    /*if (verbose <= 0) { dup2 (out_fd, 1); dup2 (out_fd, 2); }*/
+	    /*close (out_fd);*/
 	    execve (cmd, cmdv, environ);
 	    exit (1);
 	default: /* PARENT */
 	    /* Free the unused resources ... */
-	    argv_free (cmdv); close (out_fd);
+	    argv_free (cmdv);
+	    /*close (out_fd);*/
 
-	    /* Wait for the child process to terminate ... */
-	    waitpid (child, &waitstat, 0);
+	    if (verbose <= 0) {
+		int rc = 0;
+		buflist_t first = NULL, last = NULL;
+		char buf[128];
+		ssize_t rlen;
+		close (cmdout[1]);
+		while ((rlen = read (cmdout[0], buf, sizeof(buf))) > 0) {
+		    if (rc == 0) {
+			rc = buflist_append (&first, &last, buf, (size_t)rlen);
+		    }
+		}
+		close (cmdout[0]);
+		waitpid (child, &waitstat, 0);
+		excode = 0;
+		if (WIFEXITED (waitstat)) {
+		    excode = WEXITSTATUS (waitstat);
+		} else if (WIFSIGNALED (waitstat)) {
+		    excode = -WTERMSIG (waitstat);
+		}
+		if (excode != 0) { buflist_out (stderr, first); }
+		if (rlen < 0 || rc != 0) {
+		    fputs ("\n(output incomplete)\n", stderr);
+		}
+		buflist_free (&first); last = first;
+	    } else {
+		/* Wait for the child process to terminate ... */
+		waitpid (child, &waitstat, 0);
 
-	    /* ... and retrieve it's exit status ... */
-	    excode = 0;
-	    if (WIFEXITED (waitstat)) {
-		excode = WEXITSTATUS (waitstat);
-	    } else if (WIFSIGNALED (waitstat)) {
-		excode = -WTERMSIG (waitstat);
+		/* ... and retrieve it's exit status ... */
+		excode = 0;
+		if (WIFEXITED (waitstat)) {
+		    excode = WEXITSTATUS (waitstat);
+		} else if (WIFSIGNALED (waitstat)) {
+		    excode = -WTERMSIG (waitstat);
+		}
 	    }
 	    return (excode ? -1 : 0);
     }
