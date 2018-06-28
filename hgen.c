@@ -338,7 +338,7 @@ int main (int argc, char *argv[])
 
     nox = 0; tfname = non_optv[nox++];
 
-    if (optc >= argc) {
+    if (nox >= non_optc) {
 	fprintf (stderr, "%s: WARNING! Header files determined by names"
 			 " extracted from the\n"
 			 "    template may sometimes not be found\n", prog);
