@@ -24,7 +24,10 @@ if ! type >/dev/null cc; then
     echo 1>&2 "${PROG}: 'cc' not found - can't continue!"; exit 1
 fi
 
-EXTRA_MODS="lib/opentty.c"
+EXTRA_MODS=
+if [ -f "xmods/$PROG" ]; then
+    EXTRA_MODS="$(cat "xmods/$PROG")"
+fi
 
 # NEW! Build the binary in the given directory/with the given filename
 # instead of executing it ...
