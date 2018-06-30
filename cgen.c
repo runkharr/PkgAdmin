@@ -514,16 +514,7 @@ bool is_prefix (const char *p, const char *s)
     return !c;
 }
 
-#if 0
-static
-bool is_lcprefix (const char *p, const char *s)
-{
-    int c;
-    while ((c = tolower (*p++)) == tolower (*s++) && c);
-    return !c;
-}
-#endif
-
+#if DEBUG
 static void
 dump_vec (const char *name, int veclen, char **vec, FILE *f)
 {
@@ -535,6 +526,7 @@ dump_vec (const char *name, int veclen, char **vec, FILE *f)
     }
     fputs (" }\n", f); fflush (f);
 }
+#endif
 
 /* Display either the usage message and terminate (exit-code = 0) or an error
 ** message concerning the usage and abort the program (exit-code = 64).
@@ -609,48 +601,6 @@ char *sdup (const char *s)
     return res;
 }
 
-#if 0
-static
-char *conc (const char *s, ...)
-{
-    const char *el;
-    char *res = NULL, *p;
-    size_t ell, resl;
-    va_list rargs;
-    if (s) {
-	resl = strlen (s) + 1;
-	va_start (rargs, s);
-	while ((el = va_arg (rargs, const char *))) { resl += strlen (el) + 1; }
-	va_end (rargs);
-	if ((res = tmalloc (resl, char))) {
-	    p = res; --p; el = s;
-	    while ((*++p = *el++));
-	    va_start (rargs, s);
-	    while ((el = va_arg (rargs, const char *))) {
-		while ((*++p = *el++));
-	    }
-	    va_end (rargs);
-	}
-    }
-    return res;
-}
-#endif
-
-#if 0
-/* Duplicate a string but catch the error, write the corresponding message to
-** stderr and return the (copy of) the string.
-*/
-static
-char *x_sdup (const char *s)
-{
-    char *res = sdup (s);
-    if (!res) {
-	fprintf (stderr, "%s: %s\n", progname, strerror (errno)); exit (1);
-    }
-    return res;
-}
-#endif
-
 #include "lib/isws.c"
 
 #include "lib/nows.c"
@@ -698,6 +648,7 @@ static char strans[NUMSTATES][NUMCC] = {
 #define AC_RETN 7
 #define AC_RET2 8
 
+#if DEBUG
 static const char *
 st_name (int state)
 {
@@ -729,7 +680,7 @@ ac_name (int action)
 	default     :   return "*unknown";
     }
 }
-	
+#endif
 
 static char r_action[NUMSTATES][NUMCC] = {
        /*  EOS    ' '/'\t'   '"'      '\''     '\\'     ';'       ?   */
@@ -808,7 +759,6 @@ static char w_action[NUMSTATES][NUMCC] = {
 static char *
 nextword_ins (const char *in, const char **_in, char **_out)
 {
-    size_t cc = 0;
     int state = S0, action;
     char *out = *_out, *word = NULL;
     while (state != S6 && state != S7) {
@@ -836,15 +786,13 @@ static int
 shsplit (const char *s, char ***_out, int *_outlen, const char **_rs)
 {
     const char *p;
-    char *buf, *b, *r, **rv, *v, quote = 0, c;
-    size_t bufsz = 0, wordsz, max_wsz;
+    char *buf, *b, *r, **rv, *v;
+    size_t wordsz, max_wsz;
     int wc = 0, ix, jx, ec;
-    bool word_open = false;
 
     p = s; max_wsz = 0;
     while ((wordsz = nextword_len (p, &p))) {
 	++wc; if (wordsz > max_wsz) { max_wsz = wordsz; }
-	/*bufsz += wordsz;*/
     }
 
     if ((rv = (char **) malloc ((++wc) * sizeof(char *))) == NULL) {
@@ -1124,13 +1072,15 @@ void print_command (FILE *out, char **cmd)
     fputs ("\n", out);
 }
 
-/* Write either " failed\n" or " done\n" (depending on the value of
-** 'exitstate') to the specified output channel.
+/* Write either " failed\n", " failed:\n", " done:\n" or " done\n", depending
+** on the value of (the integer) 'exitstate' and the flag 'something_follows',
+** to the specified output "file".
 */ 
 static
-void print_exitstate (FILE *out, int exitstate)
+void print_exitstate (FILE *out, int exitstate, int something_follows)
 {
-    fputs ((exitstate ? " failed\n" : " done\n"), out);
+    fputs ((exitstate ? " failed" : " done"), out);
+    fputs ((something_follows ? ":\n" : "\n"), out);
 }
 
 /* Remove a single file.
@@ -1196,7 +1146,6 @@ rmrec (const char *path, FILE *out)
 	}
     }
     closedir (dp);
-    if (rc) { goto ERREXIT; }
     while (subdirs) {
 	ne = subdirs; subdirs = ne->next; ne->next = NULL;
 	if (rmrec (ne->path, out)) { goto ERREXIT; }
@@ -1227,23 +1176,9 @@ rmfsentry (const char *path, FILE *out)
     return rmfile (path, out);
 }
 
-/* Retrieve the current working diretory.
-*/
-static char *
-mycwd()
-{
-    size_t bsz = 1024;
-    char *buf = tmalloc (bsz, char), *b, *wd;
-    if (!buf) { return buf; }
-    while (!(wd = getcwd (buf, bsz)) && errno == ERANGE) {
-	bsz += 1024;
-	if (!(b = realloc (buf, bsz))) { free (buf); return b; }
-	buf = b;
-    }
-    if (!wd) { return NULL; }
-    wd = sdup (buf); free (buf);
-    return wd;
-}
+#if 0
+#include "lib/cwd.c"
+#endif
 
 /* Perform the 'clean'-action (directly - not calling an external program for
 ** this reason).
@@ -1253,21 +1188,18 @@ cleanup (FILE *out, const char *wd, int verbose, int nfiles, char **files)
 {
     int rc, errs = 0, ix = 0;
     action_t *act;
-    //char *workdir = NULL;
     if (verbose < 2) {
-	//if (!(workdir = mycwd ())) { return -1; }
 	for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
 	    if (!strcmp (act->pfx_name, "clean")) { break; }
 	}
 	if (act->pfx_name && verbose) {
 	    fprintf (out, act->short_msg, wd);
 	}
-	//free (workdir); workdir = NULL;
 	for (ix = 0; ix < nfiles; ++ix) {
 	    rc = rmfsentry (files[ix], NULL);
 	    if (rc) { ++errs; }
 	}
-	if (verbose) { print_exitstate (out, (errs ? 1 : 0)); }
+	if (verbose) { print_exitstate (out, (errs ? 1 : 0), 0); }
     } else {
 	for (ix = 0; ix < nfiles; ++ix) {
 	    rc = rmfsentry (files[ix], out);
@@ -1616,7 +1548,9 @@ void buflist_free (buflist_t *_head)
 	*_head = next;
     }
 }
-    
+
+#include "lib/opentty.h"
+
 /* Perform the requested action ('compile' or 'link') by executing the
 ** corresponding command in a sub-process. Display the output depending on the
 ** 'verbose' argument.
@@ -1630,7 +1564,7 @@ spawn (FILE *out, int verbose, bool split_prog,
     char **cmdv;
     const char *cmd, *nxcmd = NULL;
     pid_t child;
-    int out_fd, waitstat, excode, cmdout[2];
+    int waitstat, excode, cmdout[2], ec;
     cmdv = gen_cmd (prog, popts, split_prog, act, target, argc, argv, &nxcmd);
     if (_nxcmd) { *_nxcmd = nxcmd; }
     if (!cmdv) { return -1; }
@@ -1640,13 +1574,20 @@ spawn (FILE *out, int verbose, bool split_prog,
 	print_command (out, cmdv);
     } else if (verbose == 0) {
 	fprintf (out, act->short_msg, target);
-	if (pipe (cmdout) < 0) { return -1; }
+	//if (pipe (cmdout) < 0) { return -1; }
+	/* I'm abusing the 'tty'-features of the classical unix systems a bit
+	** here as a 'pipe()'-replacement. This seems the only way to get a
+	** colorized output from the compilers without using a special flag
+	** which changes from compiler to compiler ...
+	*/
+	if (opentty (cmdout, 1)) { return -1; }
     }
     /*if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }*/
     fflush (stdout); fflush (stderr);
     switch (child = fork ()) {
 	case -1: /* ERROR (fork failed) */
-	    close (out_fd);
+	    //close (out_fd);
+	    ec = errno; close (cmdout[1]); close (cmdout[0]); errno = ec;
 	    return -1;
 	case 0:  /* CHILD */
 	    if (verbose <= 0) {
@@ -1667,7 +1608,7 @@ spawn (FILE *out, int verbose, bool split_prog,
 		int rc = 0;
 		buflist_t first = NULL, last = NULL;
 		char buf[128];
-		ssize_t rlen;
+		ssize_t rlen = 0;
 		close (cmdout[1]);
 		while ((rlen = read (cmdout[0], buf, sizeof(buf))) > 0) {
 		    if (rc == 0) {
@@ -1682,9 +1623,15 @@ spawn (FILE *out, int verbose, bool split_prog,
 		} else if (WIFSIGNALED (waitstat)) {
 		    excode = -WTERMSIG (waitstat);
 		}
-		if (excode != 0) { buflist_out (stderr, first); }
-		if (rlen < 0 || rc != 0) {
-		    fputs ("\n(output incomplete)\n", stderr);
+		if (verbose == 0) {
+		    print_exitstate (stdout, excode, (excode != 0));
+		}
+		/* I want an output only if some errors occurred ... */
+		if (excode != 0) {
+		    buflist_out (stderr, first);
+		    if (rc != 0) {
+			fputs ("\n(output incomplete)\n", stderr);
+		    }
 		}
 		buflist_free (&first); last = first;
 	    } else {
@@ -1698,10 +1645,11 @@ spawn (FILE *out, int verbose, bool split_prog,
 		} else if (WIFSIGNALED (waitstat)) {
 		    excode = -WTERMSIG (waitstat);
 		}
+		if (verbose == 0) { print_exitstate (stdout, excode, 1); }
 	    }
 	    return (excode ? -1 : 0);
     }
-    return -1;
+    //return -1;
 }
 
 static void
@@ -1846,7 +1794,7 @@ do_generate (action_t *act, const char *prog, int argc, char **argv)
     ac = argc - optx; av = &argv[optx];
     rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av,
 		NULL);
-    if (verbose == 0) { print_exitstate (stdout, rc); }
+    //if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
 
@@ -1912,7 +1860,7 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 	rc = spawn (stdout, verb1, true, act, prog, NULL, target, 0, nullarg,
 		    &nxprog);
     }
-    if (verbose == 0) { print_exitstate (stdout, rc); }
+    //if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
 
@@ -1956,30 +1904,9 @@ normalize_path (const char *in, char **_out)
     *_out = res;
 }
 
-static char *
-concat (const char *arg0, ...)
-{
-    va_list av0, av1;
-    size_t sz = strlen (arg0) + 1;
-    char *res, *p;
-    const char *arg;
-    va_start (av0, arg0);
-    va_copy (av1, av0);
-    while ((arg = va_arg (av0, char *))) {
-	sz += strlen (arg);
-    }
-    va_end (av0);
-    if ((res = tmalloc (sz, char))) {
-	p = res;
-	strcpy (p, arg0); p += strlen (arg0);
-	while ((arg = va_arg (av1, char *))) {
-	    strcpy (p, arg); p += strlen (arg);
-	}
-    }
-    va_end (av1);
-    return res;
-}
-#endif
+#include "lib/bconc.c"
+
+#endif /*NORMALIZED_PROGPATH*/
 
 /* Main program
 **
@@ -1987,19 +1914,25 @@ concat (const char *arg0, ...)
 int main (int argc, char *argv[])
 {
     int mode;
-    char *p, *prog = NULL, *cwd;
+    char *p, *prog = NULL;
     action_t *act;
 
 #if NORMALIZED_PROGPATH
+    const char *wd;
+    size_t progsz = 0;
     if (*argv[0] == '/') {
 	normalize_path (argv[0], &p);
     } else {
-	cwd = mycwd (); prog = concat (cwd, "/", argv[0], NULL); free (cwd);
+	wd = cwd ();
+	if (!bconc (&prog, &progsz, cwd, "/", *argv)) {
+	    fprintf (stderr, "%s: FATAL ERROR - %s\n", *argv, strerror (errno));
+	    exit (71);
+	}
 	normalize_path (prog, &p); free (prog); prog = NULL;
     }
-#else
+#else /*NORMALIZED_PROGPATH*/
     p = argv[0];
-#endif
+#endif /*NORMALIZED_PROGPATH*/
     progname = strrchr (p, '/');
     if (progname) {
 	progpath = p; *progname++ = '\0';

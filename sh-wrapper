@@ -24,6 +24,8 @@ if ! type >/dev/null cc; then
     echo 1>&2 "${PROG}: 'cc' not found - can't continue!"; exit 1
 fi
 
+EXTRA_MODS="lib/opentty.c"
+
 # NEW! Build the binary in the given directory/with the given filename
 # instead of executing it ...
 if [ $# -gt 0 -a "x$1" = x--build ]; then
@@ -46,7 +48,7 @@ if [ $# -gt 0 -a "x$1" = x--build ]; then
     if [ "$me" = "$tp" ]; then
 	echo 1>&2 "${PROG}: Using me ($0) as target is illegal"; exit 1
     fi
-    exec cc -I$PPATH "$cf" -o "$tgt"
+    exec cc -I$PPATH "$cf" $EXTRA_MODS -o "$tgt"
 fi
 	
 
@@ -76,8 +78,9 @@ for bn in run "$PROG"; do
     # If the binary file doesn't exist or is not executable, or if the source
     # file is newer than the binary file, try to (re-)generate the binary from
     # the source - using the program `cc´ (probably a C-compiler).
+    test $bn = run && extras= || extras="$EXTRA_MODS"
     if [ ! -x "$bf" -o "$cf" -nt "$bf" ]; then
-	if ! cc -I"$PPATH" "$cf" -o "$bf"; then
+	if ! cc -I"$PPATH" "$cf" $extras -o "$bf"; then
 	    echo 1>&2 "${PROG}: couldn't generate '$bf'!"; exit 1
 	fi
     fi
