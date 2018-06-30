@@ -24,9 +24,22 @@ if ! type >/dev/null cc; then
     echo 1>&2 "${PROG}: 'cc' not found - can't continue!"; exit 1
 fi
 
+add_ppath() {
+    ap_f="$1"
+    ap_isv="$IFS"; IFS=' 	'
+    ap_files=$(cat "$ap_f")
+    for ap_x in $ap_files; do
+	if [ "${ap_x#/}" == "$ap_x" ]; then
+	    echo "$PPATH/$ap_x"
+	else
+	    echo "$ap_x"
+	fi
+    done
+}
+
 EXTRA_MODS=
-if [ -f "xmods/$PROG" ]; then
-    EXTRA_MODS="$(cat "xmods/$PROG")"
+if [ -f "$PPATH/xmods/$PROG" ]; then
+    EXTRA_MODS="$(add_ppath "$PPATH/xmods/$PROG")"
 fi
 
 # NEW! Build the binary in the given directory/with the given filename
