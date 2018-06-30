@@ -52,11 +52,21 @@ static int isateol (const char *s)
 #define ENDTAG "/*##END##*/"
 #define ENDTAG_LEN (sizeof(ENDTAG) - 1)
 
+/* Insert a '#line' preprocessor command into the outfile ... */
+static void line_to (const char *ofname, int lc, FILE *out)
+{
+    fprintf (out, "#line %d \"%s\"\n", lc, ofname);
+}
+
+/* Copy each part of 'infile' which is enclosed into BEGINTAG and ENDTAG into
+** the output file. For the definitions of BEGINTAG and ENDTAG, see above,
+** please!
+*/
 static int copy_header_parts (const char *infile, const char *tfname, int tlc,
 			      FILE *out)
 {
     FILE *in;
-    int tf = 0, lc = 0;
+    int tf = 0, lc = 0, waseol;
     char line[1024];
     if (!(in = fopen (infile, "r"))) {
 	fprintf (stderr, "%s: in %s(line %d): %s - %s\n",
@@ -64,46 +74,45 @@ static int copy_header_parts (const char *infile, const char *tfname, int tlc,
 	fprintf (out, "#error \"%s\" - %s\n", infile, strerror (errno));
 	return -1;
     }
+    waseol = 1;
     while (fgets (line, sizeof(line), in)) {
 	++lc;
-	if (haseol (line)) {
-	    if (!strncmp (line, BEGINTAG, BEGINTAG_LEN)
-	    &&  isateol (line + BEGINTAG_LEN)) {
+	if (waseol) {
+	    if (!strncmp (line, BEGINTAG, BEGINTAG_LEN) &&
+		isateol (line + BEGINTAG_LEN)) {
 		if (!tf) {
 		    fprintf (out, "/* From: %s (%d) */\n", infile, lc + 1);
-		    fprintf (out, "#line %d \"%s\"\n", lc + 1, infile);
+		    line_to (infile, lc + 1, out);
 		}
-		tf = 1; continue;
-	    }
-	    if (!strncmp (line, ENDTAG, ENDTAG_LEN)
-	    &&  isateol (line + ENDTAG_LEN)) {
+		tf = 1;
+	    } else if (!strncmp (line, ENDTAG, ENDTAG_LEN) &&
+		       isateol (line + ENDTAG_LEN)) {
 		if (tf) {
 		    fprintf (out, "/* End %s (%d) */\n", infile, lc - 1);
-		    fprintf (out, "#line %d \"%s\"\n", tlc, tfname);
 		}
-		tf = 0; continue;
+		tf = 0;
+	    } else {
+		if (tf) { fputs (line, out); }
 	    }
+	    waseol = haseol (line);
+	} else {
 	    if (tf) { fputs (line, out); }
-	    continue;
-	}
-	if (tf) {
-	    fputs (line, out);
-	    while (fgets (line, sizeof(line), in)) {
-		fputs (line, out);
-		if (haseol (line)) { break; }
-	    }
+	    waseol = haseol (line);
 	}
     }
     fclose (in);
-    if (tf) {
-	fprintf (out, "/* End %s (%d) */\n", infile, lc - 1);
-	fprintf (out, "#line %d \"%s\"\n", tlc, tfname);
-    }
+    if (tf) { fprintf (out, "/* End %s (%d) <EOF> */\n", infile, lc); }
     return 0;
 }
 
 #define INCLTAG "#include"
 #define INCLTAG_LEN (sizeof(INCLTAG) - 1)
+
+#define IMPORTTAG1 "/*##IMPORT##*/"
+#define IMPORTTAG1_LEN (sizeof(IMPORTTAG1) - 1)
+
+#define IMPORTTAG2 "//##IMPORT##"
+#define IMPORTTAG2_LEN (sizeof(IMPORTTAG2) - 1)
 
 #if NAME_MAX < 1024
 #define LMAX 1024
@@ -124,79 +133,261 @@ static char *find_file (const char *file, int filesc, char *files[])
     return NULL;
 }
 
-static int write_header_file (const char *tfname, const char *ofname,
-			      int filesc, char *files[], FILE *out)
+typedef struct lines *lines_t;
+struct lines {
+    lines_t next;
+    int continued;
+    char text[1];
+};
+
+static void add_line (lines_t *_first, lines_t *_last, const char *text, int cl)
+{
+    lines_t res = malloc (sizeof (struct lines) + strlen (text) + 1);
+    if (!res) {
+	fprintf (stderr, "%s: %s\n", prog, strerror (errno));
+	exit (71);
+    }
+    res->next = (lines_t) NULL;
+    res->continued = cl;
+    strcpy (res->text, text);
+    if (*_first) { (*_last)->next = res; } else { (*_first) = res; }
+    (*_last) = res;
+}
+
+static void free_lines (lines_t *_first)
+{
+    int ec = errno;
+    while (*_first) {
+	lines_t next = (*_first)->next;
+	(*_first)->next = (lines_t) NULL;
+	memset ((*_first)->text, 0, strlen ((*_first)->text));
+	free ((*_first));
+	*_first = next;
+    }
+    errno = ec;
+}
+
+static int read_template (const char *tfname, lines_t *_out)
 {
     FILE *tf;
-    size_t len;
-    int lc = 0, ix, errs = 0;
-    char ifname[LMAX + 1], line[LMAX + 20], *ifn, *p;
+    lines_t first = (lines_t) NULL, last = (lines_t) NULL;
+    char line[LMAX + 20]; int lc;
     if (!(tf = fopen (tfname, "r"))) {
 	fprintf (stderr, "%s: Attempt to open the template file failed - %s\n",
 			 prog, strerror (errno));
 	return -1;
     }
+    lc = 0;
     while (fgets (line, sizeof(line), tf)) {
 	++lc;
-	if (!strncmp (line, INCLTAG, INCLTAG_LEN)) {
-	    p = &line[INCLTAG_LEN]; while (isws (*p)) { ++p; }
-	    if (*p == '"') {
-		++p; ix = 0;
-		while (*p && *p != '"') {
-		    if (ix < sizeof(ifname) - 1) { ifname[ix++] = *p; }
-		    ++p;
-		}
-		if (*p != '"' || ix >= sizeof(ifname) - 1) {
-		    fputs ("#error - invalid include directive\n", out);
-		    while (!haseol (line)) {
-			if (!fgets (line, sizeof(line), tf)) { break; }
-		    }
-		    ++errs; continue;
-		}
-		ifname[ix] = '\0';
-		if (filesc > 0) {
-		    /* Get the filename from the files list ... */
-		    ifn = find_file (ifname, filesc, files);
-		} else {
-		    /* Try the extracted filename directly ... */
-		    ifn = ifname;
-		}
-		if (!ifn) {
-		    fputs (line, out);
-		} else {
-		    if (copy_header_parts (ifn, ofname, lc, out)) { ++errs; }
-		}
-	    } else {
-		fputs (line, out);
+	add_line (&first, &last, line, 0);
+	if (!haseol (line)) {
+	    fprintf (stderr, "%s(%d): WARNING! Line too long ...\n",
+			     tfname, lc);
+	    while (fgets (line, sizeof(line), tf)) {
+		add_line (&first, &last, line, 1);
+		if (haseol (line)) { break; }
 	    }
-	} else if (lc == 1 && !strncmp (line, "/* ", sizeof("/* ") - 1)) {
-	    p = &line[sizeof("/* ") - 1];
-	    if (!strncmp (p, tfname, (len = strlen (tfname)))
-	    &&  isateol (p + len)) {
-		fputs ("/* ", out); fputs (ofname, out);
-		p += len; fputs (p, out);
-	    } else {
-		fputs (line, out);
-	    }
-	} else if (lc == 1 && !strncmp (line, "// ", sizeof("// ") - 1)) {
-	    p = &line[sizeof("// ") - 1];
-	    if (!strncmp (p, tfname, (len = strlen (tfname)))
-	    &&  isateol (p + len)) {
-		fputs ("// ", out); fputs (ofname, out);
-		p += strlen (tfname); fputs (p, out);
-	    } else {
-		fputs (line, out);
-	    }
-	} else {
-	    fputs (line, out);
-	}
-	/* Write the remaining part of the line to the output file ... */
-	while (!haseol (line)) {
-	    if (!fgets (line, sizeof(line), tf)) { break; }
-	    fputs (line, out);
 	}
     }
-    fclose(tf);
+    fclose (tf);
+    *_out = first;
+    return 0;
+}
+
+static lines_t process_remaining (lines_t cline, int skip_text, FILE *out)
+{
+    if (cline) {
+	cline = cline->next;
+	if (skip_text) {
+	    while (cline && cline->continued) { cline = cline->next; }
+	} else {
+	    while (cline && cline->continued) {
+		fputs (cline->text, out);
+		cline = cline->next;
+	    }
+	}
+    }
+    return cline;
+}
+
+static void rplc_filename (const char *line, const char *old, const char *new,
+			   FILE *out)
+{
+    const char *p, *q = line;
+    while ((p = strstr (q, old))) {
+	fwrite (q, 1, (size_t)(p - q), out);
+	fputs (new, out); q = p + strlen (old);
+    }
+    fputs (q, out);
+}
+
+static int is_import_tag (const char *line)
+{
+    const char *p = line;
+    while (isws (*p)) { ++p; }
+    return strncmp (p, IMPORTTAG1, IMPORTTAG1_LEN) == 0 ||
+	   strncmp (p, IMPORTTAG2, IMPORTTAG2_LEN) == 0;
+}
+
+
+static int is_include_line (const char *line, char *ifname, size_t ifnamesz)
+{
+    if (strncmp (line, INCLTAG, INCLTAG_LEN) == 0) {
+	const char *p = line + INCLTAG_LEN, *q;
+	while (isws (*p)) { ++p; } 
+	if (*p != '"') { return 0; }
+	++p; q = p; while (*q && *q != '"') { ++q; }
+	if (*q != '"') { return 0; }
+	if ((size_t) (q - p) >= ifnamesz) { errno = EINVAL; return -1; }
+	memcpy (ifname, p, (size_t) (q - p)); ifname[q - p] = '\0';
+	return 1;
+    }
+    return 0;
+}
+
+static void invalid_include (FILE *out)
+{
+    fputs ("#error Invalid '#include \"...'-line.\n", out);
+}
+
+static int write_header_file (const char *tfname, const char *ofname,
+			      int filesc, char *files[], FILE *out)
+{
+    int lc = 0, ix, errs = 0, impmode = 0, need_skip = 0, isinc;
+    char ifname[LMAX + 1], *ifn;
+    lines_t template = (lines_t) NULL, cline;
+    if (read_template (tfname, &template)) {
+	free_lines (&template); return -1;
+    }
+    lc = 0; cline = template;
+    while (cline) {
+	if (is_import_tag (cline->text)) {
+	    if (impmode > 0) {
+		fprintf (stderr,
+			 "%s(%d): Ignoring further occurrences of the"
+			 " import tag.\n", tfname, lc);
+	    }
+	    ++impmode;
+	}
+	cline = process_remaining (cline, 1, out);
+    }
+    if (impmode > 0) {
+	/* Create an output file where all include-files given as arguments
+	** are inserted at the first occurrence of IMPORTTAG1 or IMPORTTAG2.
+	** Each line beginning with '#include "`file`"' or '#include <`file`>',
+	** where `file` is one of the files given as arguments is converted
+	** into a comment in the output file. Additionally, each occurrence
+	** of `tfname` in the template file is replaced with the name of the
+	** output file ...
+	*/
+	need_skip = 0;
+	impmode = 0; lc = 0; cline = template;
+	while (cline) {
+	    ++lc;
+	    /* Deactivate each '#include "file"' or '#include <file>'-line
+	    ** where 'file' is found in the list of files to be (partially)
+	    ** included. Additionally, replace a line containing
+	    ** '#include "`ofname`"' or '#include <`ofname`>' with an
+	    ** error line ...
+	    */
+	    isinc = is_include_line (cline->text, ifname, sizeof(ifname));
+	    if (isinc != 0) {
+		if (isinc < 0) {
+		    invalid_include (out);
+		    need_skip = 1;
+		} else {
+		    if (filesc > 0 && find_file (ifname, filesc, files)) {
+			fprintf (out,
+				 "#warning Deactivated '#include \"%s\"'\n",
+				 ifname);
+			need_skip = 1;
+		    } else if (strcmp (ifname, ofname) == 0) {
+			fprintf (out,
+				 "#error File \"%s\" must not #include"
+				 " itself\n", ofname);
+			fputs (ofname, out);
+			need_skip = 1;
+		    } else {
+			fputs (cline->text, out);
+			need_skip  = 0;
+		    }
+		}
+	    } else if (is_import_tag (cline->text)) {
+		/* Insert all files in the list at the position of the first
+		** input file.
+		*/
+		if (impmode > 0) {
+		    fputs (cline->text, out);
+		    need_skip = 0;
+		} else {
+		    for (ix = 0; ix < filesc; ++ix) {
+			const char *ifn = files[ix];
+			if (copy_header_parts (ifn, ofname, lc, out)) {
+			    ++errs;
+			}
+		    }
+		    line_to (ofname, lc, out);
+		    need_skip = 1;
+		}
+	    } else {
+		/* Replace each occurrence of `tfname` in the first part of the
+		** with `ofname` ...
+		*/
+		rplc_filename (cline->text, tfname, ofname, out);
+		need_skip = 0;
+	    }
+	    cline = process_remaining (cline, need_skip, out);
+	}
+    } else {
+	/* Revert to the original mode of action ... */
+	lc = 0; cline = template;
+	while (cline) {
+	    ++lc;
+	    isinc = is_include_line (cline->text, ifname, sizeof(ifname));
+	    if (isinc != 0) {
+		if (isinc < 0) {
+		    invalid_include (out);
+		    need_skip = 1;
+		} else {
+		    /* If there were the names of header-files supplied in
+		    ** the invocation, the `ifname` is searched only in
+		    ** this list. Otherwise, the `ifname` is used directly
+		    ** as an input file.
+		    */
+		    if (filesc > 0) {
+			/* Get the filename from the files list ... */
+			ifn = find_file (ifname, filesc, files);
+		    } else {
+			/* Try the extracted filename directly ... */
+			ifn = ifname;
+		    }
+		    if (!ifn) {
+			fputs (cline->text, out);
+			need_skip = 0;
+		    } else {
+			if (copy_header_parts (ifn, ofname, lc, out)) {
+			    ++errs;
+			}
+			line_to (ofname, lc, out);
+			need_skip = 1;
+		    }
+		}
+	    } else {
+		/* In any other case, write the line - with each occurrence of
+		** the original file name of the template file replaced with
+		** that of the output file (at least in the first LMAX columns
+		** of the line) directly to the output file ...
+		*/
+		rplc_filename (cline->text, tfname, ofname, out);
+		need_skip = 0;
+	    }
+	    cline = process_remaining (cline, need_skip, out);
+	}
+    }
+    /* Free the "memory" version of the template file ... */
+    free_lines (&template);
+    /* Return the number of errors occured while inserting ... */
     return errs;
 }
 
@@ -338,7 +529,7 @@ int main (int argc, char *argv[])
 
     nox = 0; tfname = non_optv[nox++];
 
-    if (nox >= non_optc) {
+    if (non_optc < 1) {
 	fprintf (stderr, "%s: WARNING! Header files determined by names"
 			 " extracted from the\n"
 			 "    template may sometimes not be found\n", prog);
