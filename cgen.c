@@ -222,7 +222,7 @@ struct action_s {
       "COMPILER", DEFAULT_COMPILER, NULL, "COPTS", "CFLAGS",
       "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n           %s",
       "<compiler-program>", "<compiler-args>",
-      "Compiling %s ...",
+      "Generating %s ...", /*"Compiling %s ...",*/
       "\n\nArguments/Options:"
       "\n"
       "\n  compile (alt: cc)"
