@@ -1580,7 +1580,7 @@ spawn (FILE *out, int verbose, bool split_prog,
 	** colorized output from the compilers without using a special flag
 	** which changes from compiler to compiler ...
 	*/
-	if (opentty (cmdout, 1)) { return -1; }
+	if (pty_openpair (cmdout, 1)) { return -1; }
     }
     /*if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }*/
     fflush (stdout); fflush (stderr);
