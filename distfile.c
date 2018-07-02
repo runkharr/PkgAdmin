@@ -62,8 +62,9 @@ static const char *def_cluptpls[] = {
 
 static const char *def_packtpls[] = {
     "%p%s.tar.gz\ttar cf '%p%s.tar' '%p' && gzip -9f '%p%s.tar'",
-    "%p%s.tar.gz\ttar cf '%p%s.tar' '%p' && bzip2 -9f '%p%s.tar'",
-    "%p%s.tar.gz\tzip -9r '%p%s.zip' '%p'",
+    "%p%s.tar.bz2\ttar cf '%p%s.tar' '%p' && bzip2 -9f '%p%s.tar'",
+    "%p%s.tar.xz\ttar cf '%p%s.tar' '%p' && xz -9f '%p%s.tar'",
+    "%p%s.zip\tzip -9r '%p%s.zip' '%p'",
     NULL
 };
 
