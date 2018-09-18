@@ -29,7 +29,7 @@ add_ppath() {
     ap_isv="$IFS"; IFS=' 	'
     ap_files=$(cat "$ap_f")
     for ap_x in $ap_files; do
-	if [ "${ap_x#/}" == "$ap_x" ]; then
+	if [ "${ap_x#/}" = "$ap_x" ]; then
 	    echo "$PPATH/$ap_x"
 	else
 	    echo "$ap_x"
