@@ -61,14 +61,19 @@ newVersion() {
     echo "OK, version number is now: $new"
 }
 
-if ! [ -d admin -a -f "$top/VERSION" ]; then
-    echo 1>&2 "${prog}: you are probably in the wrong directory"
-    exit 64
-fi
 
 # Get the version number from the `VERSION´ file in the top-level directory ...
 #
-VERSION="`cat "$top/VERSION"`"
+if [ -f "$top/VERSION" ]; then
+    VERSION="`cat "$top/VERSION"`"
+elif [ -d "$top/admin" ]; then
+    VERSION='0.01'
+    echo 1>&2 "${prog}: Creating initial VERSION file; content: $VERSION"
+    echo >"$top/VERSION" "$VERSION"
+else
+    echo 1>&2 "${prog}: you are probably in the wrong directory"
+    exit 64
+fi
 
 case $1 in
     directory|srcdir|source-directory)
