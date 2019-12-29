@@ -46,6 +46,10 @@
 static const char *src_excludes = ".srcdist-excludes";
 static const char *bin_excludes = ".bindist-excludes";
 
+/* Templates for generating the installation commands.
+** the placeholder '%p' is replaced by the installation prefix, and '%d' is
+** replaced by a target directory name where the installation takes place.
+*/ 
 static const char *def_insttpls[] = {
     "make && make DESTDIR=%d %?(PREFIX=%p )install",
     "make && make DESTDIR=%d %?(PREFIX=%p )install install-man",
@@ -60,6 +64,14 @@ static const char *def_cluptpls[] = {
     NULL
 };
 
+/* Default templates. '\t' is the delimiter. The first part is a template for
+** the package name, the second a template for the archiving command, and the
+** (optional) third one for generating a compressed version of this archive.
+** '%p' is replaced by the package name, and '%s' by a (probably user-defined)
+** suffix. The defaults to be used for '%s' are
+** - nothing for the source package, and
+** - "-bin" for the binary package.
+*/
 static const char *def_packtpls[] = {
     "%p%s.tar.gz\ttar cf '%p%s.tar' '%p' && gzip -9f '%p%s.tar'",
     "%p%s.tar.bz2\ttar cf '%p%s.tar' '%p' && bzip2 -9f '%p%s.tar'",
@@ -80,10 +92,12 @@ usage (const char *fmt, ...)
 	exit (64);
     }
     fprintf (stderr,
-	     "\nUsage: %s [-p 'packcmd'] [-c 'cleancmd'] [-x 'excludes']"
-	     " [-q] srcdist \\\n                   [suffix [dir]]"
+	     "\nUsage: %s [-p 'packcmd'] [-c 'cleancmd'] [-x 'excludes'] [-n]"
+	     " [-q] \\\n"
+	     "                   srcdist [suffix [dir]]"
 	     "\n       %s [-p 'packcmd'] [-i 'installcmd'] [-x 'excludes']"
-	     " [-q] bindist \\\n                   [prefix [suffix [dir]]]"
+	     " [-n] [-q] \\\n"
+	     "                   bindist [prefix [suffix [dir]]]"
 	     "\n       %s -h"
 	     "\n       %s -V"
 	     "\n"
@@ -92,18 +106,22 @@ usage (const char *fmt, ...)
 	     "\n     Specify a template for cleaning up (removing files from a"
 	     " previous build-"
 	     "\n     process (like a 'make cleanall')"
-	     "\n     (Default: '%s')"
+	     "\n     (Default: \"%s\")"
 	     "\n  -i 'installcmd'"
 	     "\n     Specify a template for the command which installs the"
 	     " binary data to be"
 	     "\n     packed. A '%%p' is replaced with the target directory of"
 	     " the installation."
-	     "\n     (Default: '%s')"
+	     "\n     (Default: \"%s\")"
 	     "\n  -p 'packcmd'"
 	     "\n     Specify a template for the packing-command. A '%%p' is"
 	     " replaced with the"
 	     "\n     name of the directory to be packed."
-	     "\n     (Default: '%s')"
+	     "\n     (Default: \"%s\")"
+	     "\n  -n"
+	     "\n     Don't generate any package but print the name it would"
+	     " have if being"
+	     "\n     generated."
 	     "\n  -q"
 	     "\n     suppress the output of the generation, cleanup and"
 	     " installation commands"
@@ -134,9 +152,9 @@ usage (const char *fmt, ...)
 	     "\nFor each of the '-c', '-i' and '-p' options a non-negative"
 	     " integer may be"
 	     "\nspecified, which is then used for selecting a template from a"
-	     " list which is read"
-	     "\nfrom a file. If matching file exists, a hard-coded list is"
-	     " used instead."
+	     " list which is"
+	     "\nread from a file. If matching file exists, a hard-coded list"
+	     " is used instead."
 	     "\nFor"
 	     "\n  -c the file to be used is either '.cleanupcmds' in the top-"
 	     "level directory"
@@ -1510,10 +1528,59 @@ subst_version (const char *path)
     return res;
 }
 
+static char *
+extract_from_template (int n, char dlc, const char *tmpl)
+{
+    char *res = NULL;
+    const char *p = tmpl, *q;
+    do {
+	q = strchr (p, dlc);
+	if (! q) { q = p + strlen (p); break; }
+	if (n == 0) { break; }
+	p = q + 1;
+    } while (n-- >= 0);
+    if (n > 0) {
+	errno = ERANGE;
+	fprintf (stderr,
+		 "%s: Extracting part template failed - index out of range\n",
+		 prog, strerror (errno));
+	exit (1);
+    }
+    if (!(res = t_allocv (char, (size_t) (q - p)))) {
+	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
+    }
+    memcpy (res, p, (size_t) (q - p)); res[q - p] = '\0';
+    return res;
+}
+
+static char *
+get_packagename (const char *packcmd,
+		 const char *suffix,
+		 const char *newdir)
+{
+    size_t ressz = 0, fnsz = 0;
+    char *res = NULL, *fn = NULL;
+    char *packdir = get_packdir (newdir);
+    const char *packtpl = get_template ('p', packcmd, ".packcmds",
+					"admin/packcmds", def_packtpls);
+    char *pkgname_tpl = extract_from_template (0, '\t', packtpl);
+    struct rplc_struct rx[] = {
+	{ 'p', packdir }, { 's', suffix }, { 0, NULL }
+    };
+    pf_subst (rx, pkgname_tpl, &fn, &fnsz);
+    ressz = strlen (fn) + 1;
+    if (!(res = t_allocv (char, ressz))) {
+	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
+    }
+    memcpy (res, fn, ressz);
+    free (fn); free (pkgname_tpl); free (packdir);
+    return res;
+}
+
 int
 main (int argc, char *argv[])
 {
-    int mode = -1, opt, quiet = 0, rc = 0;
+    int mode = -1, opt, quiet = 0, rc = 0, print_name = 0;
     const char *exclude_file = 0;
     char *mname, *instcmd = NULL, *packcmd = NULL, *newdir = NULL;
     char *pkgname = NULL, *clupcmd = NULL, *ipfx = NULL;
@@ -1521,8 +1588,8 @@ main (int argc, char *argv[])
     rxlist_t exclude_pats = NULL;
     store_progpath (argv);
     if (argc < 2) { usage (NULL); }
-    /* get the '-c', '-h', '-i', '-p', '-q', '-V' and '-x' options */
-    while ((opt = getopt (argc, argv, "+c:hi:p:qVx:")) != -1) {
+    /* get the '-c', '-h', '-i', '-n', '-p', '-q', '-V' and '-x' options */
+    while ((opt = getopt (argc, argv, "+c:hi:np:qVx:")) != -1) {
 	switch (opt) {
 	    case 'c':	/* -c 'cleancmd-template' (e.g. -c 'make cleanall') */
 		if (clupcmd) { usage ("ambiguous '-c'-option"); }
@@ -1533,6 +1600,9 @@ main (int argc, char *argv[])
 	    case 'i':	/* -i 'installcmd-template' (e.g. -i 'make install') */
 		if (instcmd) { usage ("ambiguous '-i'-option"); }
 		instcmd = x_strdup (optarg);
+		break;
+	    case 'n':	/* -n - don't generate a file, but print its name */
+		print_name = 1;
 		break;
 	    case 'p':	/* -p 'packcmd-template' (e.g. -p 'zip -r %p.zip %p') */
 		if (packcmd) { usage ("ambiguous '-p'-option"); }
@@ -1576,8 +1646,12 @@ main (int argc, char *argv[])
 	    */
 	    if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
-	    rc = gen_srcdist (exclude_pats, clupcmd, packcmd,
-			      psfx, newdir, quiet, &pkgname);
+	    if (print_name) {
+		pkgname = get_packagename (packcmd, psfx, newdir);
+	    } else {
+		rc = gen_srcdist (exclude_pats, clupcmd, packcmd,
+				  psfx, newdir, quiet, &pkgname);
+	    }
 	    break;
 	case MODE_BINDIST:
 	    /* Three optional arguments (the install-prefix and then a package
@@ -1586,8 +1660,12 @@ main (int argc, char *argv[])
 	    if (optind < argc) { ipfx = argv[optind++]; }
 	    psfx = "-bin"; if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
-	    rc = gen_bindist (exclude_pats, instcmd, packcmd, ipfx,
-			      psfx, newdir, quiet, &pkgname);
+	    if (print_name) {
+		pkgname = get_packagename (packcmd, psfx, newdir);
+	    } else {
+		rc = gen_bindist (exclude_pats, instcmd, packcmd, ipfx,
+				  psfx, newdir, quiet, &pkgname);
+	    }
 	    break;
     }
     /* Der (Pfad-)Name des erzeugten Archivs muß nun noch in die Standard-
