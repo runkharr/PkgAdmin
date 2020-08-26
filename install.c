@@ -1102,7 +1102,7 @@ static int copy_file (int opt_flags,
 	if (rc) { emesg (0, "WARNING! '%s %s' failed", stripcmd, dst); rc = 0; }
     }
     if ((opt_flags & OPT_COMPRESS) != 0) {
-	rc = do_cmd (gzipcmd, dst);
+	rc = do_cmd (gzipcmd, "-f", dst);
 	if (rc) { emesg (0, "WARNING! '%s %s' failed", stripcmd, dst); rc = 0; }
     }
     return rc;
