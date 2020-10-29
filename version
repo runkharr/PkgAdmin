@@ -10,12 +10,12 @@
 prog="$0"
 fp="${0%/*}/fullpath"
 ppath="`$fp -b1 "$0"`"
-top=`echo "$ppath" | sed -e 's|/admin||'`
+adm=`echo "$ppath" | sed -e 's|/admin||'`
 
-cwd=`pwd`
-cd "$top"
+#cwd=`pwd`
+#test -f "$cwd/VERSION" && top="$cwd" || cd "$top"
 
-usage () {
+usage() {
     cat 1>&2 <<-EOT
 	Usage: $prog {get|set|major|minor|number|ostype|lxdist}
 	       $prog [binary-|source-]directory
@@ -23,6 +23,10 @@ usage () {
 	       $prog packagename
 	EOT
     exit 64
+}
+
+eecho() {
+    echo 1>&2 ${1+"$@"}
 }
 
 newVersion() {
@@ -61,43 +65,70 @@ newVersion() {
     echo "OK, version number is now: $new"
 }
 
+newTop() {
+    local dn="$1" wd="`pwd`"
+    cd "$dn" || { eecho "${PROG}: chdir into '$dn' failed"; exit 1; }
+    dn="`pwd`"
+    echo "$dn"
+}
+
+keepTop() {
+    local cwd="`pwd`"
+    test -f "$cwd/VERSION" && top="$cwd" || top="$adm"
+    cd "$top"
+}
 
 # Get the version number from the `VERSION´ file in the top-level directory ...
 #
-if [ -f "$top/VERSION" ]; then
-    VERSION="`cat "$top/VERSION"`"
-elif [ -d "$top/admin" ]; then
-    VERSION='0.01'
-    echo 1>&2 "${prog}: Creating initial VERSION file; content: $VERSION"
-    echo >"$top/VERSION" "$VERSION"
-else
-    echo 1>&2 "${prog}: you are probably in the wrong directory"
-    exit 64
-fi
+initVersion() {
+    if [ -f "$top/VERSION" ]; then
+	VERSION="`cat "$top/VERSION"`"
+    elif [ -d "$adm/admin" ]; then
+	VERSION='0.01'
+	eecho "${prog}: Creating initial VERSION file; content: $VERSION"
+	echo >"$top/VERSION" "$VERSION"
+    else
+	eecho "${prog}: you are probably in the wrong directory"
+	exit 64
+    fi
+}
+    
 
 case $1 in
     directory|srcdir|source-directory)
+	if [ $# -gt 1 ]; then top="$(newTop "$2")"; else keepTop; fi
+	initVersion
 	pwd=`pwd`; wd=`basename "$pwd"`
 	VS="`echo \"$VERSION\" | sed -e 's/\([.\\|]\)/\\\\\1/g'`"
 	wd="`echo \"$wd\" | sed -e \"s|-$VS\$||\"`"
 	echo "${wd}-$VERSION"
 	;;
     bindir|binary-directory)
+	if [ $# -gt 1 ]; then top="$(newTop "$2")"; else keepTop; fi
+	initVersion
 	pwd=`pwd`; wd=`basename "$pwd"`
 	VS="`echo \"$VERSION\" | sed -e 's/\([.\\|]\)/\\\\\1/g'`"
 	wd="`echo \"$wd\" | sed -e \"s|-$VS\$||\"`"
 	echo "${wd}-$VERSION-bin"
 	;;
     get|number)
+	if [ $# -gt 1 ]; then top="$(newTop "$2")"; else keepTop; fi
+	initVersion
 	echo "$VERSION"
 	;;
     set)
+	if [ $# -gt 1 ]; then top="$(newTop "$2")"; else keepTop; fi
+	initVersion
 	newVersion
 	;;
     major)
+	if [ $# -gt 1 ]; then top="$(newTop "$2")"; else keepTop; fi
+	initVersion
 	expr $VERSION : '\([0-9]*\)\..*'
 	;;
     minor)
+	if [ $# -gt 1 ]; then top="$(newTop "$2")"; else keepTop; fi
+	initVersion
 	echo "$VERSION" | sed -e 's/^[0-9]\+\.\(.\+\)/\1/'
 	;;
     ostype)
@@ -122,6 +153,8 @@ case $1 in
 	if [ $# -lt 2 ]; then
 	    echo "Usage: `basename $0` header <.h-file>" 1>&2; exit 64
 	fi
+	if [ $# -gt 2 ]; then top="$(newTop "$3")"; else keepTop; fi
+	initVersion
 	if [ "${2#/}" != "$2" ]; then vhf="$2"; else vhf="$cwd/$2"; fi
 	if [ -e "$vhf" ]; then echo "${prog}: '$vhf' already exists"; exit 1; fi
 	cat >"$vhf" <<-EOT
@@ -140,6 +173,8 @@ case $1 in
 		EOT
 	;;
     packagename|pkgname|package|name)
+	if [ $# -gt 2 ]; then top="$(newTop "$3")"; else keepTop; fi
+	initVersion
 	if [ -f "$top/PACKAGE" ]; then
 	    sname="`head -1 "$top/PACKAGE" | tr ' [A-Z]_' '-[a-z]-'`"
 	else
