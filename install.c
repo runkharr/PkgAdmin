@@ -335,7 +335,10 @@ is_dir (const char *path, int err)
     struct stat sb;
     if (lstat (path, &sb)) { return -1; }
     if (!S_ISDIR (sb.st_mode)) {
-	errno = (err ? err : ENOTDIR); return 0;
+	if (S_ISLNK (sb.st_mode)) {
+	    if (stat (path, &sb) == 0 && S_ISDIR (sb.st_mode)) { return 1; }
+	    errno = (err ? err : ENOTDIR); return 0;
+	}
     }
     return 1;
 }
