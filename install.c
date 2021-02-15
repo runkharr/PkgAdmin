@@ -333,12 +333,15 @@ static int
 is_dir (const char *path, int err)
 {
     struct stat sb;
-    if (lstat (path, &sb)) { return -1; }
+    int rc = lstat (path, &sb);
+    if (rc) { return rc; }
     if (!S_ISDIR (sb.st_mode)) {
 	if (S_ISLNK (sb.st_mode)) {
-	    if (stat (path, &sb) == 0 && S_ISDIR (sb.st_mode)) { return 1; }
-	    errno = (err ? err : ENOTDIR); return 0;
+	    rc = stat (path, &sb);
+	    if (rc) { return rc; }
+	    if (S_ISDIR (sb.st_mode)) { return 1; }
 	}
+	errno = (err ? err : ENOTDIR); return 0;
     }
     return 1;
 }
