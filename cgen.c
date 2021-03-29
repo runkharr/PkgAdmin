@@ -502,6 +502,7 @@ struct action_s {
 /* Module-internal global variable holding the name of the program.
 */
 static char *progname = NULL, *progpath = NULL;
+static int DEBUGlvl = 1;
 
 /* Return true if the first argument (string) is a prefix of the second one
 ** (or equals the second argument) and false otherwise.
@@ -1288,6 +1289,45 @@ rplc (const char *pat, const char *where, const char *subst)
     return res;
 }
 
+static
+int merge_opts (char ***_optv1, int *_optc1, char ***_optv2, int *_optc2)
+{
+    char **resv = NULL, **optv1 = *_optv1, **optv2 = *_optv2;
+    int resc = 0, optc1 = *_optc1, optc2 = *_optc2, kx, ix;
+    resc = optc1;
+    for (int ix = 0; ix < optc2; ++ix) {
+	char *opt2v = optv2[ix];
+	bool found = false;
+	for (int jx = 0; jx < optc1; ++jx) {
+	    if (! strcmp (optv1[jx], opt2v)) { found = true; break; }
+	}
+	if (found) { *opt2v = '\0'; } else { ++resc; }
+    }
+    if (resc != optc1) {
+	if (! (resv = (char **) malloc ((resc + 1) * sizeof (char *)))) {
+	    return -1;
+	}
+	for (kx = 0; kx < optc1; ++kx) {
+	    resv[kx] = optv1[kx]; optv1[kx] = NULL;
+	}
+	free (optv1);
+	for (int ix = 0; ix < optc2; ++ix) {
+	    char *opt2v = optv2[ix];
+	    if (*opt2v) { resv[kx++] = opt2v; } else { free (opt2v); }
+	    optv2[ix] = NULL;
+	}
+	resv[kx] = NULL; optv1 = resv; optc1 = resc;
+    } else {
+	for (int ix = 0; ix < optc2; ++ix) {
+	    free (optv2[ix]); optv2[ix] = NULL;
+	}
+    }
+    free (optv2);
+    *_optv1 = optv1; *_optc1 = optc1;
+    *_optv2 = NULL; *_optc2 = 0;
+    return 0;
+}
+    
 /* Generate the command from the program (cmd), the value of the environment
 ** variable (envvar) and a list of arguments.
 */
@@ -1345,11 +1385,21 @@ gen_cmd (const char *prog, const char *popts, bool split_prog,
     }
     cmdc += progc;
 
+    if (popts && *popts) {
+	if (shsplit (popts, &optv, &optc, NULL)) { goto ERREXIT; }
+    }
     /* Retrieve the 'options'-string ... */
     envval = NULL;
     if (!(act->env_opts && (envval = getenv (act->env_opts)) && *envval)) {
 	envval = NULL; if (act->env_flags) { envval = getenv (act->env_flags); }
     }
+    if (envval && *envval) {
+	char **envoptv = NULL; int envoptc = 0;
+	if (shsplit (envval, &envoptv, &envoptc, NULL)) { goto ERREXIT; }
+	if (merge_opts (&optv, &optc, &envoptv, &envoptc)) { goto ERREXIT; }
+    }
+	
+#if 0
     if (!envval || !*envval) { envval = popts; }
 
     /* And generate an 'options'-vector from this string ... */
@@ -1362,6 +1412,7 @@ gen_cmd (const char *prog, const char *popts, bool split_prog,
 	if (!(optv = tmalloc (1, char *))) { goto ERREXIT; }
 	*optv = NULL; optc = 0;
     }
+#endif
     cmdc += optc;
 
     /* Increase the number of arguments by the number of the remaining
@@ -1409,7 +1460,6 @@ NX:
 
     /* End of the command vector */
     cmdv[ix] = NULL; cmdc = ix;
-
 
     /* Empty the 'progv' and 'optv' vectors (as their elements were moved to
     ** 'cmdv' ...
@@ -1550,6 +1600,26 @@ void buflist_free (buflist_t *_head)
 }
 
 #include "lib/opentty.h"
+
+static
+void dump_q (FILE *fp, const char *s)
+{
+    if (! strpbrk (s, "=`${}\"';\t []\\")) {
+	fputs (s, fp);
+    } else if (! strpbrk (s, "`$\"\\")) {
+	fputc ('"', fp); fputs (s, fp); fputc ('"', fp);
+    } else {
+	const char *p;
+	fputc ('\'', fp);
+	while ((p = strchr (s, '\''))) {
+	    fwrite (s, 1, (size_t) (p - s), fp);
+	    fputs ("'\\''", fp);
+	    s = ++p;
+	}
+	if (*s) { fputs (s, fp); }
+	fputc ('\'', fp);
+    }
+}
 
 /* Perform the requested action ('compile' or 'link') by executing the
 ** corresponding command in a sub-process. Display the output depending on the
