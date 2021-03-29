@@ -128,8 +128,9 @@ open VERSION, "<$top/VERSION" or
 $_ = <VERSION>; chomp; s/\r$//; close VERSION;
 $version = $_;
 
-($v, $dv) = ($pv =~ /^(.+)-([^-]+)$/);
+($v, $dv) = ($pv =~ /^(.+)(?:-([^-]+))?$/);
 if ($v eq $version) {
+    if ((length $dv) == 0) { exit 0; }
     my $af = STDIN->autoflush (1);
     for (;;) {
 	print "The program version and the last entry in the debian changelog".
@@ -163,7 +164,7 @@ $etext = <<EOT;
 ##DELETE from here
 # Please enter a text describing the new version. This text is later inserted
 # as a new changelog entry in the form
-# $pn ($version-$dv) $pxd
+# $pn ($version@{[$dv ? '-' : '']}$dv) $pxd
 #
 #   * <your text>
 #
@@ -187,7 +188,7 @@ if ($rc) {
 open TX, "<$tf" or
     die "$prog: attempt to read the description failed - $!\n";
 
-@e = ("$pn ($version-$dv) $pxd", ""); @t = ();
+@e = ("$pn ($version@{[$dv ? '-' : '']}$dv) $pxd", ""); @t = ();
 $e = '';
 while (<TX>) {
     chomp; s/\r$//;
