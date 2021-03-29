@@ -14,6 +14,25 @@ adm="$top/admin"
 cur="$(pwd)"
 bld="$cur/pkg-build"
 
+with_source=false
+
+if [ $# -gt 0 ]; then
+    case "$1" in
+	(--with-source|with-source|true)
+	    with_source=true
+	    ;;
+	(--no-source|no-source|false)
+#	    with_source=false
+	    ;;
+	(*)
+	    echo 1>&2 "${PROG}: Invalid option: $1. Use only '[--]with-source' or '[--]no-source',"
+	    echo 1>&2 "    please!"
+	    exit 64
+	    ;;
+    esac
+    shift
+fi
+
 error() {
     local ec="$1"; shift
     echo 1>&2 "${PROG}:" "$@"
@@ -126,7 +145,11 @@ cd "$bld"
 # Use 'dpkg-buildpackage' for generating the debian packages, but only the
 # binary packages and without signing these packages ...
 #
-dpkg-buildpackage -rfakeroot -b #-us -uc
+if $with_source; then
+    dpkg-buildpackage -rfakeroot -sa
+else
+    dpkg-buildpackage -rfakeroot -b #-us -uc
+fi
 
 # Change back into parent directory and remove the build-directory
 # ('debdir') ...
