@@ -211,7 +211,7 @@ static int install_files (int opt_flags, const char *mode,
 
 int main (int argc, char *argv[])
 {
-    int rc, opt, dirmode;
+    int rc, opt, dirmode = 0;
     int optflags = 0;
     char *mode = NULL, *user = NULL, *group = NULL, *tdir = NULL;
     char *gzipcmd = NULL, *stripcmd = NULL;
