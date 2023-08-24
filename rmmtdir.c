@@ -177,7 +177,6 @@ int main (int argc, char *argv[])
 		usage (prog, NULL);		// Additional help invocation
 	    case 'i':
 		interactive = true;		// Enable interactive mode
-		statistics = true;		// Enable statistic on end
 		break;
 	    case 'f':				// Continue if interactive mode
 		force = 1;			// fails (stdin not a terminal)
