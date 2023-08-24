@@ -1,0 +1,31 @@
+#! /bin/sh
+# man-cutlangcode
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2023, Boris Jakubith <runkharr@googlemail.com>
+# License: GNU General Public License, version 2
+#
+# Truncate a given language code from the end of a given manual page file/path.
+
+PROG="$(basename "$0" .sh)"
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $PROG <language code> <manual page path>"
+    exit 0
+fi
+
+if [ $# -lt 2 ]; then
+    echo "${PROG}: Missing argument. Try `$PROG` for help, please!"
+    exit 64
+fi
+
+lc="$1"; shift
+
+mppath="$1"; shift
+
+echo "${mppath%.$lc}"
+
+
