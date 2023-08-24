@@ -1,0 +1,32 @@
+#! /bin/sh
+# man-setsfx
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2023, Boris Jakubith <runkharr@googlemail.com>
+# License: GNU General Public License, version 2
+#
+# Replace the `.man` suffix of a manual page with the given manual section
+# name
+
+PROG="$(basename "$0" .sh)"
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $PROG <section-name> <manual page pathname>"
+    exit 0
+fi
+
+if [ $# -lt 2 ]; then
+    echo 1>&2 "${PROG}: Missing an argument. Try `$PROG` for help, please!"
+    exit 64
+fi
+
+section="$1"; shift
+mppath="$1"; shift
+
+echo "|$mppath|"
+echo "$mppath" | sed -re 's/\.man(\.[a-z]+)?$/.'"$section"'/'
+
+

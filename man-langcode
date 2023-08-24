@@ -1,0 +1,20 @@
+#! /bin/sh
+# man-langcode
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2023, Boris Jakubith <runkharr@googlemail.com>
+# License: GNU General Public License, version 2
+#
+# Extract the language code suffix from the filename of a manual page
+
+PROG="$(basename "$0" .sh)"
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $PROG <manual page pathname>"
+    exit 0
+fi
+
+echo "$1" | sed -e 's|.*\.\([a-z][a-z]*\)$|\1|'
