@@ -13,19 +13,16 @@
 PROG="$(basename "$0" .sh)"
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $PROG <language code> <manual page path>"
+    echo "Usage: $PROG [<language code>] <manual page path>"
     exit 0
 fi
 
 if [ $# -lt 2 ]; then
-    echo "${PROG}: Missing argument. Try `$PROG` for help, please!"
-    exit 64
+    # Assuming an empty language code field ...
+    mppath="$1"; shift
+    echo "$mppath"
+else
+    lc="$1"; shift
+    mppath="$1"; shift
+    [ -z "$lc" ] && echo "$mppath" || echo "${mppath%.$lc}"
 fi
-
-lc="$1"; shift
-
-mppath="$1"; shift
-
-echo "${mppath%.$lc}"
-
-
