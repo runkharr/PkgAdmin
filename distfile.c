@@ -46,22 +46,27 @@
 static const char *src_excludes = ".srcdist-excludes";
 static const char *bin_excludes = ".bindist-excludes";
 
+struct TmplAssoc {
+    const char *tag, *template;
+};
+typedef struct TmplAssoc *TmplAssocPtr;
+
 /* Templates for generating the installation commands.
 ** the placeholder '%p' is replaced by the installation prefix, and '%d' is
 ** replaced by a target directory name where the installation takes place.
 */ 
-static const char *def_insttpls[] = {
-    "make && make DESTDIR=%d %?(PREFIX=%p )install",
-    "make && make DESTDIR=%d %?(PREFIX=%p )install install-man",
-    NULL
+static struct TmplAssoc def_insttpls[] = {
+    { "bin", "make && make DESTDIR=%d %?(PREFIX=%p )install" },
+    { "man", "make && make DESTDIR=%d %?(PREFIX=%p )install install-man" },
+    { NULL, NULL}
 };
 
-static const char *def_cluptpls[] = {
-    "make cleanall",
-    "make distclean",
-    "make pristine",
-    "make clean",
-    NULL
+static struct TmplAssoc def_cluptpls[] = {
+    { "all", "make cleanall" },
+    { "dist", "make distclean" },
+    { "prst", "make pristine" },
+    { "clean", "make clean" },
+    { NULL, NULL }
 };
 
 /* Default templates. '\t' is the delimiter. The first part is a template for
@@ -72,12 +77,12 @@ static const char *def_cluptpls[] = {
 ** - nothing for the source package, and
 ** - "-bin" for the binary package.
 */
-static const char *def_packtpls[] = {
-    "%p%s.tar.gz\ttar cf '%p%s.tar' '%p' && gzip -9f '%p%s.tar'",
-    "%p%s.tar.bz2\ttar cf '%p%s.tar' '%p' && bzip2 -9f '%p%s.tar'",
-    "%p%s.tar.xz\ttar cf '%p%s.tar' '%p' && xz -9f '%p%s.tar'",
-    "%p%s.zip\tzip -9r '%p%s.zip' '%p'",
-    NULL
+static struct TmplAssoc def_packtpls[] = {
+    { "tgz", "%p%s.tar.gz\ttar cf '%p%s.tar' '%p' && gzip -9f '%p%s.tar'" },
+    { "tbz", "%p%s.tar.bz2\ttar cf '%p%s.tar' '%p' && bzip2 -9f '%p%s.tar'" },
+    { "txz", "%p%s.tar.xz\ttar cf '%p%s.tar' '%p' && xz -9f '%p%s.tar'" },
+    { "zip", "%p%s.zip\tzip -9r '%p%s.zip' '%p'" },
+    { NULL, NULL }
 };
 
 static void
@@ -149,19 +154,21 @@ usage (const char *fmt, ...)
 	     "\n     content of (the first line of) the file 'VERSION' which"
 	     " resides in this"
 	     "\n     directory.)\n"
-	     "\nFor each of the '-c', '-i' and '-p' options a non-negative"
-	     " integer may be"
-	     "\nspecified, which is then used for selecting a template from a"
-	     " list which is"
-	     "\nread from a file. If matching file exists, a hard-coded list"
-	     " is used instead."
-	     "\nFor"
-	     "\n  -c the file to be used is either '.cleanupcmds' in the top-"
-	     "level directory"
-	     "\n      of the source tree or 'admin/cleanupcmds',"
-	     "\n  -i it is either '.installcmds' (again at top-level) or"
-	     " 'admin/installcmds',"
-	     "\n  -p it is either '.packcmds' or 'admin/packcmds'.\n\n",
+	     "\nFor each of the '-c', '-i' and '-p' options either a (small)"
+	     " non-negative"
+	     "\ninteger or a tag name may be specified, which is then used for"
+	     " choosing a"
+	     "\ntemplate from a list which is hard-coded within this program."
+//	     "\nread from a file. If matching file exists, a hard-coded list"
+//	     " is used instead."
+//	     "\nFor"
+//	     "\n  -c the file to be used is either '.cleanupcmds' in the top-"
+//	     "level directory"
+//	     "\n      of the source tree or 'admin/cleanupcmds',"
+//	     "\n  -i it is either '.installcmds' (again at top-level) or"
+//	     " 'admin/installcmds',"
+//	     "\n  -p it is either '.packcmds' or 'admin/packcmds'."
+	     "\n\n",
 	     prog, prog, prog, prog,
 	     def_cluptpls[0],
 	     def_insttpls[0],
@@ -586,7 +593,7 @@ get_template (char tplopt,
 	      const char *tplcmd,
 	      const char *tplfname,
 	      const char *tpl_altfname,
-	      const char **def_list)
+	      const TmplAssocPtr def_list)
 {
     long lv = 0;
     int rc, ix, jx;
@@ -597,9 +604,11 @@ get_template (char tplopt,
     ** (index-)value of 'lv' (0) is used ...
     */
     if (tplcmd) {
+	TmplAssocPtr tmpl = NULL;
 	/* In the first step, assume that 'tplcmd' holds a decimal number */
 	lv = (long) strtol (tplcmd, &p, 10);
 	if (p && *p == '\0') {
+	    tmpl = NULL;
 	    if (lv < 0) { 
 		/* It is an error if the conversion succeeded but resulted in a
 		** negative number ...
@@ -608,11 +617,37 @@ get_template (char tplopt,
 				 prog, tplopt);
 		return res;
 	    }
+	    /* 'tplcmd' is a valid positive number. This number is now used
+	    ** for selecting a template from the list ...
+	    */
+	    tmpl = def_list;	// lv == 0 means: use the first template ...
+	    while (lv > 0) {
+		/* If there is no template remaining, abort the loop ... */
+		if (! tmpl->tag) { break; }
+		/* Set `tmpl` to point to the next template in the list and
+		** decrease the template counter `lv` ...
+		*/
+		++tmpl; --lv;
+	    }
+	    // *tmpl == NULL => No valid template found,
+	    // *tmpl != NULL => The value `tmpl` points to is the selected
+	    //                  template ...
+	    return tmpl->template; //##0
+#if 0
 	    /* if 'tplcmd' was not a number, it is assumed that it is already a
 	    ** valid template, so it is returned directly in this case ...
 	    */
 	    return tplcmd;
+#endif
 	}
+	// TODO: Otherwise, try to select the tempate via a tag ...
+	tmpl = def_list;
+	while (tmpl->tag && strcmp (tplcmd, tmpl->tag) != 0) { ++tmpl; }
+	if (tmpl->tag) { return tmpl->template; }
+	/* `tplcmd` is neither a (small) number, nor a tag. This means, that
+	** `tplcmd` is already the template itself.
+	*/
+	return tplcmd;
     }
     tpl_file = tplfname;
     rc = read_tplfile (tplfname, &tpls);
@@ -651,11 +686,13 @@ get_template (char tplopt,
 	res = tpls[ix];
 	cfree (tpls);
     } else {
-	/* Only -1 (neither of the templates files were found) remains here; in
-	** this case, we will use the hard-coded list ...
-	*/
-	while (lv > 0 && def_list[ix]) { --lv; ++ix; }
-	res = def_list[ix];
+	/* Use the first entry of the hard-coded list a default ... */
+	res = def_list->template;
+//	/* Only -1 (neither of the templates files were found) remains here; in
+//	** this case, we will use the hard-coded list ...
+//	*/
+//	while (lv > 0 && def_list[ix]) { --lv; ++ix; }
+//	res = def_list[ix];
     }
     if (!res) { errno = EINVAL; }
     return res;
