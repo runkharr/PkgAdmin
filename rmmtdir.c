@@ -37,8 +37,25 @@ static void usage (const char *prog, const char *fmt, ...)
 	fputs ("\n", stderr);
 	exit (EX_USAGE);
     }
-    printf ("Usage: %s [-[f]i] [-s] <pathname>...\n"
-	    "       %s [-h]\n",
+    printf ("Usage: %s [-[f]i] [-q...] [-s] <pathname>...\n"
+	    "       %s [-h]\n"
+	    "\nOptions/Arguments:"
+	    "\n  -h  Help. This programm allows for an empty argument list or"
+	    " the option `-h`"
+	    "\n      specified for writing this usage message to `stdout`."
+	    "\n  -f  Forcing the deletion of empty directories, even if the"
+	    " interactive mode"
+	    "\n      fails, because `stdin` is not a terminal."
+	    "\n  -i  Turning the interactive mode on. Each time, an empty"
+	    " directory is found,"
+	    "\n      this program asks the user to permit a removal."
+	    "\n  -q  Increase the `quietness` level. If set once, the output"
+	    " of error messages"
+	    "\n      is suppressed; if set twice or more, it even succeeds if"
+	    " some errors"
+	    "\n      occurred."
+	    "\n  -s  Writing a small processing statistic before terminating."
+	    "\n",
 	    prog, prog);
     exit (0);
 }
@@ -168,18 +185,25 @@ int main (int argc, char *argv[])
     bool interactive = false;			// interactive mode
     bool force = false;				// force if interactive fails
     bool statistics = false;
+    int quiet = 0;				// quietness level
 
     if (argc < 2) { usage (prog, NULL); }	// Standard help invocation
 
-    while ((optc = getopt (argc, argv, ":fihs")) != -1) {
+    while ((optc = getopt (argc, argv, ":fhiqs")) != -1) {
 	switch (optc) {
+	    case 'f':				// Continue if interactive mode
+		force = 1;			// fails (stdin not a terminal)
+		break;
 	    case 'h':
 		usage (prog, NULL);		// Additional help invocation
 	    case 'i':
 		interactive = true;		// Enable interactive mode
 		break;
-	    case 'f':				// Continue if interactive mode
-		force = 1;			// fails (stdin not a terminal)
+	    case 'q':
+		++quiet;			// Increate the quietness level
+		interactive = 0;
+		force = 0;
+		statistics = 0;
 		break;
 	    case 's':
 		statistics = true;		// Enable statistic on end
@@ -207,7 +231,9 @@ int main (int argc, char *argv[])
 	int rc = check_if_empty (path);
 	++dc;				// Increase processing counter
 	if (rc < 0) {
-	    fprintf (stderr, "%s - %s\n", path, strerror (errno));
+	    if (quiet < 1) {
+		fprintf (stderr, "%s - %s\n", path, strerror (errno));
+	    }
 	    ++ec; continue;		// Increase error counter & process next
 	}
 	if (rc > 0) { continue; }	// Non-empty directory
@@ -229,16 +255,18 @@ int main (int argc, char *argv[])
 	}
 
 	if (rmdir (path)) {			// Remove the (empty) directory
-	    fprintf (stderr, "%s - %s\n", path, strerror (errno));
+	    if (quiet < 1) {
+		fprintf (stderr, "%s - %s\n", path, strerror (errno));
+	    }
 	    ++ec; continue;			// Removal error
 	}
     }
 
     // Print a statistic if requested
-    if (statistics) {
+    if (statistics && quiet < 1) {
 	printf ("Processed: %u\n", dc);
 	printf ("Errors:    %u\n", ec);
     }
 
-    return (ec > 0 ? 1 : 0);
+    return (ec > 0 && quiet < 2 ? 1 : 0);
 }

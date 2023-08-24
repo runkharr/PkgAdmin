@@ -1,0 +1,29 @@
+#! /bin/sh
+# man-uninstall
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2023, Boris Jakubith <runkharr@googlemail.com>
+# License: GNU General Public License, version 2
+#
+# Small manual page uninstaller utility
+
+PROG="$(basename "$0")"
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $PROG <suffix> <manual page pathname prefix>..."
+    exit 0
+fi
+
+if [ $# -lt 2 ]; then
+    echo 1>&2 "${PROG}: Missing argument(s). Try \`$PROG\` for help, please!"
+    exit 64
+fi
+
+suffix="$1"; shift
+
+for mp in "$@"; do
+    rm -f "$mp" "$mp.$suffix"
+done
