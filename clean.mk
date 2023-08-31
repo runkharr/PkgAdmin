@@ -10,7 +10,7 @@
 # Small "cleanup"-Makefile for the admin directory ...
 #
 
-CLEAN_LIST = $(shell echo *.bin) *.o run a.out core
+CLEAN_LIST = $(shell echo *.bin) *.o run a.out core .cgenrc
 
 PROG=$(lastword $(MAKEFILE_LIST))
 DIR="$(shell dirname "$(PROG)")"
