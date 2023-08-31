@@ -20,6 +20,8 @@
 **    cgen libgen[=<libgen-commands>] [-c <rcfile>] <target> <object-files>
 **    cgen sogen[=<sogen-commands>] [-c <rcfile>] [<target>] <object-files>
 **    cgen rogen[=<rogen-commands>] [-c <rcfile>] [<target>] <object-files>
+**    cgen genrc cc=<compiler-program> [cflags=<compiler-flags>] \
+**               [ld=<linker-program> [lflags=<linker-flags>]
 **
 ** Arguments/Options:
 **
@@ -159,6 +161,7 @@ static int do_clean (action_t *act, const char *prog, int argc, char **argv);
 static int do_generate (action_t *act, const char *prog, int argc, char **argv);
 static int do_help (action_t *act, const char *prog, int argc, char **argv);
 static int do_libgen (action_t *act, const char *prog, int argc, char *argv[]);
+static int do_genrc (action_t *act, const char *prog, int argc, char *argv[]);
 
 typedef struct {
     const char *acname;
@@ -185,7 +188,7 @@ struct action_s {
       "%s%s [-s|-v] [-C <new-directory>] %s",
       "", "<clean-args>",
       "Cleaning up in %s ...",
-      "\n\nArguments/Options:"
+      "\nArguments/Options:"
       "\n"
       "\n  clean"
       "\n    Remove any files and (recursively) directories specified in"
@@ -218,12 +221,12 @@ struct action_s {
       "\n  <clean-args>"
       "\n    The list of files and directories to be removed."
     },
-    { "compile", "cc", do_generate, 0, 0, false,
+    { "compile", "cc", do_generate, 1, 0, false,
       "COMPILER", DEFAULT_COMPILER, NULL, "COPTS", "CFLAGS",
-      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n           %s",
+      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n%s",
       "<compiler-program>", "<compiler-args>",
       "Generating %s ...", /*"Compiling %s ...",*/
-      "\n\nArguments/Options:"
+      "\nArguments/Options:"
       "\n"
       "\n  compile (alt: cc)"
       "\n    Execute a compiler command constructed from a linker program,"
@@ -282,15 +285,15 @@ struct action_s {
     },
     { "help", NULL, do_help, 0, 1, true, NULL, NULL, NULL, NULL, NULL,
       "%s%s [%s]", "", "<topic>", "",
-      "\n\nDisplay usage information on the different topics"
-      "\n\nValid topics are:"
+      "\nDisplay usage information on the different topics."
+      "\nValid topics are:"
     },
-    { "link", "ld", do_generate, 0, 0, false,
+    { "link", "ld", do_generate, 1, 0, false,
       "LINKER", DEFAULT_LINKER, NULL, "LOPTS", "LFLAGS",
-      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n           %s",
+      "%s[=%s] [-c <rcfile>] [-v] [-s] <target> \\\n%s",
       "<linker-program>", "<linker-args>",
       "Linking %s ...",
-      "\n\nArguments/Options:"
+      "\nArguments/Options:"
       "\n"
       "\n  link (alt: ld)"
       "\n    Execute a linker command constructed from a linker program, some"
@@ -354,7 +357,7 @@ struct action_s {
       "%s[=%s] [-v] <target> <object-files>",
       "<libgen-commands>", NULL,
       "Generating %s ...",
-      "\n\nArguments/Options:"
+      "\nArguments/Options:"
       "\n"
       "\n  libgen"
       "\n    generate a (new) library-file (<target>) from a list of"
@@ -403,7 +406,7 @@ struct action_s {
       "%s[=%s] [-v] <target> <object-files>",
       "<rogen-commands>", NULL,
       "Generating %s ...",
-      "\n\nArguments/Options:"
+      "\nArguments/Options:"
       "\n"
       "\n  rogen"
       "\n    generate a (new) relocatable object-file (<target>) from a list"
@@ -452,7 +455,7 @@ struct action_s {
       "%s[=%s] [-v] <target> <object-files>",
       "<sogen-commands>", NULL,
       "Generating %s ...",
-      "\n\nArguments/Options:"
+      "\nArguments/Options:"
       "\n"
       "\n  sogen"
       "\n    generate a (new) shared object-file (<target>) from a list of"
@@ -495,6 +498,40 @@ struct action_s {
       " <target> ...'"
       "\n    (followed by a status message of either ' done' or ' failed'))"
     },
+    {// pfx_name,       eq_name, proc,        minargs,      maxargs,
+	"genrc",        NULL,    do_genrc,    0,            0,
+     // display_topics, env_cmd, default_cmd, default_opts, env_opts
+	false,          "GENRC", NULL,        NULL,         NULL,
+     // env_flags,
+	NULL,
+     // synopsis,
+	"%s [-o <outfile>] cc=<compiler> [cflags=<compiler flags>] \\\n"
+	"[ld=<linker> [lflags=<linker flags>]]",
+     // prog_desc,      prog_args,
+	NULL,           NULL,
+     // short_msg,
+      "Generating %s ...",
+     // prog_help
+      "\nArguments/Options:"
+      "\n\n  -o <outfile>"
+      "\n    Writing the generate rc control into <outfile> instead a file"
+      " `.cgenrc` in"
+      "\n    the current directory."
+      "\n\n  cc=<compiler> (alt: compiler=<compiler>)"
+      "\n    Specifying the compiler program"
+      "\n\n  cflags=<compiler flags>"
+      "\n    Specifying the compiler flags"
+      "\n\n  ld=<linker> (alt: linker=<linker>)"
+      "\n    Specifying the linker program"
+      "\n\n  lflags=<linker flags>"
+      "\n    Specifying the linker flags"
+      "\n\n"
+      "genrc Generates an rc-file, either in the directory where this program"
+      " was"
+      "\ninvoked from, or in <outfile>. Only the compiler command (`cc`) is"
+      " mandatory,"
+      "\nall other arguments (`cflags`, `ld` and `lflags` are optional)."
+    },
     { NULL, NULL, 0, 0, 0, false, NULL, NULL, NULL, NULL, NULL, NULL,
       NULL, NULL, NULL }
 };
@@ -529,13 +566,78 @@ dump_vec (const char *name, int veclen, char **vec, FILE *f)
 }
 #endif
 
+static __inline__ const char *bool2a(bool f)
+{
+    return (f ? "true" : "false");
+}
+
+static const char *l_fillspc (size_t len)
+{
+    static char buf[128];
+    if (len >= sizeof(buf)) { len = sizeof(buf) - 1; }
+    memset (buf, ' ', len); buf[len] = '\0';
+    return buf;
+}
+
+static const char *fillspc (const char *s)
+{
+    return l_fillspc (strlen (s));
+}
+
+static void
+error (int ec, const char *prog, const char *fmt, ...)
+{
+    va_list ap;
+    fprintf (stderr, "%s: ", prog);
+    va_start (ap, fmt); vfprintf (stderr, fmt, ap); va_end (ap);
+    fputs ("\n", stderr);
+    exit (ec);
+}
+
+static char *
+format (const char *prog, const char *fmt, ...)
+{
+    ssize_t out_size = 0;
+    char buf[1024], *dbuf = NULL;
+    va_list ap, ap1;
+    va_start (ap, fmt); va_copy (ap1, ap);
+    out_size = vsnprintf (buf, sizeof(buf), fmt, ap);
+    va_end (ap);
+    if (out_size < 0) { error (1, prog, "%s", strerror (errno)); }
+    if (!(dbuf = malloc (out_size + 1))) {
+	error (1, prog, "%s", strerror (errno));
+    }
+    if (out_size < sizeof(buf)) {
+	strcpy (dbuf, buf);
+    } else {
+	vsnprintf (dbuf, out_size + 1, fmt, ap1);
+    }
+    va_end (ap1);
+    return dbuf;
+}
+
+static void
+print_synopsis (FILE *out, size_t indent, const char *eols, const char *s)
+{
+    const char *p, *q;
+
+    q = s;
+    while ((p = strstr (q, eols))) {
+	p += strlen (eols);
+	fwrite (q, 1, (size_t) (p - q), out);
+	q = p; if (*q) { fputs (l_fillspc (indent), out); }
+    }
+    if (*q) { fputs (q, out); fputs (eols, out); }
+}
+
 /* Display either the usage message and terminate (exit-code = 0) or an error
 ** message concerning the usage and abort the program (exit-code = 64).
 */
-static
-void usage (const char *fmt, ...)
+static void
+usage (const char *fmt, ...)
 {
     int ix;
+    char *synopsis = NULL;
     action_t *act;
     if (fmt) {
 	va_list av;
@@ -550,13 +652,14 @@ void usage (const char *fmt, ...)
 		if (act->eq_name && !strcmp (acname, act->eq_name)) { break; }
 	    }
 	    if (!act->pfx_name) {
-		fprintf (stderr, "%s: no topic for '%s' available\n",
-				 progname, acname);
-		exit (64);
+		error (64, progname, "no topic available for '%s'", acname);
 	    }
 	    printf ("Usage: %s ", progname);
-	    printf (act->synopsis, act->pfx_name, act->prog_desc,
-		    act->prog_args);
+	    synopsis = format (progname, act->synopsis, act->pfx_name,
+			       act->prog_desc, act->prog_args);
+	    if (! synopsis) { error (99, progname, "%s", strerror(errno)); }
+	    print_synopsis (stdout, strlen (progname) + 8, "\n", synopsis);
+	    free (synopsis);
 	    printf ("%s", act->prog_help);
 	    if (act->display_topics) {
 		for (ix = 0; (act = &actions[ix])->pfx_name; ++ix) {
@@ -577,10 +680,19 @@ void usage (const char *fmt, ...)
 GENERAL_DESC:
     act = &actions[0];
     printf ("\nUsage: %s ", progname);
-    printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
+    act = &actions[0];
+    synopsis = format (progname, act->synopsis, act->pfx_name,
+		       act->prog_desc, act->prog_args);
+    if (! synopsis) { error (99, progname, "%s", strerror(errno)); }
+    print_synopsis (stdout, strlen (progname) + 8, "\n", synopsis);
+    free (synopsis);
     for (ix = 1; (act = &actions[ix])->pfx_name; ++ix) {
-	printf ("\n       %s ", progname);
-	printf (act->synopsis, act->pfx_name, act->prog_desc, act->prog_args);
+	printf ("       %s ", progname);
+	synopsis = format (progname, act->synopsis, act->pfx_name,
+			   act->prog_desc, act->prog_args);
+	if (! synopsis) { error (99, progname, "%s", strerror(errno)); }
+	print_synopsis (stdout, strlen (progname) + 8, "\n", synopsis);
+	free (synopsis);
     }
     printf ("\n\nFor further help issue '%s help <topic>', where topic is"
 	    " one of\n(", progname);
@@ -820,7 +932,6 @@ ERREXIT:
     errno = ec;
     return -1;
 }
-/*##1*/
 
 static
 void _argv_free (char ***_argv)
@@ -1933,6 +2044,105 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     //if (verbose == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
+
+typedef struct builddata_s {
+    const char *cc, *cflags, *ld, *lflags;
+} builddata_t;
+
+static int
+do_genrc (action_t *act, const char *prog, int argc, char *argv[])
+{
+    char *cc = NULL, *cflags = NULL, *ld = NULL, *ldflags = NULL;
+    char *opt, *outfile = NULL;
+    FILE *out;
+    int optx = 0, ac, rc, cdesclen = 0, ix, verbose = 0;
+    cdesc_t cdesc = NULL;
+    builddata_t bdata = { NULL, NULL, NULL, NULL };
+    for (optx = 1; optx < argc; ++optx) {
+	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
+	if (is_prefix ("-o", opt)) {
+	    if (outfile) { usage ("ambiguous '-o' option."); }
+	    if (opt[2]) {
+		outfile = &opt[2];
+	    } else {
+		if (optx >= argc - 1) {
+		    usage ("missing argument for option '-o'");
+		}
+		outfile = argv[++optx];
+	    }
+	    continue;
+	}
+	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
+	    verbose = 1; continue;
+	}
+
+	usage ("invalid option '%s'", opt);
+    }
+    if (! outfile) { outfile = ".cgenrc"; }
+    for (ix = optx; ix < argc; ++ix) {
+	const char *arg = argv[ix];
+	bool shn = false;
+	if ((shn = is_prefix ("cc=", arg)) || is_prefix ("compiler=", arg)) {
+	    if (bdata.cc) { error (1, prog, "Ambiguous compiler spec."); }
+	    bdata.cc = arg + (shn ? 3 : 9);
+	} else if (is_prefix ("cflags=", arg)) {
+	    if (bdata.cflags) { error (1, prog, "Ambiguous compiler flags."); }
+	    bdata.cflags = arg + 7;
+	} else if ((shn = is_prefix ("ld=", arg)) ||
+		   is_prefix ("linker=", arg)) {
+	    if (bdata.ld) { error (1, prog, "Ambiguous link/loader spec."); }
+	    bdata.ld = arg + (shn ? 3 : 7);
+	} else if (is_prefix ("lflags=", arg)) {
+	    if (bdata.lflags) {
+		error (1, prog, "Ambiguous link/loader flags.");
+	    }
+	    bdata.lflags = arg + 7;
+	} else {
+	    fprintf (stderr, "%s: WARNING! Ignoring unknown '%s'\n", prog, arg);
+	}
+    }
+    if (! bdata.cc) {
+	error (1, prog, "At least `cc=<compiler>` must be given.");
+    }
+    if (verbose) {
+	// Write this command to stdout ...
+	printf ("%s", prog);
+	for (ix = 0; ix < argc; ++ix) {
+	    printf (" %s", argv[ix]);
+	}
+	fputs ("\n", stdout);
+    } else {
+	printf ("Creating %s ...\n", outfile);
+    }
+    // Now, we begin to write to the output file ...
+    if (!(out = fopen (outfile, "w"))) {
+	error (1, prog, "%s", strerror (errno));
+    }
+    fputs ("# This file is automatically generated. Feel free to modify it to"
+	   " your wishes,\n",
+	   out);
+    fprintf (out,
+	     "# but remember that it can be overwritten by %s at any time.\n",
+	     prog);
+    fprintf (out, "cc=%s\n", bdata.cc);
+    if (bdata.cflags) {
+	fprintf (out, "ccopts=%s @ARGV %%t[.c/.o] -o %%t\n", bdata.cflags);
+    } else {
+	fputs ("ccopts= @ARGV %t[.c/.o] -o %t\n", out);
+    }
+    if (bdata.ld) {
+	fprintf (out, "ld=%s\n", bdata.ld);
+	if (bdata.lflags) {
+	    fprintf (out, "ldopts=%s @ARGV -o %%t\n", bdata.lflags);
+	} else {
+	    fputs ("ldopts= @ARGV -o %t\n", out);
+	}
+    }
+    fclose (out);
+    return 0;
+}
+
+
 
 #if NORMALIZED_PROGPATH
 static void
