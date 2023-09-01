@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <dirent.h>
 #include <regex.h>
 #include <errno.h>
@@ -85,24 +86,83 @@ static struct TmplAssoc def_packtpls[] = {
     { NULL, NULL }
 };
 
+
+static const char eol[] = "\n";
+
+static int
+veprintf (const char *fmt, va_list ap)
+{
+    int l1, l2, l3;
+    l1 = fprintf (stderr, "%s: ", prog);
+    l2 = vfprintf (stderr, fmt, ap);
+    l3 = fputs (eol, stderr);
+    return (l1 < 0 || l2 < 0 || l3 < 0 ? -1 : l1 + l2 + strlen (eol));
+}
+
+static int
+eprintf (const char *fmt, ...)
+{
+    int l;
+    va_list ap;
+    va_start (ap, fmt); l = veprintf (fmt, ap); va_end (ap);
+    return l;
+}
+
+static void
+error (int ec, const char *fmt, ...)
+{
+    va_list ap;
+    va_start (ap, fmt); eprintf (fmt, ap); va_end (ap);
+    exit (ec);
+}
+
+static void *
+check_allocv (size_t elsz, size_t elnum, bool align)
+{
+    void *res;
+    size_t nelsz = elsz, ressz;
+    if (align) {
+	if (nelsz > sizeof(long)) {
+	    nelsz += sizeof(long) - 1;
+	    nelsz -= nelsz % sizeof(long);
+	} else if (elsz > 1) {
+	    elsz += elsz % 2;
+	}
+    }
+    ressz = nelsz * elnum;
+    if (!(res = malloc (ressz))) { error (1, "%s", strerror (errno)); }
+    return res;
+}
+
+#define t_check_allocv(t, sz) (check_allocv (sizeof(t), (sz), false))
+
+static void *
+check_allocp (size_t sz0, size_t sz1)
+{
+    size_t ressz = sz0 + sz1;
+    void *res;
+    if (!(res = malloc (ressz))) { error (1, "%s", strerror (errno)); }
+    return res;
+}
+
+#define t_check_allocp(t, sz) (check_allocp (sizeof(t), (sz), false))
+
+
 static void
 usage (const char *fmt, ...)
 {
     va_list ap;
     if (fmt) {
-	fprintf (stderr, "%s: ", prog);
-	va_start (ap, fmt);
-	vfprintf (stderr, fmt, ap);
-	va_end (ap);
+	va_start (ap, fmt); veprintf (fmt, ap); va_end (ap);
 	exit (64);
     }
     fprintf (stderr,
 	     "\nUsage: %s [-p 'packcmd'] [-c 'cleancmd'] [-x 'excludes'] [-n]"
 	     " [-q] \\\n"
-	     "                   srcdist [suffix [dir]]"
+	     "                   srcdist [dir [suffix]]"
 	     "\n       %s [-p 'packcmd'] [-i 'installcmd'] [-x 'excludes']"
 	     " [-n] [-q] \\\n"
-	     "                   bindist [prefix [suffix [dir]]]"
+	     "                   bindist [dir [prefix [suffix]]]"
 	     "\n       %s -h"
 	     "\n       %s -V"
 	     "\n"
@@ -183,10 +243,7 @@ buf_clear (char **_buf, size_t *_bufsz)
     if (!*_buf) {
 	char *buf = 0;
 	size_t bufsz = 1024;
-	if (!(buf = t_allocv (char, bufsz))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno));
-	    exit (1);
-	}
+	buf = t_check_allocv (char, bufsz);
 	*_buf = buf; *_bufsz = bufsz;
     }
     memset (*_buf, 0, *_bufsz);
@@ -201,8 +258,7 @@ buf_puts (const char *p, size_t pl, char **_buf, size_t *_bufsz)
 	bs = *_bufsz + bl + pl + 1025;
 	bs -= bs % 1024;
 	if (!(buf = t_realloc (char, *_buf, bs))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno));
-	    exit (1);
+	    error (1, "%s", strerror (errno));
 	}
 	if (!*_buf) { *buf = '\0'; }
 	*_buf = buf; *_bufsz = bs;
@@ -279,7 +335,6 @@ conv_path (const char *p, size_t len, char **_buf, size_t *_bufsz)
     }
 }
 
-
 static int
 is_dir (const char *path)
 {
@@ -301,20 +356,15 @@ qcommand (const char *cmd, const char *outto)
 	if (outto) {
 	    int out = open (outto, O_CREAT|O_WRONLY|O_TRUNC, 0600);
 	    if (out < 0) {
-		fprintf (stderr, "%s: open() - %s\n", prog, strerror (errno));
-		exit (1);
+		error (1, "open() - %s", strerror (errno));
 	    }
 	    fflush (stdout);
 	    if (dup2 (out, 1) < 0) {
-		fprintf (stderr, "%s: dup2() to stdout - %s\n",
-				 prog, strerror (errno));
-		exit (1);
+		error (1, "dup2() to stdout - %s", strerror (errno));
 	    }
 	    fflush (stderr);
 	    if (dup2 (out, 2) < 0) {
-		fprintf (stderr, "%s: dup2() to stderr - %s\n",
-				 prog, strerror (errno));
-		exit (1);
+		error (1, "dup2() to stderr - %s", strerror (errno));
 	    }
 	    close (out);
 	}
@@ -367,7 +417,6 @@ put_special (char special, int qmode, char **_buf, size_t *_bufsz)
     sprintf (buf, cf, special);
     buf_puts (buf, strlen (buf), _buf, _bufsz);
 }
-
 
 static void
 unquote_rx (const char *regex_un, char **_buf, size_t *_bufsz)
@@ -426,13 +475,10 @@ append_regex (const char *regex, rxlist_t *_first, rxlist_t *_last)
     int rc;
     char errbuf[1024];
     rxlist_t el = t_allocp (struct rxlist_s, strlen (regex));
-    if (!el) {
-	fprintf (stderr, "%s: %s - %s\n", prog, regex, strerror (errno));
-	exit (1);
-    }
+    if (!el) { error (1, "%s - %s\n", regex, strerror (errno)); }
     if ((rc = regcomp (&el->rx, regex, REG_EXTENDED|REG_NOSUB))) {
 	regerror (rc, &el->rx, errbuf, sizeof (errbuf));
-	fprintf (stderr, "%s: %s - %s\n", prog, regex, errbuf);
+	eprintf ("%s - %s\n", regex, errbuf);
 	rc = -1;
     } else {
 	strcpy (el->s, regex);
@@ -523,7 +569,7 @@ load_pattern_list (const char *filename, int quiet, rxlist_t *_out)
 	}
 	fclose (file);
     } else if (!quiet) {
-	fprintf(stderr, "WARNING! %s - %s\n", filename, strerror (errno));
+	fprintf (stderr, "WARNING! %s - %s\n", filename, strerror (errno));
     }
 
     /* Add the filename-patterns from a hard-coded file, too ... */
@@ -536,7 +582,7 @@ load_pattern_list (const char *filename, int quiet, rxlist_t *_out)
 	}
 	fclose (file);
     } else if (!quiet) {
-	fprintf(stderr, "WARNING! %s - %s\n", p, strerror (errno));
+	fprintf (stderr, "WARNING! %s - %s\n", p, strerror (errno));
     }
     cfree (line); cfree (buf);
     *_out = first;
@@ -573,12 +619,10 @@ read_tplfile (const char *tplfname, char ***_result)
 	if (*p == '\0' || *p == '#') { continue; }
 	q = p + strlen (p); while (q != p && isws (*--q));
 	*++q = '\0';
-	if (!(tpl = t_allocv (char, strlen (p)))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-	}
+	tpl = t_check_allocv (char, strlen (p));
 	strcpy (tpl, p);
 	if (!(res = t_realloc (char *, res, reslen + 2))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
+	    eprintf ("%s", strerror (errno));
 	}
 	res[reslen] = tpl;
     }
@@ -613,8 +657,7 @@ get_template (char tplopt,
 		/* It is an error if the conversion succeeded but resulted in a
 		** negative number ...
 		*/
-		fprintf (stderr, "%s: argument of option '-%c' out of range\n",
-				 prog, tplopt);
+		eprintf ("argument of option '-%c' is out of range", tplopt);
 		return res;
 	    }
 	    /* 'tplcmd' is a valid positive number. This number is now used
@@ -658,15 +701,14 @@ get_template (char tplopt,
     ix = 0;
     if (rc == -2) {
 	/* error: The file couldn't be opened ... */
-	fprintf (stderr, "%s: %s - %s\n", prog, tpl_file, strerror (errno));
+	eprintf ("%s - %s", tpl_file, strerror (errno));
 	return res;
     }
     if (rc == 0) {
 	/* At least one of the template files could be opened, but it didn't
 	** contain a valid template ...
 	*/
-	fprintf (stderr, "%s: %s was found but didn't hold any template\n",
-			 prog, tpl_file);
+	eprintf ("%s was found but didn't contain any template", tpl_file);
 	errno = EINVAL;
 	return res;
     }
@@ -709,20 +751,14 @@ get_version (void)
 	novers = "noversion";
 	if (bgetline (versionfile, line, linesz) >= 0) {
 	    if (*line)  {
-		if (!(res = t_allocv (char, strlen (line)))) {
-		    fprintf (stderr, "%s: %s\n", prog, strerror (errno));
-		    exit (1);
-		}
+		res = t_check_allocv (char, strlen (line));
 		strcpy (res, line);
 	    }
 	}
 	fclose (versionfile);
     }
     if (!res) {
-	if (!(res = t_allocv (char, strlen (novers) + 1))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno));
-	    exit (1);
-	}
+	res = t_check_allocv (char, strlen (novers) + 1);
 	strcpy (res, novers);
     }
     return res;
@@ -749,9 +785,7 @@ get_thisdir (void)
     if (!p || *p == '\0') {
 	fprintf (stderr, "%s: invalid path\n", prog); exit (1);
     }
-    if (!(res = t_allocv (char, strlen (p) + 1))) {
-	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-    }
+    res = t_check_allocv (char, strlen (p) + 1);
     strcpy (res, p);
     return res;
 }
@@ -760,26 +794,25 @@ static char *
 get_packdir (const char *packdir)
 {
     char *res = NULL, *wd, *vers, *p;
-    size_t pl, resl;
-    if (packdir) {
-	if (!(res = t_allocv (char, strlen (packdir)))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-	}
-	strcpy (res, packdir);
-    } else {
+    size_t pl, resl, ressz;
+    if (! packdir) {
 	wd = get_thisdir (); vers = get_version ();
-	if (!(res = t_allocv (char, strlen (wd) + strlen (vers) + 2))) {
-	    fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-	}
-	strcpy (res, wd);
-	resl = strlen (res);
-	pl = strlen (vers) + 1;
-	if (resl < pl
-	||  (p = &res[resl - pl], *p != '-')
-	||  strcmp (&p[1], vers)) {
-	    strcat (res, "-"); strcat (res, vers);
-	}
+	ressz = strlen (wd) + strlen (vers) + 2;
+	res = t_check_allocv (char, ressz);
+	p = stpcpy (res, wd); *p++ = '-'; strcpy (p, vers);
 	cfree (wd); cfree (vers);
+    } else if (is_dir (packdir)) {
+	char *p;
+	wd = get_thisdir (); vers = get_version ();
+	resl = strlen (packdir) + strlen (wd) + strlen (vers) + 3;
+	res = t_check_allocv (char, resl);
+	p = stpcpy (res, packdir); *p++ = '/';
+	p = stpcpy (p, wd); *p++ = '-';
+	strcpy (p, vers);
+	cfree (wd); cfree (vers);
+    } else {
+	res = t_check_allocv (char, strlen (packdir));
+	strcpy (res, packdir);
     }
     return res;
 }
@@ -1158,12 +1191,8 @@ gen_package (const char *packcmd, const char *packdir,
 	r2[0].c = 'F'; r2[0].s = fn;
 	r2[1].c = 0; r2[1].s = NULL;
 	pf_subst (r2, cp, &cmd, &cmdsz);
-	if (!(package = t_allocv (char, strlen (fn) + 1))) {
-	    fprintf (stderr, "%s: attempt to allocate memory for the"
-			     " package-name failed\n", prog);
-	} else {
-	    strcpy (package, fn);
-	}
+	package = t_check_allocv (char, strlen (fn) + 1);
+	strcpy (package, fn);
 	buf_delete (&fn, &fnsz);
     }
     rc = qcommand (cmd, (quiet ? "/dev/null" : NULL));
@@ -1184,8 +1213,8 @@ remove_tree (const char *dir, char **_buf, size_t *_bufsz)
     DIR *dfp = opendir (dir);
     struct dirent *de = NULL;
     if (!dfp) {
-	fprintf (stderr, "%s: attempt to read directory '%s' failed - %s\n",
-			 prog, dir, strerror (errno));
+	eprintf ("attempt to read directory '%s' failed - %s",
+		 dir, strerror (errno));
 	return -1;
     }
     while ((de = readdir (dfp))) {
@@ -1242,6 +1271,55 @@ remove_packdir (const char *packdir)
 }
 /*#### end remove_packdir ####*/
 
+/*#### extract_from_template ####*/
+static char *
+extract_from_template (int n, char dlc, const char *tmpl)
+{
+    char *res = NULL;
+    const char *p = tmpl, *q;
+    do {
+	q = strchr (p, dlc);
+	if (! q) { q = p + strlen (p); break; }
+	if (n == 0) { break; }
+	p = q + 1;
+    } while (n-- >= 0);
+    if (n > 0) {
+	errno = ERANGE;
+	error (1, "Extracting part template failed - index out of range",
+		  strerror (errno));
+    }
+    if (!(res = t_allocv (char, (size_t) (q - p)))) {
+	error (1, "%s\n", strerror (errno));
+    }
+    memcpy (res, p, (size_t) (q - p)); res[q - p] = '\0';
+    return res;
+}
+/*#### end extract_from_template ####*/
+
+/*#### get_packagename ####*/
+static char *
+get_packagename (const char *packcmd,
+		 const char *suffix,
+		 const char *newdir)
+{
+    size_t ressz = 0, fnsz = 0;
+    char *res = NULL, *fn = NULL;
+    char *packdir = get_packdir (newdir);
+    const char *packtpl = get_template ('p', packcmd, ".packcmds",
+					"admin/packcmds", def_packtpls);
+    char *pkgname_tpl = extract_from_template (0, '\t', packtpl);
+    struct rplc_struct rx[] = {
+	{ 'p', packdir }, { 's', suffix }, { 0, NULL }
+    };
+    pf_subst (rx, pkgname_tpl, &fn, &fnsz);
+    ressz = strlen (fn) + 1;
+    res = t_check_allocv (char, ressz);
+    memcpy (res, fn, ressz);
+    free (fn); free (pkgname_tpl); free (packdir);
+    return res;
+}
+/*#### end get_packagename ####*/
+
 /*#### gen_srcdist ####*/
 
 /* Generate a source-archive using all files in the current source-tree which
@@ -1265,40 +1343,36 @@ gen_srcdist (rxlist_t exclude_pats,
 	     char **_package)
 {
     int rc;
-    char *packdir, *buf = NULL, *package = NULL;
+    char *packdir, *buf = NULL, *package = NULL, *packname = NULL;
     size_t bufsz = 0;
     const char *cluptpl = NULL, *packtpl = NULL, *t;
     rxlist_t last_pat = 0;
     cluptpl = get_template ('c', cleanupcmd, ".cleanupcmds",
 			    "admin/cleanupcmds", def_cluptpls);
-    if (!cluptpl) {
-	fprintf (stderr, "%s: no template for cleaning up found", prog);
-	return -1;
-    }
+    if (!cluptpl) { eprintf ("no template for cleaning up found"); return -1; }
+
     packtpl = get_template ('p', packcmd, ".packcmds", "admin/packcmds",
 			    def_packtpls);
-    if (!packtpl) {
-	fprintf (stderr, "%s: no packing-template found", prog);
-	return -1;
-    }
+
+    if (!packtpl) { eprintf ("no packing-template found"); return -1; }
+
     packdir = get_packdir (newdir);
-    if (mkdir (packdir, 0755)) {
-	fprintf (stderr, "%s: %s - %s\n", prog, packdir, strerror (errno));
-	exit (1);
+
+    if (mkdir (packdir, 0755)) { //  && errno != EEXIST) {
+	error (1, "%s - %s\n", packdir, strerror (errno));
     }
+
     if ((last_pat = exclude_pats)) {
 	while (last_pat->next) { last_pat = last_pat->next; }
     }
     if (add_pattern (packdir, &exclude_pats, &last_pat, &buf, &bufsz) < 0) {
-	fprintf (stderr, "%s: adding '%s' to exclude-list failed - %s\n",
-			 prog, packdir, strerror (errno));
-	exit (1);
+	error (1, "adding '%s' to exclude-list failed - %s\n",
+		  packdir, strerror (errno));
     }
     t = "~^(\\./(.*/)?(\\.svn|CVS))$";
     if (add_pattern (t, &exclude_pats, &last_pat, &buf, &bufsz) < 0) {
-	fprintf (stderr, "%s: adding '%s' to exclude-list failed - %s\n",
-			 prog, t+1, strerror (errno));
-	exit (1);
+	error (1, "adding '%s' to exclude-list failed - %s\n",
+		  t+1, strerror (errno));
     }
     /* "Intelligentes" Kopieren der Daten aus dem aktuellen Verzeichnis in
     ** das zu packende Zielverzeichnis. Die Dateien werden nach Möglichkeit
@@ -1318,8 +1392,8 @@ gen_srcdist (rxlist_t exclude_pats,
     }
     /* Das Zielverzeichnis wird nun noch weggeräumt ... */
     if (remove_packdir (packdir)) {
-	fprintf (stderr, "%s: attempt to remove '%s' failed - %s\n",
-			 prog, packdir, strerror (errno));
+	eprintf ("attempt to remove '%s' failed - %s\n",
+		 packdir, strerror (errno));
     }
     /* Zum Schluß wird der Name des erzeugten Archivs an den Ausgabe-parameter
     ** zugewiesen ...
@@ -1329,8 +1403,7 @@ gen_srcdist (rxlist_t exclude_pats,
 }
 /*#### end gen_srcdist ####*/
 
-/*#### gen_bindist ####*/
-
+/*#### cwd ####*/
 static const char *
 cwd (void)
 {
@@ -1348,6 +1421,7 @@ cwd (void)
 	wd = wd1;
     }
 }
+/*#### end cwd ####*/
 
 typedef struct flist_s *flist_t;
 struct flist_s {
@@ -1356,6 +1430,7 @@ struct flist_s {
     char path[1];
 };
 
+/*#### flist_add ####*/
 static flist_t
 flist_add (flist_t fl, const char *path, int is_dir)
 {
@@ -1367,7 +1442,9 @@ flist_add (flist_t fl, const char *path, int is_dir)
     }
     return newfl;
 }
+/*#### end flist_add ####*/
 
+/*#### collect_excludes ####*/
 static int
 collect_excludes (const char *dir, rxlist_t excl, flist_t *_xl,
 		  char **_buf, size_t *_bufsz)
@@ -1382,8 +1459,8 @@ collect_excludes (const char *dir, rxlist_t excl, flist_t *_xl,
     sdlist_t sdlist = NULL, newsd;
     DIR *dfp = opendir (dir);
     if (!dfp) {
-	fprintf (stderr, "%s: attempt to read directory '%s' failed - %s\n",
-			 prog, dir, strerror (errno));
+	eprintf ("attempt to read directory '%s' failed - %s\n",
+		 dir, strerror (errno));
 	return -1;
     }
     while ((de = readdir (dfp))) {
@@ -1437,7 +1514,9 @@ ERROR:
     errno = ec;
     return -1;
 }
+/*#### end collect_excludes ####*/
 
+/*#### exclude_binaries ####*/
 static int
 exclude_binaries (const char *packdir, rxlist_t exclude_pats)
 {
@@ -1470,7 +1549,9 @@ ERROR:
     errno = ec;
     return -1;
 }
+/*#### end exclude_binaries ####*/
 
+/*#### gen_bindist ####*/
 static int
 gen_bindist (rxlist_t exclude_pats,
 	     const char *instcmd, const char *packcmd,
@@ -1484,27 +1565,22 @@ gen_bindist (rxlist_t exclude_pats,
     size_t cmdsz = 0;
     struct rplc_struct r1[5];
 
-    insttpl = get_template ('c', instcmd, ".installcmds",
-			    "admin/installcmds",
+    insttpl = get_template ('c', instcmd, ".installcmds", "admin/installcmds",
 			    def_insttpls);
     if (!insttpl) {
-	fprintf (stderr, "%s: no template for generating binaries up found",
-			 prog);
+	eprintf ("no template for generating binaries up found", prog);
 	return -1;
     }
 
     packtpl = get_template ('p', packcmd, ".packcmds", "admin/packcmds",
 			    def_packtpls);
-    if (!packtpl) {
-	fprintf (stderr, "%s: no packing-template found", prog);
-	return -1;
-    }
+
+    if (!packtpl) { eprintf ("no packing-template found", prog); return -1; }
 
     packdir = get_packdir (newdir);
 
     if (mkdir (packdir, 0755)) {
-	fprintf (stderr, "%s: %s - %s\n", prog, packdir, strerror (errno));
-	exit (1);
+	error (1, "%s - %s\n", packdir, strerror (errno));
     }
 
     r1[0].c = 'd'; r1[0].s = packdir;
@@ -1529,8 +1605,7 @@ gen_bindist (rxlist_t exclude_pats,
 
     /* Das Zielverzeichnis wird nun noch weggeräumt ... */
     if (remove_packdir (packdir)) {
-	fprintf (stderr, "%s: attempt to remove '%s' failed - %s\n",
-			 prog, packdir, strerror (errno));
+	eprintf ("removing '%s' failed - %s", packdir, strerror (errno));
     }
 
     /* Zum Schluß wird der Name des erzeugten Archivs an den Ausgabe-parameter
@@ -1545,6 +1620,7 @@ gen_bindist (rxlist_t exclude_pats,
 #define MODE_SRCDIST 0
 #define MODE_BINDIST 1
 
+/*#### subst_version ####*/
 static char *
 subst_version (const char *path)
 {
@@ -1564,56 +1640,9 @@ subst_version (const char *path)
     cfree (version);
     return res;
 }
+/*#### end subst_version ####*/
 
-static char *
-extract_from_template (int n, char dlc, const char *tmpl)
-{
-    char *res = NULL;
-    const char *p = tmpl, *q;
-    do {
-	q = strchr (p, dlc);
-	if (! q) { q = p + strlen (p); break; }
-	if (n == 0) { break; }
-	p = q + 1;
-    } while (n-- >= 0);
-    if (n > 0) {
-	errno = ERANGE;
-	fprintf (stderr,
-		 "%s: Extracting part template failed - index out of range\n",
-		 prog, strerror (errno));
-	exit (1);
-    }
-    if (!(res = t_allocv (char, (size_t) (q - p)))) {
-	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-    }
-    memcpy (res, p, (size_t) (q - p)); res[q - p] = '\0';
-    return res;
-}
-
-static char *
-get_packagename (const char *packcmd,
-		 const char *suffix,
-		 const char *newdir)
-{
-    size_t ressz = 0, fnsz = 0;
-    char *res = NULL, *fn = NULL;
-    char *packdir = get_packdir (newdir);
-    const char *packtpl = get_template ('p', packcmd, ".packcmds",
-					"admin/packcmds", def_packtpls);
-    char *pkgname_tpl = extract_from_template (0, '\t', packtpl);
-    struct rplc_struct rx[] = {
-	{ 'p', packdir }, { 's', suffix }, { 0, NULL }
-    };
-    pf_subst (rx, pkgname_tpl, &fn, &fnsz);
-    ressz = strlen (fn) + 1;
-    if (!(res = t_allocv (char, ressz))) {
-	fprintf (stderr, "%s: %s\n", prog, strerror (errno)); exit (1);
-    }
-    memcpy (res, fn, ressz);
-    free (fn); free (pkgname_tpl); free (packdir);
-    return res;
-}
-
+/*#### Main program ####*/
 int
 main (int argc, char *argv[])
 {
@@ -1672,8 +1701,7 @@ main (int argc, char *argv[])
 	usage ("invalid mode; use a (prefix of) 'srcdist' or 'bindist'");
     }
     if (load_pattern_list (exclude_file, quiet, &exclude_pats)) {
-	fprintf (stderr, "%s: errors found in '%s'\n", prog, argv[1]);
-	exit (1);
+	error (1, "errors found in '%s'", argv[1]);
     }
     /* ... */
     switch (mode) {
@@ -1681,8 +1709,8 @@ main (int argc, char *argv[])
 	    /* Two optional arguments (a package-suffix and then the directory
 	    ** where the package is generated ...
 	    */
-	    if (optind < argc) { psfx = argv[optind++]; }
 	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
+	    if (optind < argc) { psfx = argv[optind++]; }
 	    if (print_name) {
 		pkgname = get_packagename (packcmd, psfx, newdir);
 	    } else {
@@ -1694,9 +1722,9 @@ main (int argc, char *argv[])
 	    /* Three optional arguments (the install-prefix and then a package
 	    ** suffix and then the directory where the package is generated) ...
 	    */
+	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
 	    if (optind < argc) { ipfx = argv[optind++]; }
 	    psfx = "-bin"; if (optind < argc) { psfx = argv[optind++]; }
-	    if (optind < argc) { newdir = subst_version (argv[optind++]); }
 	    if (print_name) {
 		pkgname = get_packagename (packcmd, psfx, newdir);
 	    } else {
@@ -1711,4 +1739,4 @@ main (int argc, char *argv[])
     if (!rc) { printf ("%s\n", pkgname); }
     return (rc ? 1 : 0);
 }
-/*#### end of main program ####*/
+/*#### end of Main program ####*/
