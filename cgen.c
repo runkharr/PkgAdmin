@@ -1016,9 +1016,18 @@ rcdef_t rcdefs[] = {
     { "link", "linker_options", 1, 14 },
     { "link", "ldopts", 1, 6 },
     { "link", "lopts", 1, 5 },
-    { "libgen", "libgencmd", 0, 6 },
-    { "rogen", "rogencmd", 0, 5 },
-    { "sogen", "sogencmd", 0, 5 },
+    { "libgencmd", "libgencmd", 0, 9 },
+    { "libgen", "libgen", 0, 6 },
+    { "libgen", "lgopts", 1, 6 },
+    { "libgen", "libgenopts", 1, 10 },
+    { "rogencmd", "rogencmd", 0, 5 },
+    { "rogen", "rogen", 0, 5 },
+    { "rogen", "roopts", 1, 6 },
+    { "rogen", "rogenopts", 1, 9 },
+    { "sogencmd", "sogencmd", 0, 5 },
+    { "sogen", "sogen", 0, 5 },
+    { "sogen", "soopts", 1, 6 },
+    { "sogen", "sogenopts", 1, 9 },
     { NULL, NULL, -1, 0 }
 };
 
