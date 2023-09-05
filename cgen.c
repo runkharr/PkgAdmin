@@ -134,25 +134,33 @@
 
 #ifndef DEFAULT_COMPILER
 # define DEFAULT_COMPILER "cc"
+# define DEFAULT_CCOPTS "%s @ARGV -c %%t[.c/.o] -o %%t"
 #endif
 
 #ifndef DEFAULT_LINKER
 # define DEFAULT_LINKER "cc"
+# define DEFAULT_LDOPTS "%s @ARGV -o %%t"
 #endif
 
 #ifndef DEFAULT_LIBGENCMD
 # define DEFAULT_LIBGENCMD "ar rc %t @ARGV; ranlib %t"
 # define DEFAULT_LIBGENCMDTEXT "'ar rc %%t @ARGV; ranlib %%t'"
+# define DEFAULT_LIBGEN "ar"
+# define DEFAULT_LGOPTS "rcs %%t @ARGV"
 #endif
 
 #ifndef DEFAULT_SOGENCMD
 # define DEFAULT_SOGENCMD "ld -shared @ARGV -o %t"
 # define DEFAULT_SOGENCMDTEXT "'ld -shared @ARGV -o %%t'"
+# define DEFAULT_SOGEN "ld"
+# define DEFAULT_SOOPTS "%s @ARGV -o %%t"
 #endif
 
 #ifndef DEFAULT_ROGENCMD
 # define DEFAULT_ROGENCMD "ld -r @ARGV -o %t"
 # define DEFAULT_ROGENCMDTEXT "'ld -r @ARGV -o %t'"
+# define DEFAULT_ROGEN "ld"
+# define DEFAULT_ROOPTS "%s @ARGV -o %%t"
 #endif
 
 typedef struct action_s action_t;
@@ -353,7 +361,7 @@ struct action_s {
       " LOPTS)."
     },
     { "libgen", NULL, do_libgen, 1, 0, false,
-      "LIBGENCMD", DEFAULT_LIBGENCMD, NULL, NULL, NULL, 
+      "LIBGENCMD", DEFAULT_LIBGENCMD, NULL, "LGOPTS", "LGFLAGS", 
       "%s[=%s] [-v] <target> <object-files>",
       "<libgen-commands>", NULL,
       "Generating %s ...",
@@ -402,7 +410,7 @@ struct action_s {
       "\n    (followed by a status message of either ' done' or ' failed'))"
     },
     { "rogen", NULL, do_libgen, 1, 0, false,
-      "ROGENCMD", DEFAULT_ROGENCMD, NULL, NULL, NULL,
+      "ROGENCMD", DEFAULT_ROGENCMD, NULL, "ROOPTS", "ROFLAGS",
       "%s[=%s] [-v] <target> <object-files>",
       "<rogen-commands>", NULL,
       "Generating %s ...",
@@ -451,7 +459,7 @@ struct action_s {
       "\n    (followed by a status message of either ' done' or ' failed'))"
     },
     { "sogen", NULL, do_libgen, 1, 0, false,
-      "SOGENCMD", DEFAULT_SOGENCMD, NULL, "SOOPTS", NULL,
+      "SOGENCMD", DEFAULT_SOGENCMD, NULL, "SOOPTS", "SOFLAGS",
       "%s[=%s] [-v] <target> <object-files>",
       "<sogen-commands>", NULL,
       "Generating %s ...",
@@ -538,7 +546,7 @@ struct action_s {
 
 /* Module-internal global variable holding the name of the program.
 */
-static char *progname = NULL, *progpath = NULL;
+static const char *progname = NULL, *progpath = NULL;
 static int DEBUGlvl = 1;
 
 /* Return true if the first argument (string) is a prefix of the second one
@@ -1048,8 +1056,8 @@ int get_ident (char *p, char *q, char **_r)
 ** failure, 0 a success and a positive value the number of errors found during
 ** the parsing process ...
 */
-static
-int read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
+static int
+read_cgenrc (const char *cgenrc, cdesc_t *_out, int *_outlen)
 {
     int lc = 0, errc = 0, ix, ndesc = 0;
     FILE *fp;
@@ -1746,7 +1754,7 @@ void dump_q (FILE *fp, const char *s)
 ** 'verbose' argument.
 */
 static int
-spawn (FILE *out, int verbose, bool split_prog,
+spawn (FILE *out, int verbosity, bool split_prog,
        action_t *act, const char *prog, const char *popts,
        const char *target, int argc, char **argv, const char **_nxcmd)
 {
@@ -1760,10 +1768,13 @@ spawn (FILE *out, int verbose, bool split_prog,
     if (!cmdv) { return -1; }
     if (!(cmd = which (cmdv[0]))) { return -1; }
     cmdout[0] = -1; cmdout[1] = -1;
-    if (verbose > 0) {
+    if (verbosity > 1) {
 	print_command (out, cmdv);
-    } else if (verbose == 0) {
-	fprintf (out, act->short_msg, target);
+    } else {
+	fprintf (out, act->short_msg, target); fputs ("\n", out);
+    }
+
+    if (verbosity > 0) {
 	//if (pipe (cmdout) < 0) { return -1; }
 	/* I'm abusing the 'tty'-features of the classical unix systems a bit
 	** here as a 'pipe()'-replacement. This seems the only way to get a
@@ -1771,8 +1782,12 @@ spawn (FILE *out, int verbose, bool split_prog,
 	** which changes from compiler to compiler ...
 	*/
 	if (pty_openpair (cmdout, 1)) { return -1; }
+    } else {
+	// Suppress any output from the compiler/linker (what ever) program
+	int out_fd = open ("/dev/null", O_RDWR);
+	if (out_fd < 0) { return -1; }
+	cmdout[0] = out_fd; cmdout[1] = dup (out_fd);
     }
-    /*if ((out_fd = open ("/dev/null", O_WRONLY|O_APPEND)) < 0) { return -1; }*/
     fflush (stdout); fflush (stderr);
     switch (child = fork ()) {
 	case -1: /* ERROR (fork failed) */
@@ -1780,21 +1795,19 @@ spawn (FILE *out, int verbose, bool split_prog,
 	    ec = errno; close (cmdout[1]); close (cmdout[0]); errno = ec;
 	    return -1;
 	case 0:  /* CHILD */
-	    if (verbose <= 0) {
-		close (cmdout[0]);
-		dup2 (cmdout[1], 1); dup2 (cmdout[1], 2);
-		close (cmdout[1]);
-	    }
-	    /*if (verbose <= 0) { dup2 (out_fd, 1); dup2 (out_fd, 2); }*/
-	    /*close (out_fd);*/
+	    //dup2 (2, 3);
+	    close (cmdout[0]);
+	    dup2 (cmdout[1], 1); dup2 (cmdout[1], 2);
+	    close (cmdout[1]);
 	    execve (cmd, cmdv, environ);
+	    //dup2 (3, 2); close (3);
+	    fprintf (stderr, "%s: %s\n", cmd, strerror (errno));
 	    exit (1);
 	default: /* PARENT */
 	    /* Free the unused resources ... */
 	    argv_free (cmdv);
-	    /*close (out_fd);*/
 
-	    if (verbose <= 0) {
+	    if (verbosity <= 0) {
 		int rc = 0;
 		buflist_t first = NULL, last = NULL;
 		char buf[128];
@@ -1813,7 +1826,7 @@ spawn (FILE *out, int verbose, bool split_prog,
 		} else if (WIFSIGNALED (waitstat)) {
 		    excode = -WTERMSIG (waitstat);
 		}
-		if (verbose == 0) {
+		if (verbosity == 0) {
 		    print_exitstate (stdout, excode, (excode != 0));
 		}
 		/* I want an output only if some errors occurred ... */
@@ -1835,7 +1848,7 @@ spawn (FILE *out, int verbose, bool split_prog,
 		} else if (WIFSIGNALED (waitstat)) {
 		    excode = -WTERMSIG (waitstat);
 		}
-		if (verbose == 0) { print_exitstate (stdout, excode, 1); }
+		if (verbosity == 0) { print_exitstate (stdout, excode, 1); }
 	    }
 	    return (excode ? -1 : 0);
     }
@@ -1934,7 +1947,7 @@ do_clean (action_t *act, const char *prog, int argc, char **argv)
 static int
 do_generate (action_t *act, const char *prog, int argc, char **argv)
 {
-    int optx, ix, rc, cdesclen = 0, ac, verbose = 0;
+    int optx, ix, rc, cdesclen = 0, ac, verbosity = 1;
     bool split_prog = false;
     char *target = NULL, *cf = NULL, *opt, **av;
     const char *popts = NULL;
@@ -1958,7 +1971,7 @@ do_generate (action_t *act, const char *prog, int argc, char **argv)
 	    split_prog = true; continue;
 	}
 	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
-	    verbose = 1; continue;
+	    verbosity = 2; continue;
 	}
 
 	usage ("invalid option '%s'", opt);
@@ -1982,9 +1995,9 @@ do_generate (action_t *act, const char *prog, int argc, char **argv)
     check_args (act, argc - optx);
     target = argv[optx++];
     ac = argc - optx; av = &argv[optx];
-    rc = spawn (stdout, verbose, split_prog, act, prog, popts, target, ac, av,
+    rc = spawn (stdout, verbosity, split_prog, act, prog, popts, target, ac, av,
 		NULL);
-    //if (verbose == 0) { print_exitstate (stdout, rc); }
+    //if (verbosity == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
 
@@ -1994,9 +2007,8 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     /* 1. Step: Set the program-name ... */
     char *target = NULL, *cf = NULL, **av, *opt, *nullarg[] = { NULL };
     const char *nxprog = NULL;
-    //const char *popts = NULL;
-    int optx = 0, ac, rc, cdesclen = 0, ix;
-    int verbose = 0, verb1;
+    const char *popts = NULL;
+    int optx = 0, ac, rc, cdesclen = 0, verbosity = 1, verb1, ix;
     cdesc_t cdesc = NULL;
 
     for (optx = 1; optx < argc; ++optx) {
@@ -2014,26 +2026,23 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
 	    continue;
 	}
 	if (!strcmp (opt, "-v") || !strcmp (opt, "--verbose")) {
-	    verbose = 1; continue;
+	    verbosity = 2; continue;
 	}
 
 	usage ("invalid option '%s'", opt);
     }
 
     if (!cf && access (".cgenrc", F_OK) == 0) { cf = ".cgenrc"; }
-    if (cf) {
-	rc = read_cgenrc (cf, &cdesc, &cdesclen);
-	if (rc > 0) {
-	    fprintf (stderr, "%s: errors in configuration file\n", progname);
-	    exit (1);
-	}
-	if (cdesc) {
-	    for (ix = 0; ix < cdesclen; ++ix) {
-		if (!strcmp (act->pfx_name, cdesc[ix].acname)) {
-		    //popts = cdesc[ix].popts;
-		    if (!prog) { prog = cdesc[ix].prog; }
-		    break;
-		}
+    rc = read_cgenrc (cf, &cdesc, &cdesclen);
+    if (rc > 0) {
+	fprintf (stderr, "%s: errors in configuration file\n", progname);
+	exit (1);
+    }
+    if (cdesc) {
+	for (ix = 0; ix < cdesclen; ++ix) {
+	    if (!strcmp (act->pfx_name, cdesc[ix].acname)) {
+		popts = cdesc[ix].popts; if (!prog) { prog = cdesc[ix].prog; }
+		break;
 	    }
 	}
     }
@@ -2042,21 +2051,106 @@ do_libgen (action_t *act, const char *prog, int argc, char *argv[])
     target = argv[optx++];
 
     ac = argc - optx; av = &argv[optx];
-    rc = spawn (stdout, verbose, true, act, prog, NULL, target, ac, av,
+    rc = spawn (stdout, verbosity, true, act, prog, popts, target, ac, av,
 		&nxprog);
-    verb1 = (verbose > 0 ? verbose : -1);
+    verb1 = (verbosity > 1 ? 1 : verbosity);
     while (rc == 0 && nxprog && *nxprog) {
 	prog = nxprog; nxprog = NULL;
 	rc = spawn (stdout, verb1, true, act, prog, NULL, target, 0, nullarg,
 		    &nxprog);
     }
-    //if (verbose == 0) { print_exitstate (stdout, rc); }
+    //if (verbosity == 0) { print_exitstate (stdout, rc); }
     return (rc ? 1 : 0);
 }
 
 typedef struct builddata_s {
     const char *cc, *cflags, *ld, *lflags;
 } builddata_t;
+
+typedef struct rglist_s *rglist_t;
+struct rglist_s {
+    rglist_t next;
+    const char *name, *rgname;
+    char *rgvalue;
+};
+
+rglist_t rglist_find (const char *name, rglist_t rglist)
+{
+    rglist_t item;
+    for (item = rglist; item; item = item->next) {
+	if (strcmp (name, item->name) == 0) { break; }
+    }
+    return item;
+}
+
+static struct rgargs_s {
+    const char *cmd, *alt, *embname, *embopts;
+} rgargs[] = {
+    { "cc", "compile", "cc", "%s" },
+    { "cflags", NULL, "ccopts", DEFAULT_CCOPTS },
+    { "ld", "link", "ld", "%s" },
+    { "lflags", "ldflags", "ldopts", DEFAULT_LDOPTS },
+    { "libgen", "lgen", "lgen", "%s" },
+    { "lflags", "libflags", "lgenopts", DEFAULT_LGOPTS },
+    { "rogen", "rgen", "rogen", "%s" },
+    { "rflags", "roflags", "roopts", DEFAULT_ROOPTS },
+    { "sogen", "sgen", "sogen", "%s" },
+    { "sflags", "soflags", "soopts", DEFAULT_SOOPTS },
+    { NULL, NULL }
+};
+
+static rglist_t
+rglist_add (rglist_t list, const char *name, const char *value)
+{
+    int ix, pfout;
+    bool is_option;
+    size_t sz, rsz;
+    char buf[128], *p;
+    const char *rgname = NULL, *embname = NULL, *embopts = NULL;
+    rglist_t new = NULL;
+    struct rgargs_s *rgarg;
+    for (ix = 0; (rgarg = &rgargs[ix])->cmd; ++ix) {
+	if (is_prefix (name, rgarg->cmd)
+	|| (rgarg->alt && is_prefix (name, rgarg->alt))) {
+	    rgname = rgarg->cmd;
+	    embname = rgarg->embname;
+	    embopts = rgarg->embopts;
+	    break;
+	}
+    }
+    if (! rgname) { return NULL; }
+    if (rglist_find (rgname, list)) { return list; }
+
+    sz = (size_t) snprintf (buf, sizeof(buf), embopts, value);
+    if (!(new = malloc (sizeof (struct rglist_s) + sz + 1))) {
+	fprintf (stderr, "%s: %s\n", progname, strerror (errno));
+	exit (71);
+    }
+    new->next = list;
+    new->name = rgname; new->rgname = embname;
+    p = new->rgvalue = (char *) new + sizeof(struct rglist_s);
+    snprintf (p, sz + 1, embopts, value);
+    return new;
+}
+
+static void
+rglist_free (rglist_t rglist)
+{
+    rglist_t tmp;
+    while (rglist) { tmp = rglist->next; free (rglist); rglist = tmp; }
+}
+
+static void
+rglist_revert (rglist_t *_list)
+{
+    rglist_t in = *_list, out = NULL, tmp;
+    while (in) {
+	tmp = in; in = tmp->next;
+	tmp->next = out; out = tmp;
+    }
+    *_list = out;
+}
+
 
 static int
 do_genrc (action_t *act, const char *prog, int argc, char *argv[])
@@ -2065,8 +2159,17 @@ do_genrc (action_t *act, const char *prog, int argc, char *argv[])
     char *opt, *outfile = NULL;
     FILE *out;
     int optx = 0, ac, rc, cdesclen = 0, ix, verbose = 0;
-    cdesc_t cdesc = NULL;
-    builddata_t bdata = { NULL, NULL, NULL, NULL };
+    rglist_t rglist = NULL, new, item;
+
+    if (verbose) {
+	// Write this command to stdout ...
+	printf ("%s", prog);
+	for (ix = 0; ix < argc; ++ix) { printf (" %s", argv[ix]); }
+	fputs ("\n", stdout);
+    } else {
+	printf ("Creating %s ...\n", outfile);
+    }
+
     for (optx = 1; optx < argc; ++optx) {
 	opt = argv[optx]; if (*opt != '-' || !strcmp (opt, "--")) { break; }
 	if (is_prefix ("-o", opt)) {
@@ -2087,42 +2190,37 @@ do_genrc (action_t *act, const char *prog, int argc, char *argv[])
 
 	usage ("invalid option '%s'", opt);
     }
+
     if (! outfile) { outfile = ".cgenrc"; }
     for (ix = optx; ix < argc; ++ix) {
-	const char *arg = argv[ix];
-	bool shn = false;
-	if ((shn = is_prefix ("cc=", arg)) || is_prefix ("compiler=", arg)) {
-	    if (bdata.cc) { error (1, prog, "Ambiguous compiler spec."); }
-	    bdata.cc = arg + (shn ? 3 : 9);
-	} else if (is_prefix ("cflags=", arg)) {
-	    if (bdata.cflags) { error (1, prog, "Ambiguous compiler flags."); }
-	    bdata.cflags = arg + 7;
-	} else if ((shn = is_prefix ("ld=", arg)) ||
-		   is_prefix ("linker=", arg)) {
-	    if (bdata.ld) { error (1, prog, "Ambiguous link/loader spec."); }
-	    bdata.ld = arg + (shn ? 3 : 7);
-	} else if (is_prefix ("lflags=", arg)) {
-	    if (bdata.lflags) {
-		error (1, prog, "Ambiguous link/loader flags.");
-	    }
-	    bdata.lflags = arg + 7;
-	} else {
-	    fprintf (stderr, "%s: WARNING! Ignoring unknown '%s'\n", prog, arg);
+	char *opt = argv[ix], *val;
+	if (!(val = strchr (opt, '='))) {
+	    error (1, progname,
+		   "Missing argument for configuration option '%s'.", opt);
 	}
+	if (val == opt) {
+	    error (1, progname, "Invalid configuration option '%s'.", opt);
+	}
+	*val++ = '\0';
+	new = rglist_add (rglist, opt, val);
+	if (! new) {
+	    fprintf (stderr, "%s: WARNING! Ignoring unknown '%s'\n",
+		     progname, opt);
+	    continue;
+	}
+	if (new == rglist) {
+	    fprintf (stderr, "%s: '%s' already specified - ignoring it.\n",
+		     progname, opt);
+	}
+	rglist = new;
     }
-    if (! bdata.cc) {
+
+    rglist_revert (&rglist);
+
+    if (! rglist_find ("cc", rglist)) {
 	error (1, prog, "At least `cc=<compiler>` must be given.");
     }
-    if (verbose) {
-	// Write this command to stdout ...
-	printf ("%s", prog);
-	for (ix = 0; ix < argc; ++ix) {
-	    printf (" %s", argv[ix]);
-	}
-	fputs ("\n", stdout);
-    } else {
-	printf ("Creating %s ...\n", outfile);
-    }
+
     // Now, we begin to write to the output file ...
     if (!(out = fopen (outfile, "w"))) {
 	error (1, prog, "%s", strerror (errno));
@@ -2133,21 +2231,11 @@ do_genrc (action_t *act, const char *prog, int argc, char *argv[])
     fprintf (out,
 	     "# but remember that it can be overwritten by %s at any time.\n",
 	     prog);
-    fprintf (out, "cc=%s\n", bdata.cc);
-    if (bdata.cflags) {
-	fprintf (out, "ccopts=%s @ARGV %%t[.c/.o] -o %%t\n", bdata.cflags);
-    } else {
-	fputs ("ccopts= @ARGV %t[.c/.o] -o %t\n", out);
-    }
-    if (bdata.ld) {
-	fprintf (out, "ld=%s\n", bdata.ld);
-	if (bdata.lflags) {
-	    fprintf (out, "ldopts=%s @ARGV -o %%t\n", bdata.lflags);
-	} else {
-	    fputs ("ldopts= @ARGV -o %t\n", out);
-	}
+    for (item = rglist; item; item = item->next) {
+	fprintf (out, "%s=%s\n", item->rgname, item->rgvalue);
     }
     fclose (out);
+    rglist_free (rglist);
     return 0;
 }
 
@@ -2203,7 +2291,7 @@ normalize_path (const char *in, char **_out)
 int main (int argc, char *argv[])
 {
     int mode;
-    char *p, *prog = NULL;
+    char *p, *q, *prog = NULL;
     action_t *act;
 
 #if NORMALIZED_PROGPATH
@@ -2222,9 +2310,9 @@ int main (int argc, char *argv[])
 #else /*NORMALIZED_PROGPATH*/
     p = argv[0];
 #endif /*NORMALIZED_PROGPATH*/
-    progname = strrchr (p, '/');
+    progname = q = strrchr (p, '/');
     if (progname) {
-	progpath = p; *progname++ = '\0';
+	progpath = p; *q++ = '\0'; progname = q;
     } else {
 	progpath = NULL; progname = p;
     }
