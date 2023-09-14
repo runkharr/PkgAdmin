@@ -1807,7 +1807,7 @@ spawn (FILE *out, int verbosity, bool split_prog,
 	    /* Free the unused resources ... */
 	    argv_free (cmdv);
 
-	    if (verbosity <= 0) {
+	    if (verbosity > 0) {
 		int rc = 0;
 		buflist_t first = NULL, last = NULL;
 		char buf[128];
