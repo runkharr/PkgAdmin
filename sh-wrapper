@@ -17,6 +17,12 @@ PPATH="${0%/*}"; if [ -z "$PATH" ]; then PATH=.; fi
 # Being paranoid!
 export PATH; PATH=/usr/local/bin:/usr/pkg/bin:/usr/bin:/bin
 
+if [ -n "$DEBUG" ]; then
+    case "$DEBUG" in
+	(y|yes|1|true|t|j|ja) GO=-g ;;
+    esac
+fi
+
 # Check if a program named `cc´ (probably the C-compiler) exists.
 # (If `cc´ exists but is no C-compiler, the complete script may fail because
 #  of the wrong calling conventions ...)
@@ -64,7 +70,7 @@ if [ $# -gt 0 -a "x$1" = x--build ]; then
     if [ "$me" = "$tp" ]; then
 	echo 1>&2 "${PROG}: Using me ($0) as target is illegal"; exit 1
     fi
-    exec cc -I$PPATH "$cf" $EXTRA_MODS -o "$tgt"
+    exec cc -I$PPATH "$cf" $EXTRA_MODS $GO -o "$tgt"
 fi
 	
 
@@ -96,7 +102,7 @@ for bn in run "$PROG"; do
     # the source - using the program `cc´ (probably a C-compiler).
     test $bn = run && extras= || extras="$EXTRA_MODS"
     if [ ! -x "$bf" -o "$cf" -nt "$bf" ]; then
-	if ! cc -I"$PPATH" "$cf" $extras -o "$bf"; then
+	if ! cc -I"$PPATH" "$cf" $extras $GO -o "$bf"; then
 	    echo 1>&2 "${PROG}: couldn't generate '$bf'!"; exit 1
 	fi
     fi
