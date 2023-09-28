@@ -582,7 +582,7 @@ int main (int argc, char *argv[])
 	for (ix = 1; ix < argc; ++ix) { print_arg (argv[ix], stdout); }
 	fputs ("\n", stdout);
     } else {
-	printf ("Creating %s ...", prog);
+	printf ("Creating %s ...", (outfile ? outfile : "in <stdout>"));
     }
 
     if (outfile) {
