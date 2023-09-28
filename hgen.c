@@ -34,6 +34,8 @@
 
 #include "lib/haseol.c"
 
+#include "lib/printarg.c"
+
 static int isateol (const char *s)
 {
     while (isws (*s)) { ++s; }
@@ -400,7 +402,7 @@ static void usage (const char *fmt, ...)
 	fputs ("\n", stderr);
 	exit (64);
     }
-    printf ("Usage: %s [-c directory] [-o out-header] header-template"
+    printf ("Usage: %s [-v] [-c directory] [-o out-header] header-template"
 	    " header-file...\n"
 	    "       %s -h\n"
 	    "\nOptions/Arguments:"
@@ -414,12 +416,43 @@ static void usage (const char *fmt, ...)
 	    "\n    The template file which is used as a boilerplate for"
 	    " generating the"
 	    "\n    combined header file."
+	    "\n  -v (alt: --verbose)"
+	    "\n    Write the complete command (as invoked) to the standard"
+	    " output. If this"
+	    "\n    option is not specified, only a short message about the"
+	    " creation of the"
+	    "\n    output file is written."
 	    "\n  header-file..."
 	    "\n    The header files who are used to create the combined header"
 	    " file." 
 	    "\n",
 	    prog, prog);
     exit (0);
+}
+
+/* Getting a short or long option without argument. In the case of the long
+** option, any prefix of this option is valid. Returns 1 if the corresponding
+** option was detected and 0, otherwise.
+*/
+static int nvopt (const char *sopt, const char *lopt,
+		  int argc, char **argv,
+		  int *_optx)
+{
+    size_t optlen = strlen (sopt);
+    char *ov = argv[*_optx];
+    if (sopt) {
+	if (*ov != '-') { return 0; }
+	if (ov[1] != '-') {
+	    return strcmp (ov + 1, sopt) == 0;
+	}
+    }
+    if (lopt) {
+	size_t ovlen = strlen (ov);
+	if (*ov != '-' || ov[1] != '-' || ovlen < 3) { return 0; }
+	ov += 2; ovlen -= 2;
+	return ovlen <= optlen && strncmp (ov, lopt, ovlen) == 0;
+    }
+    return 0;
 }
 
 /* Get a single short option argument with an argument. Allowed are
@@ -484,6 +517,7 @@ int main (int argc, char *argv[])
     char *outfile = NULL, *tfname, **files, *dir = NULL, *v;
     char **non_optv = NULL;
     int non_optc = 0, nox;
+    int verbose = 0;
 
     set_prog (argc, argv);
     if (!(non_optv = malloc ((argc + 1) * sizeof(char *)))) {
@@ -495,10 +529,8 @@ int main (int argc, char *argv[])
     for (optc = 1; optc < argc; ++optc) {
 	char *opt = argv[optc];
 	if (!strcmp (opt, "--")) { ++optc; break; }
-	if (!strcmp (opt, "-h") || !strcmp (opt, "-help")
-	||  !strcmp (opt, "--help")) {
-	    usage (NULL);
-	}
+	if (nvopt ("h", "help", argc, argv, &optc)) { usage (NULL); }
+	if (!strcmp (opt, "-help")) { usage (NULL); }
 	if ((v = soptarg ("c", argc, argv, &optc))) {
 	    if (dir) { usage ("ambiguous option '-c'"); }
 	    dir = v; continue;
@@ -514,6 +546,9 @@ int main (int argc, char *argv[])
 	if ((v = loptarg ("outfile", argc, argv, &optc))) {
 	    if (outfile) { usage ("ambiguous option '--outfile'"); }
 	    outfile = v; continue;
+	}
+	if (nvopt ("v", "verbose", argc, argv, &optc)) {
+	    verbose = 1; continue;
 	}
 	if (*opt == '-') { usage ("invalid option '%s'", opt); }
 	/* Push any non-option argument to 'non_optv' ... */
@@ -541,6 +576,15 @@ int main (int argc, char *argv[])
 	exit (1);
     }
 
+    if (verbose) {
+	int ix;
+	fputs (prog, out);
+	for (ix = 1; ix < argc; ++ix) { print_arg (argv[ix], stdout); }
+	fputs ("\n", stdout);
+    } else {
+	printf ("Creating %s ...", prog);
+    }
+
     if (outfile) {
 	if (!(out = fopen (outfile, "w"))) {
 	    fprintf (stderr, "%s: %s - %s\n", prog, outfile, strerror (errno));
@@ -554,6 +598,7 @@ int main (int argc, char *argv[])
     errs = write_header_file (tfname, outfile, filesc, files, out);
 
     if (outfile) { fclose (out); out = NULL; }
+    if (!verbose) { fputs (" done.\n", stdout); }
 
     return (errs > 0 ? 1 : 0);
 }

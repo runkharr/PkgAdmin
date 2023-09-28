@@ -127,6 +127,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include "lib/printarg.c"
+
 #define OPT_CLEAN 1
 #define OPT_COMPILE 2
 #define OPT_HELP 3
@@ -134,7 +136,13 @@
 
 #ifndef DEFAULT_COMPILER
 # define DEFAULT_COMPILER "cc"
-# define DEFAULT_CCOPTS "%s @ARGV -c %%t[.c/.o] -o %%t"
+# define DEFAULT_CCOPTS1 "%s -c @ARGV -o %%t"
+# define DEFAULT_CCOPTS2 "%s -c @ARGV %%t[.c/.o] -o %%t"
+# define DEFAULT_CCOPTS3 "%s -c @ARGV %%t -o %%t[.o/.c]"
+# define DEFAULT_CCOPTS4 "%s @ARGV %%t"
+# define DEFAULT_CCOPTS5 "%s @ARGV %%t[.c/.o]"
+# define DEFAULT_CCOPTS6 "%s @ARGV %%t[.o/.c]"
+# define DEFAULT_CCOPTS7 "%s @ARGV"
 #endif
 
 #ifndef DEFAULT_LINKER
@@ -2087,7 +2095,13 @@ static struct rgargs_s {
     const char *cmd, *alt, *embname, *embopts;
 } rgargs[] = {
     { "cc", "compile", "cc", "%s" },
-    { "cflags", NULL, "ccopts", DEFAULT_CCOPTS },
+    { "cflags1", "cf1", "ccopts", DEFAULT_CCOPTS1 },
+    { "cflags2", "cf2", "ccopts", DEFAULT_CCOPTS2 },
+    { "cflags3", "cf3", "ccopts", DEFAULT_CCOPTS3 },
+    { "cflags4", "cf4", "ccopts", DEFAULT_CCOPTS4 },
+    { "cflags5", "cf5", "ccopts", DEFAULT_CCOPTS5 },
+    { "cflags6", "cf6", "ccopts", DEFAULT_CCOPTS6 },
+    { "cflags7", "cf7", "ccopts", DEFAULT_CCOPTS7 },
     { "ld", "link", "ld", "%s" },
     { "lflags", "ldflags", "ldopts", DEFAULT_LDOPTS },
     { "libgen", "lgen", "lgen", "%s" },
@@ -2151,7 +2165,7 @@ rglist_revert (rglist_t *_list)
     *_list = out;
 }
 
-
+#if 0
 static __inline__ void
 bflush (char *buf, char *bp, FILE *out)
 {
@@ -2198,6 +2212,7 @@ print_arg (const char *arg, FILE *out)
     if (p > buf) { bflush (buf, p, out); }
     fputs ("\"", out); fflush (out);
 }
+#endif
 
 static int
 do_genrc (action_t *act, const char *prog, int argc, char *argv[])
