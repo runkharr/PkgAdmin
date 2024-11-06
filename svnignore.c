@@ -68,7 +68,7 @@ void list_free (list_t *list)
 
 const list_t *list_find (const char *s, list_t **_list)
 {
-    bool found = false;
+//    bool found = false;
     list_t *list = *_list, *curr, *prev;
     if (! list) { return NULL; }
     if (strcmp (list->s, s) == 0) { return list; }
@@ -77,7 +77,7 @@ const list_t *list_find (const char *s, list_t **_list)
 	if (strcmp (curr->s, s) == 0) {
 	    prev->next = curr->next;
 	    curr->next = list; list = curr;
-	    found = true;
+//	    found = true;
 	    break;
 	}
 	prev = curr;
@@ -90,9 +90,9 @@ const list_t *list_find (const char *s, list_t **_list)
 
 static int write_ignore_file (const char *ignore_file, list_t *list)
 {
-    FILE *ofp;
+    FILE *ofp = NULL;
     list_t *el;
-    int ix, rc = -1, ec;
+    int rc = -1;
 
     if ((ofp = fopen (ignore_file, "w"))) {
 	rc = 0;
@@ -100,14 +100,10 @@ static int write_ignore_file (const char *ignore_file, list_t *list)
 	    if (fputs (el->s, ofp) == EOF) { rc = -1; goto EXIT_POINT; }
 	    if (fputs ("\n", ofp) == EOF) { rc = -1; goto EXIT_POINT; }
 	}
-	fclose (ofp);
     }
 EXIT_POINT:
-    list_free (list);
     if (ofp) { errguard (fclose (ofp)); }
     if (rc < 0) { errguard (unlink (ignore_file)); }
-//    if (ofp) { ec = errno; fclose (ofp); errno = ec; }
-//    if (rc < 0) { ec = errno; unlink (ignore_file); errno = ec; }
     return rc;
 }
 
@@ -131,7 +127,7 @@ static int read_ignore_file (const char *ignore_file, list_t **_list)
     FILE *ifp = NULL;
     list_t *list = *_list, *newel;
     char buf[4096], rest[4096];
-    int rc = -1, ec;
+    int rc = -1;
     bool had_overflows = false;
 
     if ((ifp = fopen (ignore_file, "r"))) {
@@ -172,7 +168,6 @@ static int svn_propset (const char *prop, const char *dir, list_t *list)
 	    return -1;
 	case 0:
 	    /*CHILD*/ {
-	    int rc, ec;
 	    const char *cmd[] = {
 		"svn", "propset", prop, "-F", "-", dir, NULL
 	    };
@@ -257,15 +252,20 @@ static void usage (const char *format, ...)
 	exit (EX_USAGE);
     }
     printf ("Usage: %s [-r file] dir file/pattern...\n"
-	    "       %s [-w file] file/pattern...\n"
+	    "       %s -w file file/pattern...\n"
 	    "       %s [-h]\n"
 	    "\nOptions/Arguments:"
 	    "\n  -h (or an empty argument list)"
-	    "\n     Write this usage message to the standard output and terminate."
+	    "\n     Write this usage message to the standard output and"
+	    " terminate."
 	    "\n  -r file"
-	    "\n     Read entries from an 'file', append each given 'file/pattern' and send the result to 'svn propset svn:ignore -F - dir'"
+	    "\n     Read entries from an 'file', append each given"
+	    " 'file/pattern' and"
+	    "\n     send the result to 'svn propset svn:ignore -F - dir'"
 	    "\n  -w file"
-	    "\n     Create (or overwrite) 'file' and fill it with the given 'file/pattern' values (one per line)."
+	    "\n     Create (or overwrite) 'file' and fill it with the given"
+	    " 'file/pattern'"
+	    "\n     values (one per line)."
 	    "\n  file/pattern"
 	    "\n     A list of file(-pattern)s"
 	    "\n", prog, prog, prog);
@@ -341,7 +341,6 @@ int main (int argc, char *argv[])
 	usage ("Not enough arguments.");
     }
     if (rflag || !wflag) {
-	FILE *rfp;
 	dir = argv[optind++];
 	if (! is_dir (dir)) {
 	    quit (EX_NOPERM, "\"%s\" - not a directory.", dir);
