@@ -59,7 +59,7 @@ case "$mode" in
 	;;
 esac
 
-vecho "Creating srcdist ($ARCMODE${COMPRESS+, }$COMPRESS)"
+vecho "Creating srcdist ($ARCMODE${COMPRESS:+, }$COMPRESS)"
 
 DISTDIR=`admin/version directory`
 

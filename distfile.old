@@ -15,8 +15,8 @@ PROG="${0##*/}"
 
 # Try an external binary first (if this file were installed somewhere) ...
 #
-progpath="`which "$PROG" >/dev/null 2>&1`"
-if [ $? -eq 0 ]; then
+if progpath="$(which "$PROG" >/dev/null 2>&1)"; then
+#if [ $? -eq 0 ]; then
     exec "$progpath" ${1+"$@"}
 fi
 
@@ -24,6 +24,7 @@ fi
 #
 NOBIN=1
 if [ -n "$NOBIN" ]; then
+    # shellcheck disable=SC2166
     if [ -f "$0.bin" -a -x "$0.bin" ]; then
 	# binary version of this program exists ...
 	if [ -f "$0.c" ]; then
@@ -45,26 +46,30 @@ if [ -n "$NOBIN" ]; then
     # If the local binary (still) exists after all (re-)generating steps above,
     # it will be used for the further work ...
     #
+    # shellcheck disable=SC2166
     if [ -f "$0.bin" -a -x "$0.bin" ]; then
 	exec "$0.bin" ${1+"$@"}
     fi
 fi
 
+# shellcheck disable=SC2166
 if ! [ -d admin -a -f VERSION ]; then
     cat 1>&2 <<-EOT
-	${prog}: you are probably in the wrong directory.
-    	EOT
-    exit 64
-fi
-
-if ! [ -f admin/version -a -f Makefile ]; then
-    cat 1>&2 <<-EOT
-	${prog}: are you sure you are exceuting me in the right environment?
+	${PROG}: you are probably in the wrong directory.
 	EOT
     exit 64
 fi
 
-VERSION=`cat VERSION`
+# shellcheck disable=SC2166
+if ! [ -f admin/version -a -f Makefile ]; then
+    cat 1>&2 <<-EOT
+	${PROG}: are you sure you are exceuting me in the right environment?
+	EOT
+    exit 64
+fi
+
+# shellcheck disable=SC2034
+VERSION="(cat VERSION)"
 
 usage () {
     cat <<-EOT
@@ -89,7 +94,7 @@ usage () {
 
 vbegin () {
     if [ $VERBOSE -ne 0 ]; then
-	echo "Creating $1 archive ($ARCMODE${COMPRESS+, }$COMPRESS)"
+	echo "Creating $1 archive ($ARCMODE${COMPRESS:+, }$COMPRESS)"
     else
 	echo -n "Creating $1 archive "
     fi
@@ -166,7 +171,8 @@ escape_rx () {
 #0#    fi
 #0#}
 
-VERBOSE=0; if [ $# -gt 0 -a "x$1" = "x-v" ]; then VERBOSE=1; shift; fi
+# shellcheck disable=SC2166
+{ VERBOSE=0; if [ $# -gt 0 -a "$1" = "-v" ]; then VERBOSE=1; shift; fi; }
 
 if [ $# -lt 1 ]; then usage; fi
 
@@ -200,6 +206,7 @@ if [ $# -gt 0 ]; then
 	*) ;;
     esac
 fi
+# shellcheck disable=SC2166
 if [ "$op" = "bindist" -a $# -gt 0 ]; then
     pfx="PREFIX=$1"; shift
 fi
@@ -207,13 +214,13 @@ fi
 case $op in
     srcdist)
 	vbegin 'source'
-	DISTDIR=`admin/version directory`
+	DISTDIR="$(admin/version directory)"
 	vecho "  creating temporary directory"
 	mkdir "$DISTDIR"
 	vecho "  copying files"
 
 	# Get the exclusion list ...
-	EXCLUDE="`admin/exclude_list .srcdist-exclude`"
+	EXCLUDE="$(admin/exclude_list .srcdist-exclude)"
 	if [ -n "$EXCLUDE" ]; then
 	    # ... and convert it into a `find'-expression segment if it is
 	    # not empty ...
@@ -229,13 +236,13 @@ case $op in
 	# and evaluate it ...
 	eval "$CMD"
 	vecho "  cleaning up directory"
-	(cd "$DISTDIR"; make cleanall >/dev/null 2>&1)
+	(cd "$DISTDIR" && make cleanall >/dev/null 2>&1)
 	arcname="${DISTDIR}$SFX"
 	atmp=.; abck=.; adir="$DISTDIR"
 	;;
     bindist)
 	vbegin 'binary'
-	DISTDIR="`admin/version directory`.bin" 
+	DISTDIR="$(admin/version directory).bin" 
 	vecho "  creating temporary directory"
 	mkdir "$DISTDIR"
 	vecho "  binary install into temporary directory"
@@ -256,7 +263,7 @@ case $op in
 esac
 
 vecho "  archiving"
-(cd "$atmp"; $ARCMODE >/dev/null "$abck/$arcname" "$adir")
+(cd "$atmp" && $ARCMODE >/dev/null "$abck/$arcname" "$adir")
 carcname="${arcname}$SF2"
 if [ -n "$COMPRESS" ]; then
     vecho "  compressing"
@@ -264,6 +271,6 @@ if [ -n "$COMPRESS" ]; then
 fi
 vecho "  removing temporary directory"
 rm -rf "$DISTDIR"
-vecho "  moving archive outside of `pwd`"
+vecho "  moving archive outside of $(pwd)"
 mv "$carcname" ..
 vdone "../$carcname"
