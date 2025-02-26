@@ -1,0 +1,79 @@
+#! /bin/bash
+# show-git-version.sh
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2025, Boris Jakubith <runkharr@googlemail.com>
+# License: GNU General Public License, version 2
+#
+# Show the GIT version hash (either in long or abbreviated short form)
+
+
+PROG="$(basename "$0")"
+
+fail() {
+    local ecx=1
+    if [ $# -gt 0 ] && [[ "$1" =~ ^([0-9]|[1-9][0-9]+)$ ]]; then
+	ecx="$1"; shift
+    fi
+    [ $# -lt 1 ] || echo 1>&2 "${PROG}:" "$@"
+    exit $((ecx))
+}
+
+usage() {
+    [ $# -lt 1 ] || fail 64 "$@"
+    echo 1>&2 "Usage: $PROG [-l|-s|--long|--short|long|short]"
+    exit 64
+}
+
+short=true
+debian=false
+if [ $# -gt 0 ]; then
+    arg="$1"; shift
+    case "$arg" in
+	(-h|--help)  usage ;;
+	(-d|--debian) debian=true ;;
+	(-s|--short) short=true ;;
+	(-l|--long)  short=false ;;
+	(-*)
+	    usage "${PROG}: Invalid option \`$arg\`."
+	    ;;
+	(*)
+	    if expr >/dev/null short : "$arg"; then
+		short=true
+	    elif expr >/dev/null long : "$arg"; then
+		short=false
+	    elif expr >/dev/null help : "$arg"; then
+		usage
+	    elif expr >/dev/null debian : "$arg"; then
+		debian=true
+	    else
+		usage "Invalid option \`$arg\`."
+	    fi
+    esac
+fi
+
+if $debian; then
+    taglist="$(git tag -n0 --sort=-version:refname)" || exit
+    [ -n "$taglist" ] || fail "Failed to get a version tag."
+    tag="$(echo "$taglist" | head -1 2>/dev/null)"
+    [[ "$tag" =~ ^v?[0-9]+\(\.[0-9]+\)*$ ]] || \
+	fail "No valid version tag found."
+    tag="${tag#v}"
+    headTag="$(git tag -n0 --contains HEAD)"
+    headTag="${headTag#v}"
+    if [ "$tag" = "$headTag" ]; then
+	echo "$tag"
+    else
+	rev="$(git show --pretty='%h' --no-patch HEAD)"
+	echo "${tag#v}+$rev"
+    fi
+elif $short; then
+    taglist="$(git show --pretty=oneline --abbrev-commit --no-patch)" || exit
+    echo "$taglist" | awk '{print $1}'
+else
+    taglist="$(git show --pretty=oneline --no-patch)" || exit
+    echo "$taglist" | awk '{print $1}'
+fi
