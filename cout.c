@@ -169,18 +169,18 @@ static int quote_print (const char *s, FILE *out)
     int rc = 0;
     if (s) {
 	if (! *s) {
-	    fputs ("\"\"", out); rc += 2;
+	    fputs ("\"\"", out); rc = 2;
 	} else if (! strpbrk (s, "\a\b\t\n\v\f\r !\"$'" ESC_BS "`")) {
-	    fputs (s, out); rc += (int) strlen (s);
+	    fputs (s, out); rc = (int) strlen (s);
 	} else if (! strpbrk (s, "!\"'" ESC_BS "`")) {
 	    fputc ('"', out); fputs (s, out); fputc ('"', out);
-	    rc += strlen (s) + 2;
+	    rc = strlen (s) + 2;
 	} else {
-	    int ch, state = 0;
+	    int ch;
 	    const char *p = s;
-	    fputc ('"', out); ++rc;
+	    fputc ('"', out); rc = 1;
 	    while ((ch = (int) *p++ & 0xFF)) {
-		switch (state) {
+		switch (ch) {
 		    case '"': case '!': case '`':
 			fputc ('\\', out); ++rc;
 			break;
