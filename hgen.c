@@ -57,7 +57,7 @@ static int isateol (const char *s)
 /* Insert a '#line' preprocessor command into the outfile ... */
 static void line_to (const char *ofname, int lc, FILE *out)
 {
-    fprintf (out, "#line %d \"%s\"\n", lc, ofname);
+    fprintf (out, "# line %d \"%s\"\n", lc, ofname);
 }
 
 /* Copy each part of 'infile' which is enclosed into BEGINTAG and ENDTAG into
@@ -404,7 +404,7 @@ static void usage (const char *fmt, ...)
     }
     printf ("Usage: %s [-v] [-c directory] [-o out-header] header-template"
 	    " header-file...\n"
-	    "       %s -h\n"
+	    "       %s [-h]\n"
 	    "\nOptions/Arguments:"
 	    "\n  -h (alt: -help, --help)"
 	    "\n    Write this text to stdout and terminate."
@@ -526,6 +526,11 @@ int main (int argc, char *argv[])
     }
     memset (non_optv, 0, (argc + 1) * sizeof(char *));
 
+    /* Allowing an empty argument list - issuing the usage message in this
+    ** case.
+    */
+    if (argc < 2) { usage (NULL); }
+
     for (optc = 1; optc < argc; ++optc) {
 	char *opt = argv[optc];
 	if (!strcmp (opt, "--")) { ++optc; break; }
@@ -578,7 +583,7 @@ int main (int argc, char *argv[])
 
     if (verbose) {
 	int ix;
-	fputs (prog, out);
+	fputs (prog, stdout);
 	for (ix = 1; ix < argc; ++ix) { print_arg (argv[ix], stdout); }
 	fputs ("\n", stdout);
     } else {

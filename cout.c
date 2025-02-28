@@ -1,6 +1,6 @@
 /* cout.c
 **
-** $Id$
+** $Id: cout.c 7186 2025-02-28 04:23:53Z bj@rhiplox $
 **
 ** Author: Boris Jakubith
 ** E-Mail: runkharr@googlemail.com
@@ -35,6 +35,8 @@
 #define S(x) _S(x)
 
 #define streq(x, y) (strcmp ((x), (y)) == 0)
+#define strpfx(x, y) \
+    ({ typeof(x) _xp_ = (x); strncmp (_xp_, (y), strlen (_xp_)) == 0; })
 
 #define ERRSTR (strerror (errno))
 
@@ -55,15 +57,30 @@ static int quote_print (const char *s, FILE *out);
 int main (int argc, char *argv[])
 {
     int ix = 1;
-    char **cmdvec = NULL;
+    char **cmdvec = NULL, *opt, *msg = NULL;
     bool verbose = false, quiet = false;
     prog = bn (*argv);
     if (ix >= argc) { usage (NULL); }
-    if (streq (argv[ix], "-v") || streq (argv[ix], "--verbose")) {
+    opt = argv[ix];
+    if (streq (opt, "-v") || streq (opt, "--verbose")) {
 	++ix; verbose = true;
-    } else if (streq (argv[ix], "-q") || streq (argv[ix], "--quiet")) {
+    } else if (streq (opt, "-q") || streq (opt, "--quiet")) {
 	++ix; quiet = true;
+    } else if (streq (opt, "-qv") || streq (opt, "-vq")) {
+	++ix; quiet = true; verbose = true;
     }
+    opt = argv[ix];
+    if (strpfx ("-m", opt)) {
+	++ix; opt += 2;
+	if (*opt) {
+	    msg = opt;
+	} else {
+	    if (ix >= argc) { usage ("Missing argument for option `-m`."); }
+	    msg = argv[ix++];
+	    if (! *msg) { usage ("The `message` must not be empty."); }
+	}
+    }
+    if (ix >= argc) { usage ("Missing `command`."); }
     cmdvec = gen_cmdvec (&argv[ix], 0);
     if (verbose) {
 	int ix = 0;
@@ -72,10 +89,12 @@ int main (int argc, char *argv[])
 	    fputs (" ", stdout); quote_print (cmdvec[ix], stdout);
 	}
 	fputs (EOL, stdout);
+    } else if (msg) {
+	fputs (msg, stdout); fputs (EOL, stdout);
     }
     if (quiet) {
 	int out_fd = 1; /*fileno (stdout)?*/
-	int err_fd = 1; /*fileno (stderr)?*/
+	int err_fd = 2; /*fileno (stderr)?*/
 	int fd = open ("/dev/null", O_CREAT|O_APPEND, 0644);
 	if (fd < 0) { quit (EX_OSERR, "open() - %s", ERRSTR); }
 	fflush (stdout); fflush (stderr);
@@ -122,13 +141,17 @@ static void usage (const char *format, ...)
 	va_start (args, format); veprintf (format, args); va_end (args);
 	exit (EX_USAGE);
     }
-    printf ("Usage: %s [-q|-v] command [argument...]\n"
+    printf ("Usage: %s [-q|-v|-qv|-vq] [-m message] command [argument...]\n"
 	    "       %s\n"
 	    "\nOptions/Arguments"
-	    "\n  -q (alt: --quiet)"
-	    "\n     Suppress any output of `command`."
-	    "\n  -v (alt: --verbose)"
-	    "\n     Print the command to be executed beforehand"
+	    "\n  -m message"
+	    "\n      Write `message` to the standard output instead of the"
+	    " `command`"
+	    "\n      if `-v` was not set."
+	    "\n  -q  Suppress any output of `command`."
+	    "\n  -v  Print the command to be executed beforehand"
+	    "\n  -qv (alt: -vq)"
+	    "\n      This is a combination of `-q` and `-v`."
 	    "\n  command [argument...]"
 	    "\n      The command (plus arguments) to be executed"
 	    "\n"
@@ -150,7 +173,7 @@ static char **gen_cmdvec (char **v, size_t v_len)
 	}
     }
     res_len = ix;
-    if (! (res = (char **) malloc ((res_len + 1) * sizeof(char)))) {
+    if (! (res = (char **) malloc ((res_len + 1) * sizeof(char *)))) {
 	quit (EX_OSERR, "gen_cmdvec() - %s", ERRSTR);
     }
     for (ix = 0; ix < res_len; ++ix) { res[ix] = v[ix]; }

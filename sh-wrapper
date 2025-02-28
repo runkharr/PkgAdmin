@@ -12,7 +12,7 @@
 #
 
 PROG="${0##*/}"
-PPATH="${0%/*}"; if [ -z "$PATH" ]; then PATH=.; fi
+PPATH="$(realpath "$(dirname "$0")")"
 
 # Being paranoid!
 export PATH; PATH=/usr/local/bin:/usr/pkg/bin:/usr/bin:/bin
@@ -41,6 +41,7 @@ add_ppath() {
 	    echo "$ap_x"
 	fi
     done
+    IFS="$ap_isv"
 }
 
 EXTRA_MODS=
@@ -50,7 +51,7 @@ fi
 
 # NEW! Build the binary in the given directory/with the given filename
 # instead of executing it ...
-if [ $# -gt 0 -a "x$1" = x--build ]; then
+if [ $# -gt 0 ] && [ "$1" = --build ]; then
     shift
     if [ $# -lt 1 ]; then
 	echo 1>&2 "${PROG}: Need a target-path for building '$bn'"; exit 1
@@ -62,7 +63,7 @@ if [ $# -gt 0 -a "x$1" = x--build ]; then
     fi
     if [ -d "$tgt" ]; then
 	tgt="$tgt/$PROG"
-    elif [ -e "$tgt" ] && [ -h "$tgt" -o ! -f "$tgt" ]; then
+    elif [ -e "$tgt" ] && { [ -h "$tgt" ] || [ ! -f "$tgt" ]; }; then
 	echo 1>&2 "${PROG}; Target exists and is no regular file"; exit 1
     fi
     tp=; if [ -e "$tgt" ]; then tp="$(stat -c '%d:%i' "$tgt")"; fi
@@ -70,7 +71,8 @@ if [ $# -gt 0 -a "x$1" = x--build ]; then
     if [ "$me" = "$tp" ]; then
 	echo 1>&2 "${PROG}: Using me ($0) as target is illegal"; exit 1
     fi
-    exec cc -I$PPATH "$cf" $EXTRA_MODS $GO -o "$tgt"
+    # shellcheck disable=SC2086
+    exec cc -I$PPATH "$cf" $EXTRA_MODS "$GO" -o "$tgt"
 fi
 	
 
@@ -89,7 +91,7 @@ for bn in run "$PROG"; do
 
     # If the `binary´ file exists but is either not a plain file or not
     # an executable, delete it.
-    if [ -e "$bf" ] && [ ! -f "$bf" -o ! -x "$bf" ]; then
+    if [ -e "$bf" ] && { [ ! -f "$bf" ] || [ ! -x "$bf" ]; }; then
 	# Deleting a directory is strictly forbidden!
 	if [ -d "$bf" ]; then
 	    echo 1>&2 "${PROG}: target file '$bf' is a directory"; exit 1
@@ -100,9 +102,10 @@ for bn in run "$PROG"; do
     # If the binary file doesn't exist or is not executable, or if the source
     # file is newer than the binary file, try to (re-)generate the binary from
     # the source - using the program `cc´ (probably a C-compiler).
-    test $bn = run && extras= || extras="$EXTRA_MODS"
-    if [ ! -x "$bf" -o "$cf" -nt "$bf" ]; then
-	if ! cc -I"$PPATH" "$cf" $extras $GO -o "$bf"; then
+    test "$bn" = run && extras= || extras="$EXTRA_MODS"
+    if [ ! -x "$bf" ] || [ "$cf" -nt "$bf" ] || [ "$0" -nt "$bf" ]; then
+	# shellcheck disable=SC2086
+	if ! cc -I"$PPATH" "$cf" $extras "$GO" -o "$bf"; then
 	    echo 1>&2 "${PROG}: couldn't generate '$bf'!"; exit 1
 	fi
     fi
