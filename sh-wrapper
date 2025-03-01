@@ -105,7 +105,7 @@ for bn in run "$PROG"; do
     test "$bn" = run && extras= || extras="$EXTRA_MODS"
     if [ ! -x "$bf" ] || [ "$cf" -nt "$bf" ] || [ "$0" -nt "$bf" ]; then
 	# shellcheck disable=SC2086
-	if ! cc -I"$PPATH" "$cf" $extras "$GO" -o "$bf"; then
+	if ! cc -I"$PPATH" "$cf" $extras ${G0+"$G0"} -o "$bf"; then
 	    echo 1>&2 "${PROG}: couldn't generate '$bf'!"; exit 1
 	fi
     fi
