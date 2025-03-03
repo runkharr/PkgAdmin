@@ -13,7 +13,6 @@
 **   run program as newname arg...
 */
 
-//#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -30,9 +29,6 @@
 #define PROG "run"
 
 #define ERRSTR (strerror (errno))
-
-//#include "lib/set_prog.c"
-//#include "lib/which1.c"
 
 const char *prog;
 
