@@ -1,6 +1,6 @@
 /* cout.c
 **
-** $Id: cout.c 7186 2025-02-28 04:23:53Z bj@rhiplox $
+** $Id: cout.c 7193 2025-03-03 12:14:03Z bj@rhiplox $
 **
 ** Author: Boris Jakubith
 ** E-Mail: runkharr@googlemail.com
@@ -11,12 +11,16 @@
 **
 */
 
+#define _GNU_SOURCE
+
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <sysexits.h>
 #include <fcntl.h>
 
 #include "lib/cmdvec.c"
@@ -24,6 +28,9 @@
 #include "lib/separators.c"
 
 # define ESC_BS ""
+
+#define _S(x) # x
+#define S(x) _S(x)
 
 #define streq(x, y) (strcmp ((x), (y)) == 0)
 #define strpfx(x, y) \
@@ -105,6 +112,7 @@ static int quote_print (const char *s, FILE *out)
 int main (int argc, char *argv[])
 {
     int ix = 1;
+    FILE *xout = NULL; int xfd = -1;
     char **cmdvec = NULL, *opt, *msg = NULL;
     bool verbose = false, quiet = false;
     prog = bn (*argv);
@@ -129,7 +137,7 @@ int main (int argc, char *argv[])
 	}
     }
     if (ix >= argc) { usage ("Missing `command`."); }
-    if (! (cmdvec = gen_cmdvec (&argv[ix], 0))) {
+    if (! (cmdvec = gen_cmdvec (&argv[ix], argc - ix))) {
 	quit (EX_OSERR, "gen_cmdvec() - %s", ERRSTR);
     }
     if (verbose) {
@@ -142,17 +150,28 @@ int main (int argc, char *argv[])
     } else if (msg) {
 	fputs (msg, stdout); fputs (EOL, stdout);
     }
+
     if (quiet) {
-	int out_fd = 1; /*fileno (stdout)?*/
-	int err_fd = 2; /*fileno (stderr)?*/
-	int fd = open ("/dev/null", O_CREAT|O_APPEND, 0644);
+	int out_fd = 1; /*`stdout`*/
+	int err_fd = 2; /*`stderr`*/
+	int fd = open ("/dev/null", O_CREAT|O_APPEND|O_WRONLY, 0644);
 	if (fd < 0) { quit (EX_OSERR, "open() - %s", ERRSTR); }
 	fflush (stdout); fflush (stderr);
-	dup2 (fd, out_fd); dup2 (fd, err_fd);
-	close (fd);
+	// Duplicate for `execvp()` failure
+	if ((xfd = dup (err_fd)) >= 0) { xout = fdopen (xfd, "ab"); }
+	(void) dup2 (fd, out_fd);
+	(void) dup2 (fd, err_fd);
+	(void) close (fd);
+    } else {
+	xout = stderr;
     }
 
     execvp (*cmdvec, cmdvec);
+
+    if (xout) {
+	fprintf (xout, "%s: `%s` failed - %s\n", prog, *cmdvec, ERRSTR);
+	fflush (xout);
+    }
 
     return EX_UNAVAILABLE;
 }
