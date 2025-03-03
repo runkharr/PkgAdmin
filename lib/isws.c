@@ -16,7 +16,7 @@
 #ifndef ISWS_C
 #define ISWS_C
 
-#include "lib/gnu-inline.c"
+#include "gnu-inline.c"
 
 static __inline__ int isws (int c)
 {
