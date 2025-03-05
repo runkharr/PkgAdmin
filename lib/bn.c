@@ -18,12 +18,14 @@
 
 #include <string.h>
 
+#include "separators.h"
+
 static const char *bn (const char *filename)
 {
     const char *res = filename - 1;
     while (*++res);
-    while (res > filename && *--res != '/');
-    if (*res == '/' && res[1]) { ++res; }
+    while (res > filename && *--res != DIRSEP);
+    if (*res == DIRSEP && res[1]) { ++res; }
     return res;
 }
 
