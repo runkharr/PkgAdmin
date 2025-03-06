@@ -438,7 +438,7 @@ static void invalid_include (FILE *out, int lc, bool is_import, int ec,
     const char *impincl = (is_import ? "#import" : "#include");
     if (! ifname) { ifname = "..."; }
     if (ec == 0) {
-	fmt_print (out, "#warning Deactivated `$1 \"$2\".\n", impincl, ifname);
+	fmt_print (out, "#warning Deactivated `$1 \"$2\"`.\n", impincl, ifname);
     } else if (ec == EINVAL) {
 	fmt_print (out, "#error Invalid `$1 \"$2\"` line.\n", impincl, ifname);
     } else if (ec == ENAMETOOLONG) {
@@ -486,15 +486,18 @@ static int import_via_tag (lines_t cline,
 	    const char *ifn = ifname;
 	    int ec = 0;
 	    need_skip = true;
-	    if (filesc > 0 && find_file (ifname, filesc, files)) {
-		; // DO NOTHING HERE!
-	    } else if (streq (ifname, ofname)) {
-		ec = EEXIST;
-	    } else if (is_import) {
-		ec = EPERM;
+
+	    if (filesc == 0 || ! find_file (ifname, filesc, files)) {
+		need_skip = false;
+	    } else {
+		if (streq (ifname, ofname)) {
+		    ec = EEXIST;
+		} else if (is_import) {
+		    ec = EPERM;
+		}
+		invalid_include (out, lc, is_import, ec, ifn);
+		fflush (out);
 	    }
-	    invalid_include (out, lc, is_import, ec, ifn);
-	    fflush (out);
 	} else if (isinc < 0) {
 	    const char *ifn = ifname;
 	    need_skip = true;
