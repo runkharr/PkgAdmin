@@ -13,13 +13,13 @@
 ** starting from `0` to the number of arguments counted), or nothing if
 ** <number> reaches outside of the argument list or the internally managed
 ** index reeaches the end of the argument list. A `$$` or a single `$` at the
-** end of the format string leads to `$` being printed itself. (The index
-** <number> begins with `1`!)
+** end of the format string leads to `$` being printed itself.
 **
 */
-#ifndef STRFMT_C
-#define STRFMT_C
+#ifndef FMT_C
+#define FMT_C
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -40,32 +40,37 @@ static size_t fmt_strlen (const char *s)
     return (size_t) (p - s);
 }
 
-static int fmt_parseint (const char *p, int *_out, const char **_q)
+static int fmt_parseint (const char *s, int *_out, const char **_next)
 {
-    const char *q = p;
+    bool done = false;
+    const char *p = s;
     int out = 0, res = -1;
-    --q;
-    while (*++q) {
-	int dg = 0;
-	switch (*q) {
-	    case '0': dg = 0; break; case '1': dg = 1; break;
-	    case '2': dg = 2; break; case '3': dg = 3; break;
-	    case '4': dg = 4; break; case '5': dg = 5; break;
-	    case '6': dg = 6; break; case '7': dg = 7; break;
-	    case '8': dg = 8; break; case '9': dg = 9; break;
-	    default: continue;
+    if (! p || ! _out) {
+	errno = EINVAL; 
+    } else {
+	--p;
+	while (! done && *++p) {
+	    int dg = 0;
+	    switch (*p) {
+		case '0': dg = 0; break; case '1': dg = 1; break;
+		case '2': dg = 2; break; case '3': dg = 3; break;
+		case '4': dg = 4; break; case '5': dg = 5; break;
+		case '6': dg = 6; break; case '7': dg = 7; break;
+		case '8': dg = 8; break; case '9': dg = 9; break;
+		default: done = true; continue;
+	    }
+	    out = out * 10 + dg;
 	}
-	out = out * 10 + dg;
+	if (p == s) { errno = EDOM; } else { *_out = out; res = 0; }
     }
-    if (q > 0) { *_out = out; *_q = q; res = 0; }
+    if (p && _next) { *_next = p; }
     return res;
 }
 
-#define fmt_print(o, f, ...) (_fmt_print ((o), (f), ## __VA_ARGS__, NULL))
-
-static int _fmt_print (FILE *out, const char *fmt, ...)
+static int fmt_print (FILE *out, const char *fmt, ...)
 {
-    int argcc, next_arg = 0, out_len = 0;
+    int argcc, next_arg = 0;
+    size_t out_len = 0, cut_len;
     va_list ap;
     va_start (ap, fmt);
     if ((argcc = fmt_countargs (ap)) > 0) {
@@ -75,31 +80,35 @@ static int _fmt_print (FILE *out, const char *fmt, ...)
 	}
 	va_end (ap);
 	p = fmt;
-	for (;;) {
+	while (*p) {
 	    q = p; while (*++q && *q != '$');
-	    fwrite (p, 1, (size_t) (q - p), out);
-	    out_len = (int) (q - p);
+	    cut_len = (size_t) (q - p);
+	    fwrite (p, 1, cut_len, out);
+	    out_len += cut_len;
 	    if (! *q) { break; }
 	    p = q + 1;
 	    if (! *p || *p == '$') {
 		fputc ((*p ? *p++ : '$'), out); ++out_len;
 	    } else if (*p == '#') {
+		++p;
 		if (next_arg < argcc) {
 		    const char *s = args[next_arg++];
 		    fputs (s, out); out_len += fmt_strlen (s);
 		}
 	    } else {
 		int ix;
-		if (fmt_parseint (p, &ix, &p) == 0 && ix > 0 && ix <= argcc) {
-		    const char *s = args[ix - 1];
-		    fputs (s, out);; out_len += fmt_strlen (s);
+		if (fmt_parseint (p, &ix, &p)) {
+		    fputc ('$', out); ++out_len;
+		} else if (ix > 0 && --ix < argcc) {
+		    const char *s = args[ix];
+		    fputs (s, out); out_len += fmt_strlen (s);
 		}
 	    }
 	}
     } else {
 	fputs (fmt, out); out_len = fmt_strlen (fmt);
     }
-    return out_len;
+    return (int) out_len;
 }
 
-#endif /*STRFMT_C*/
+#endif /*FMT_C*/

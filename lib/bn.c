@@ -18,7 +18,7 @@
 
 #include <string.h>
 
-#include "separators.h"
+#include "separators.c"
 
 static const char *bn (const char *filename)
 {
