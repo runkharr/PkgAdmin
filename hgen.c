@@ -647,7 +647,7 @@ static void usage (const char *fmt, ...)
     if (fmt) {
 	va_list pfa;
 	fmt_print (stderr, "$1: ", prog);
-	va_start (pfa, fmt); vfprintf (stderr, fmt, pfa); va_end (pfa);
+	va_start (pfa, fmt); fmt_printv (stderr, fmt, pfa); va_end (pfa);
 	fputs ("\n", stderr);
 	exit (64);
     }
@@ -722,7 +722,7 @@ static char *soptarg (const char *opt, int argc, char **argv, int *_optx)
 	ov += optlen;
     } else {
 	if (*_optx  + 1 >= argc) {
-	    usage ("missing argument for option '-%s'", opt);
+	    usage ("missing argument for option '-$1'", opt);
 	}
 	ov = argv[++(*_optx)];
     }
@@ -747,13 +747,13 @@ static char *loptarg (const char *opt, int argc, char **argv, int *_optx)
     if (ov[optlen] == '=') {
 	++optlen;
 	if (ov[optlen] == '\0') {
-	    usage ("invalid empty argument of option '--%s'", opt);
+	    usage ("invalid empty argument of option '--$1'", opt);
 	}
 	ov += optlen;
     } else {
 	if (ov[optlen] != '\0') { return NULL; }
 	if (*_optx + 1 >= argc) {
-	    usage ("missing argument for option '--%s'", opt);
+	    usage ("missing argument for option '--$1'", opt);
 	}
 	ov = argv[++(*_optx)];
     }
@@ -806,7 +806,7 @@ int main (int argc, char *argv[])
 	if (nvopt ("v", "verbose", argc, argv, &optc)) {
 	    verbose = 1; continue;
 	}
-	if (*opt == '-') { usage ("invalid option '%s'", opt); }
+	if (*opt == '-') { usage ("invalid option '$1'", opt); }
 	/* Push any non-option argument to 'non_optv' ... */
 	non_optv[non_optc++] = opt;
     }
@@ -838,7 +838,8 @@ int main (int argc, char *argv[])
 	for (ix = 1; ix < argc; ++ix) { print_arg (argv[ix], stdout); }
 	fputs ("\n", stdout);
     } else {
-	printf ("Creating %s ...", (outfile ? outfile : "in <stdout>"));
+	fmt_print (stdout, "Creating $1 ...",
+			   (outfile ? outfile : "in <stdout>"));
     }
 
     if (outfile) {

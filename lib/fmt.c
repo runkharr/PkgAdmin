@@ -19,19 +19,15 @@
 #ifndef FMT_C
 #define FMT_C
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <errno.h>
 
-static int fmt_countargs (va_list ap)
-{
-    int res = 0;
-    va_list ap_copy;
-    va_copy (ap_copy, ap);
-    while (va_arg (ap_copy, char *)) { ++res; }
-    va_end (ap_copy);
-    return res;
-}
+#include "parseint.c"
+
+# ifdef __cplusplus
+extern "C" {
+# endif
 
 static size_t fmt_strlen (const char *s)
 {
@@ -40,75 +36,69 @@ static size_t fmt_strlen (const char *s)
     return (size_t) (p - s);
 }
 
-static int fmt_parseint (const char *s, int *_out, const char **_next)
+static int fmt_printvl (FILE *out, const char *fmt, va_list ap, int argcc)
 {
-    bool done = false;
-    const char *p = s;
-    int out = 0, res = -1;
-    if (! p || ! _out) {
-	errno = EINVAL; 
-    } else {
-	--p;
-	while (! done && *++p) {
-	    int dg = 0;
-	    switch (*p) {
-		case '0': dg = 0; break; case '1': dg = 1; break;
-		case '2': dg = 2; break; case '3': dg = 3; break;
-		case '4': dg = 4; break; case '5': dg = 5; break;
-		case '6': dg = 6; break; case '7': dg = 7; break;
-		case '8': dg = 8; break; case '9': dg = 9; break;
-		default: done = true; continue;
-	    }
-	    out = out * 10 + dg;
-	}
-	if (p == s) { errno = EDOM; } else { *_out = out; res = 0; }
+    const char *args[argcc + 1], *p, *q;
+    int next_arg = 0;
+    size_t out_len = 0, cut_len;
+    for (int ix = 0; ix < argcc; ++ix) {
+	args[ix] = va_arg (ap, char *);
     }
-    if (p && _next) { *_next = p; }
-    return res;
+    args[argcc] = NULL;
+    p = fmt;
+    while (*p) {
+	q = p - 1; while (*++q && *q != '$');
+	cut_len = (size_t) (q - p);
+	fwrite (p, 1, cut_len, out);
+	out_len += cut_len;
+	if (! *q) { break; }
+	p = q + 1;
+	if (! *p || *p == '$') {
+	    fputc ((*p ? *p++ : '$'), out); ++out_len;
+	} else if (*p == '#') {
+	    ++p;
+	    if (next_arg < argcc) {
+		const char *s = args[next_arg++];
+		fputs (s, out); out_len += fmt_strlen (s);
+	    }
+	} else {
+	    int ix;
+	    if (parseint (p, &ix, &p, 0)) {
+		fputc ('$', out); ++out_len;
+	    } else if (ix > 0 && --ix < argcc) {
+		const char *s = args[ix];
+		fputs (s, out); out_len += fmt_strlen (s);
+	    }
+	}
+    }
+    return out_len;
 }
 
-static int fmt_print (FILE *out, const char *fmt, ...)
+static int fmt_printv (FILE *out, const char *fmt, va_list ap)
 {
-    int argcc, next_arg = 0;
-    size_t out_len = 0, cut_len;
+    int argcc = 0;
+    va_list ap2;
+    va_copy (ap2, ap);
+    while (va_arg (ap2, char *)) { ++argcc; }
+    va_end (ap2);
+
+    return fmt_printvl (out, fmt, ap, argcc);
+}
+
+# define fmt_print(out, fmt, ...) \
+    (_fmt_print((out), (fmt), ##__VA_ARGS__, NULL))
+static int _fmt_print (FILE *out, const char *fmt, ...)
+{
+    size_t out_len = 0;
     va_list ap;
     va_start (ap, fmt);
-    if ((argcc = fmt_countargs (ap)) > 0) {
-	const char *args[argcc], *p, *q;
-	for (int ix = 0; ix < argcc; ++ix) {
-	    args[ix] = va_arg (ap, char *);
-	}
-	va_end (ap);
-	p = fmt;
-	while (*p) {
-	    q = p; while (*++q && *q != '$');
-	    cut_len = (size_t) (q - p);
-	    fwrite (p, 1, cut_len, out);
-	    out_len += cut_len;
-	    if (! *q) { break; }
-	    p = q + 1;
-	    if (! *p || *p == '$') {
-		fputc ((*p ? *p++ : '$'), out); ++out_len;
-	    } else if (*p == '#') {
-		++p;
-		if (next_arg < argcc) {
-		    const char *s = args[next_arg++];
-		    fputs (s, out); out_len += fmt_strlen (s);
-		}
-	    } else {
-		int ix;
-		if (fmt_parseint (p, &ix, &p)) {
-		    fputc ('$', out); ++out_len;
-		} else if (ix > 0 && --ix < argcc) {
-		    const char *s = args[ix];
-		    fputs (s, out); out_len += fmt_strlen (s);
-		}
-	    }
-	}
-    } else {
-	fputs (fmt, out); out_len = fmt_strlen (fmt);
-    }
+    out_len = fmt_printv (out, fmt, ap);
+    va_end (ap);
     return (int) out_len;
 }
+
+# ifdef __cplusplus
+}
+# endif
 
 #endif /*FMT_C*/

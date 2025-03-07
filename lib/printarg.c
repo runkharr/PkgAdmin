@@ -29,6 +29,23 @@ bput (char *buf, char *eb, char *bp, char ch, FILE *out)
 }
 
 static void
+fw_printarg (int w, const char *arg, size_t arg_len, FILE *out)
+{
+    size_t fw = (size_t) (w < 0 ? -w : w);
+    if (fw == 0) { fw = arg_len; }
+    if (arg_len >= fw) {
+	for (int ix = 0; ix < fw; ++ix) { fputc (arg[ix], out); }
+    } else if (w < 0) {
+	for (int ix = 0; ix < fw; ++ix) { fputc (arg[ix], out); }
+	for (int ix = 0; ix < arg_len - fw; ++ix) { fputc (' ', out); }
+    } else {
+	for (int ix = 0; ix < arg_len - fw; ++ix) { fputc (' ', out); }
+	for (int ix = 0; ix < fw; ++ix) { fputc (arg[ix], out); }
+    }
+}
+
+
+static void
 print_arg (const char *arg, FILE *out)
 {
     char buf[128], *eb, *p;
@@ -36,7 +53,7 @@ print_arg (const char *arg, FILE *out)
     const char *specials = "\t \\$<>\"\'!`;#" ;
     fputs (" ", out);
     if (argval) {
-	++argval; fprintf (out, "%.*s", (int) (argval - arg), arg);
+	++argval; fw_printarg (0, arg, (size_t) (argval - arg), out);
     } else {
 	argval = arg;
     }

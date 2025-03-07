@@ -19,6 +19,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "lib/bn.c"
 #include "lib/cmdvec.c"
 #include "lib/quit.c"
 #include "lib/separators.c"
@@ -31,14 +32,6 @@
 #define ERRSTR (strerror (errno))
 
 const char *prog;
-
-static const char *bn (const char *path)
-{
-    const char *res = strrchr (path, DIRSEP);
-
-    if (res) { ++res; } else { res = path; }
-    return res;
-}
 
 int main (int argc, char *argv[])
 {
@@ -81,5 +74,5 @@ int main (int argc, char *argv[])
     }
     execve (cmd, nargv, environ);
     quit (EX_UNAVAILABLE, "%s - %s", cmd, ERRSTR);
-    return 0;
+//    return 0;
 }

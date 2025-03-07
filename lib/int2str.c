@@ -21,6 +21,10 @@
 #include <stddef.h>
 #include <errno.h>
 
+# ifdef __cplusplus
+extern "C" {
+# endif
+
 static const char *int2str (int val, char *buf, size_t bufsz, bool rightbound)
 {
     bool sign = (val < 0);
@@ -33,7 +37,28 @@ static const char *int2str (int val, char *buf, size_t bufsz, bool rightbound)
 	int dg; bool buf_ovfl = false;
 	char *p = buf + bufsz;
 	*--p = '\0';
-	if (sign) { val = -val; }
+	if (sign) {
+	    val = -val;
+	    // There is only one number which doesn't change its sign if its
+	    // 2s complement is built. This is the number where all bits save
+	    // from the highest one are reset,
+	    // In this case, the division remainder from the division by 10 is
+	    // built and negated. In the next step, the number is divided by 10
+	    // and also negated. This negation (2s complement build) will now
+	    // succeed. The retrieved digit (division remainder) is then
+	    // the first one to be inserted into the buffer.
+	    if (val < 0) {
+		dg = - (val % 10); val = - (val / 10);
+		if (! buf_ovfl) {
+		    if (p > buf) {
+			*--p = digits[dg];
+		    } else {
+			buf_ovfl = true;
+		    }
+		}
+	    }
+	}
+	// All other digits prepend this one.
 	do {
 	    dg = val % 10; val /= 10;
 	    if (! buf_ovfl) {
@@ -55,5 +80,9 @@ static const char *int2str (int val, char *buf, size_t bufsz, bool rightbound)
     }
     return res;
 }
+
+# ifdef __cplusplus
+}
+# endif
 
 #endif /*INT2STR_C*/

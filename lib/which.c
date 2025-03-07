@@ -24,13 +24,13 @@
 #include <sys/stat.h>
 //#include <sys/types.h>
 
+#include "empty.c"
+#include "sfmt.c"
 #include "separators.c"
 
-#include "empty.c"
-
-#define ROOT_PATH_TMPL  "%s/bin:/bin:/sbin:/usr/bin:/usr/sbin:" \
+#define ROOT_PATH_TMPL  "$1/bin:/bin:/sbin:/usr/bin:/usr/sbin:" \
 			"/usr/local/bin:/usr/local/sbin"
-#define USER_PATH_TMPL  "%s/bin:/bin:/usr/bin:/usr/local/bin"
+#define USER_PATH_TMPL  "$1/bin:/bin:/usr/bin:/usr/local/bin"
 
 static const char *which_path = NULL;
 
@@ -65,7 +65,8 @@ const char *which_getpath (void)
 		}
 		which_path_len = strlen (pw->pw_dir) + strlen (which_pthtpl);
 		if ((p = (char *) malloc (which_path_len + 1))) {
-		    snprintf (p, which_path_len + 1, which_pthtpl, pw->pw_dir);
+		    sfmt_print (p, which_path_len + 1,
+				which_pthtpl, pw->pw_dir);
 		    which_path = p;
 		}
 	    }
