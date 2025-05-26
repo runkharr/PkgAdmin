@@ -145,6 +145,17 @@ static int get_esc (char **_s)
     return res;
 }
 
+static int _parse_memerr (int lc, eslist_t *_l, char **_buf)
+{
+    int ec;
+    eslist_free (*_l); *_l = NULL;
+    ec = errno; free (*_buf); *_buf = NULL;
+    fprintf (stderr, "Line #%d: %s\n", lc, strerror (ec));
+    errno = ec;
+    return -1;
+}
+
+#define parse_memerr(lc, l, b) (_parse_memerr ((lc), &(l), &(b)))
 
 static int parse_envfp (FILE *fp)
 {
@@ -176,19 +187,28 @@ static int parse_envfp (FILE *fp)
 	if (! *r) {
 	    // Unsetting the given variable ...
 	    new = malloc ((size_t) (q - p) + 1 + sizeof(struct eslist));
-	    if (! new) {
-		int ec;
-		eslist_free (fst);
-		ec = errno;
-		fprintf (stderr, "Line #%d: %s\n", lc, strerror (errno));
-		free (buf); errno = ec;
-		return -1;
-	    }
+	    if (! new) { return parse_memerr (lc, fst, buf); }
 	    new->next = NULL;
 	    new->unset = true;
 	    t = (char *) new + sizeof(struct eslist);
 	    new->n = t; memcpy (t, p, (size_t)(q - p)); t[q - p] = '\0';
 	    new->v = NULL;
+	} else if (*r == '!') {
+	    /* Keeping the value (even after a cleanup) */
+	    char *envval = NULL; size_t envlen = 0;
+	    int ch = *q; *q = '\0';
+	    envval = getenv (p);
+	    *q = ch;
+	    if (! envval) { continue; }
+	    envlen = strlen (envval);
+	    new = malloc ((size_t) (q - p) + envlen + 2 +
+			  sizeof(struct eslist));
+	    if (! new) { return parse_memerr (lc, fst, buf); }
+	    new->next = NULL;
+	    new->unset = false;
+	    t = (char *) new + sizeof(struct eslist);
+	    new->n = t; memcpy (t, p, (size_t)(q - p)); t += q - p; *t++ = 0;
+	    new->v = t; memcpy (t, envval, envlen); t += envlen; *t = 0;
 	} else {
 	    if (*r != '=') {
 		fprintf (stderr, "Line #%d' Syntax error\n", lc);
@@ -207,14 +227,7 @@ static int parse_envfp (FILE *fp)
 	    // Setting the given variable.
 	    new = malloc ((size_t) (q - p) + (size_t) (t - r) + 2 +
 			  sizeof(struct eslist));
-	    if (! new) {
-		int ec;
-		eslist_free (fst);
-		ec = errno;
-		fprintf (stderr, "Line #%d: %s\n", lc, strerror (errno));
-		free (buf); errno = ec;
-		return -1;
-	    }
+	    if (! new) { parse_memerr (lc, fst, buf); }
 	    new->next = NULL;
 	    new->unset = false;
 	    t = (char *) new + sizeof(struct eslist);
