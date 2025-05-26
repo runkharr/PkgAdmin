@@ -67,7 +67,7 @@ static ssize_t _bgetline (FILE *in, char **_line, size_t *_linesz)
     }
 /*    if (p == line && *p == '\0') { return -1; }*/
     *_line = line; *_linesz = linesz;
-    return (ssize_t) (p - line);
+    return (ssize_t) strlen (line);
 }
 
 #endif /*BGETLINE_C*/

@@ -188,6 +188,7 @@ static int parse_envfp (FILE *fp)
 	    new->unset = true;
 	    t = (char *) new + sizeof(struct eslist);
 	    new->n = t; memcpy (t, p, (size_t)(q - p)); t[q - p] = '\0';
+	    new->v = NULL;
 	} else {
 	    if (*r != '=') {
 		fprintf (stderr, "Line #%d' Syntax error\n", lc);
@@ -204,8 +205,7 @@ static int parse_envfp (FILE *fp)
 	    }
 	    *t = '\0'; s = t;
 	    // Setting the given variable.
-	    new = malloc ((size_t) (q - p) +
-			  (size_t) (t - r) +
+	    new = malloc ((size_t) (q - p) + (size_t) (t - r) + 2 +
 			  sizeof(struct eslist));
 	    if (! new) {
 		int ec;
@@ -218,7 +218,7 @@ static int parse_envfp (FILE *fp)
 	    new->next = NULL;
 	    new->unset = false;
 	    t = (char *) new + sizeof(struct eslist);
-	    new->n = t; memcpy (t, p, (size_t) (q - p)); t += q - p; *t = 0;
+	    new->n = t; memcpy (t, p, (size_t) (q - p)); t += q - p; *t++ = 0;
 	    new->v = t; memcpy (t, r, (size_t) (s - r)); t += s - r; *t = 0;
 	}
 	if (!lst) { fst = lst = new; } else { lst->next = new; }
