@@ -261,7 +261,7 @@ int read_envfile (const char *tag, const char *dir)
     if (dir) {
 	len = snprintf (filename, PATH_MAX, "%s/.env.%s", dir, tag);
     } else {
-	len = snprintf (filename, PATH_MAX, "./.%s.environ", tag);
+	len = snprintf (filename, PATH_MAX, "./.env.%s", tag);
     }
     if ((size_t) len > PATH_MAX) {
 	fprintf (stderr, "read_envfile(): tag and/or directory too long.\n");
