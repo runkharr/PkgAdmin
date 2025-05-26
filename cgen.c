@@ -2304,6 +2304,8 @@ normalize_path (const char *in, char **_out)
 
 #endif /*NORMALIZED_PROGPATH*/
 
+#include "lib/envfile.c"
+
 /* Main program
 **
 */
@@ -2334,6 +2336,14 @@ int main (int argc, char *argv[])
 	progpath = p; *q++ = '\0'; progname = q;
     } else {
 	progpath = NULL; progname = p;
+    }
+
+    if (read_envfile ("cgen", NULL)) {
+	if (errno != ENOENT) {
+	    fprintf (stderr, "%s: Reading environment file failed - %s\n",
+			     strerror (errno));
+	    exit (66); /* alt: exit (69); | exit (70); | exit (78); */
+	}
     }
 
     if (argc - 1 < 1) {

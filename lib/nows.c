@@ -16,7 +16,7 @@
 #ifndef NOWS_C
 #define NOWS_C
 
-#include "lib/gnu-inline.c"
+#include "gnu-inline.c"
 
 static int nows (char c)
 {

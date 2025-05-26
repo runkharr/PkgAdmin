@@ -16,13 +16,24 @@
 #ifndef BGETLINE_C
 #define BGETLINE_C
 
+#ifndef _DEFAULT_SOURCE
+# define _DEFAULT_SOURCE
+# define BGETLINE_EXT_DEFINED
+#endif
+
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
-#include "lib/mrmacs.c"
-#include "lib/cuteol.c"
+#ifdef BGETLINE_EXT_DEFINED
+# undef _DEFAULT_SOURCE
+# undef BGETLINE_EXT_DEFINED
+#endif
+
+#include "mrmacs.c"
+#include "cuteol.c"
 
 #define LSZ_INITIAL 1024
 #define LSZ_INCREASE 1024
@@ -50,7 +61,10 @@ static ssize_t _bgetline (FILE *in, char **_line, size_t *_linesz)
 	}
 	len = linesz - len;
     }
-    if (!rr && p == line) { errno = 0; return -1; }
+    if (!rr && p == line) {
+	if (! ferror (in)) { errno = 0; }
+	return -1;
+    }
 /*    if (p == line && *p == '\0') { return -1; }*/
     *_line = line; *_linesz = linesz;
     return (ssize_t) (p - line);

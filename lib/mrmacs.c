@@ -14,7 +14,9 @@
 #ifndef MRMACS_C
 #define MRMACS_C
 
-#include "lib/gnu-inline.c"
+#include <stdlib.h>
+
+#include "gnu-inline.c"
 
 #define ifnull(x) if ((void *)(x) == NULL)
 #define unlessnull(x) if ((void *)(x) != NULL)
@@ -42,4 +44,3 @@ static __inline__ void *reallocmb (void *p, size_t sz)
 }
 
 #endif /*MRMACS_C*/
-
