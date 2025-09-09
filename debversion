@@ -1,0 +1,42 @@
+#! /bin/sh
+# debversion
+#
+# vim: filetype=dash syntax=sh:
+#
+# $Id$
+#
+# Author: Boris Jakubith
+# E-Mail: runkharr@googlemail.com
+# Copyright: (c) 2025, Boris Jakubith <runkharr@googlemail.com>
+# License: GNU General Public License, version 2
+#
+# Get the debian version from the directory `debian/changelog`.
+
+PROG="$0"
+
+eecho() {
+    echo 1>&2 ${1+"$@"}
+}
+
+abort() {
+    local ec=1
+    if [ $# -gt 0 ] && expr >/dev/null "$1" : '0$\|[1-9][0-9]$'; then
+	ec="$1"; shift
+    fi
+    [ $# -lt 1 ] || echo "${PROG}:" "$@"
+    exit "$ec"
+}
+
+# shellcheck disable=SC2015
+[ $# -lt 1 ] && DEBDIR=. || { DEBDIR="$1"; shift; }
+
+expr >/dev/null "$DEBDIR" : '.\+/debian$' || DEBDIR="$DEBDIR/debian"
+[ -d "$DEBDIR" ] || abort "$DEBDIR - no such directory"
+
+[ -f "$DEBDIR/changelog" ] || abort "No \`changelog\` found in '$DEBDIR'."
+
+DEBVER="$(head -1 "$DEBDIR/changelog"  | sed 's/.*(\([^)]\+\)).*/\1/')"
+
+[ -n "$DEBVER" ] || abort "No valid version number found in '$DEBDIR/changelog'"
+
+echo "$DEBVER"
