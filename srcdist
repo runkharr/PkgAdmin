@@ -1,4 +1,7 @@
 #! /bin/sh
+# srcdist
+#
+# vim: filetype=dash syntax=sh:
 #
 # $Id$
 #
@@ -7,43 +10,57 @@
 # Copyright: © 2005, Boris Jakubith <bj@isv-gmbh.de>
 # Licence: GPL(v2)
 #
-# admin/srcdist		- program for generating a non-CVS archive from a
-#              		  source tree
+# admin/srcdist  - program for generating an archive without the annoying
+#                  files and folders from an underlying version control
+#                  system from a source tree. Currently only `cvs`, `.svn`,
+#                  `.git*` and `.hg` are detected as part of such a version
+#                  control system. Additionally, all Debian building remains
+#                  are also excluded from the archive.
+
+PROG="$(basename "$0")"
+PPATH="$(realpath -s "$(dirname "$0")")"
 
 SFX=.tar
 ARCMODE="tar cf"
 COMPRESS="gzip -9f"
 
 verbose=false
-if [ $# -gt 0 -a "x$1" = x-v ]; then shift; verbose=true; fi
+if [ $# -gt 0 ] && [ "$1" = -v ]; then shift; verbose=true; fi
 
 vecho() {
-    $verbose && echo ${1+"$@"} || true
+    $verbose && echo 1>&2 ${1+"$@"} || true
 }
 
 necho() {
     $verbose || echo ${1+"$@"}
 }
 
-test $# -lt 1 && mode=auto || { mode="$1"; shift; }
+eecho() {
+    echo 1>&2 "${PROG}:" ${1+"$@"}
+}
+
+[ -f "$PPATH/debversion" ] || abort "Required '$PPATH/debversion' not found."
+
+# shellcheck disable=SC2015
+[ $# -lt 1 ] && mode=auto || { mode="$1"; shift; }
 case "$mode" in
     bz2|bzip2)
-	SFX=.tar; ARCMODE="tar cf"; COMPRESS="bzip2 -9f"; shift
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="bzip2 -9f"
 	;;
     gz|gzip)
-	SFX=.tar; ARCMODE="tar cf"; COMPRESS="gzip -9f"; shift
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="gzip -9f"
 	;;
     xz)
-	SFX=.tar; ARCMODE="tar cf"; COMPRESS="xz -9f"; shift
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="xz -9f"
 	;;
     zip)
-	SFX=.zip; ARCMODE="zip -9rq"; unset COMPRESS; shift
+	SFX=.zip; ARCMODE="zip -9rq"; unset COMPRESS
 	;;
     Z)
-	SFX=.tar; ARCMODE="tar cf"; COMPRESS="compress -f"; shift
+	SFX=.tar; ARCMODE="tar cf"; COMPRESS="compress -f"
 	;;
     auto)
-	SFX=.tar; ARCMODE="tar cf"; shift
+	SFX=.tar; ARCMODE="tar cf"
 	if prg="$(which xz)"; then COMPRESS="$prg -9f"
 	elif prg="$(which bzip2)"; then COMPRESS="$prg -9f"
 	elif prg="$(which gzip)"; then COMPRESS="$prg -9f"
@@ -59,36 +76,55 @@ case "$mode" in
 	;;
 esac
 
+# shellcheck disable=SC2015
+[ $# -lt 1 ] && BUILDDIR=. || { BUILDDIR="$1"; shift; }
+
 vecho "Creating srcdist ($ARCMODE${COMPRESS:+, }$COMPRESS)"
 
-DISTDIR=`admin/version directory`
+DISTDIR="$(admin/version directory)"
+OUTDIR="$BUILDDIR/$DISTDIR"
 
-if [ -e "$DISTDIR" ]; then rm -rf "$DISTDIR"; fi
+if [ -e "$OUTDIR" ]; then rm -rf "$OUTDIR"; fi
 
 vecho "  creating directory"
-mkdir "$DISTDIR"
+if ! [ -d "$BUILDDIR" ]; then
+    mkdir -p "$BUILDDIR"
+fi
+mkdir "$OUTDIR"
+
+DEBARCH="$(dpkg --print-architecture)"
+DEBVER="$("$PPATH/debversion")"
+DEBBVER="${DEBVER%%-.*}"
+DEBAVER="${DEBVER}_$DEBARCH"
 
 vecho "  copying files"
 find . \( -path '*/CVS/*' -o -path '*/CVS' \) -prune -o \
-       \( -path './.svn/*' -o -path './.svn' \) -prune -o \
-       \( -path './.git/*' -o -path './.git' \) -prune -o \
-       \( -path './.hg/*' -o -path './.hg' \) -prune -o \
-       \( -path "./$DISTDIR/*" -o -path "./$DISTDIR" \) -prune -o \
+       \( -path '*/.svn/*' -o -path '*/.svn' \) -prune -o \
+       \( -path '*/.git*/*' -o -path '*/.git*' \) -prune -o \
+       \( -path '*/.hg/*' -o -path '*/.hg' \) -prune -o \
+       \( -name "*_${DEBVER}.*" -o -path "*_${DEBBVER}.*" \) -prune -o \
+       \( -name "*_${DEBAVER}.*" \) -prune -o \
+       \( -path "$OUTDIR/*" -o -path "$OUTDIR" \) -prune -o \
        -print \
-| cpio -pdm "$DISTDIR" >/dev/null 2>&1
+| cpio -pdm "$OUTDIR" >/dev/null 2>&1
 
 
 vecho "  archiving"
-$ARCMODE "${DISTDIR}$SFX" "$DISTDIR"
+# shellcheck disable=SC2164
+(cd "$BUILDDIR"; $ARCMODE "${DISTDIR}$SFX" "$DISTDIR")
 outname="${DISTDIR}$SFX"
 if [ -n "$COMPRESS" ]; then
     vecho "  compressing"
-    $COMPRESS "${DISTDIR}$SFX"
-    outname="$(echo "$outname"*)"
+    $COMPRESS "${OUTDIR}$SFX"
+    # shellcheck disable=SC2164
+    outname="$(cd "$BUILDDIR"; echo "${DISTDIR}$SFX"*)"
 fi
 vecho "  removing directory"
-rm -rf "$DISTDIR"
-vecho "  moving archive outside of `pwd`"
-mv "${DISTDIR}$SFX"* ..
+rm -rf "$OUTDIR"
+vecho "  moving archive outside of $BUILDDIR"
+mv "${OUTDIR}$SFX"* ..
+if [ "$(realpath "$BUILDDIR")" != "$(realpath .)" ]; then
+    vecho " removing \"$BUILDDIR\""; rmdir "$BUILDDIR"
+fi
 vecho "done."
 necho "../$outname"
