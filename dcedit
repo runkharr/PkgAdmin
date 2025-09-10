@@ -21,14 +21,17 @@ eval 'exec perl -wS $0 ${1+"$@"}'
 # Small Perl-script for maintaining the debian/changelog file ...
 #
 
+use strict; 
+
 use IO::Handle;
 use POSIX qw(strftime setlocale LC_ALL LC_CTYPE);
 
-sub ppsplit ($;$);
-sub edit ($);
-sub nl_strftime (@);
-sub read_control ($);
-# sub print_r (*$;$);
+sub ppsplit :prototype($;$);
+sub edit :prototype($);
+sub nl_strftime :prototype(@);
+sub read_control :prototype($);
+sub prompt :prototype($;\&);
+# sub print_r :prototype(*$;$);
 
 my ($prog, $ppath) = ppsplit ($0);
 (my $top = $ppath) =~ s(/admin$)();
@@ -69,10 +72,13 @@ unless (-d $debdir) {
 	" directory?\n";
 }
 
-open CL, "<$clpath" or
+prompt ('Do you really want to modify the `debian/changelog` file?') or
+    exit 1;
+
+open *CL, '<', $clpath or
     die "$prog: attempt to open '$clpath' failed - $!\n";
 
-@CL = (); @e = (); $pn = undef; $pv = undef; $pxd = undef;
+my (@CL, @e, $pn, $pv, $pxd);
 while (<CL>) {
     chomp; s/\r$//;
     if (/^([\w-]+) \((.+?)\) (\w+; urgency=.+)/) {
@@ -92,7 +98,7 @@ close CL;
 #         of the source-tree ...
 #
 my $maintainer = undef;
-if (open MAINTAINER, "<$top/MAINTAINER") {
+if (open *MAINTAINER, '<', "$top/MAINTAINER") {
     $_ = <MAINTAINER>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
     if (/^([^\s]+ )+<[^>\@]+\@[^>]+>$/) { $maintainer = $_; }
     close MAINTAINER;
@@ -110,8 +116,8 @@ unless (defined $maintainer) {
 #  Step 3: Try to extract it from the first section of `debian/changelog' ...
 #
 unless (defined $maintainer) {
-    for $_ (@e) {
-	if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintiner = $1; last; }
+    foreach (@e) {
+	if (/^ -- (([^\s]+ )+<[^>]+>)  /) { $maintainer = $1; last; }
     }
 }
 
@@ -123,12 +129,12 @@ if ($get_maintainer_only) {
     print "$maintainer\n"; exit 0;
 }
 
-open VERSION, "<$top/VERSION" or
+open *VERSION, '<', "$top/VERSION" or
     die "$prog: attempt to get the version number failed - $!\n";
 $_ = <VERSION>; chomp; s/\r$//; close VERSION;
-$version = $_;
+my $version = $_;
 
-($v, $dv) = ($pv =~ /^(.+)(?:-([^-]+))?$/);
+my ($v, $dv) = ($pv =~ /^(.+)(?:-([^-]+))?$/);
 if ($v eq $version) {
     if ((length $dv) == 0) { exit 0; }
     my $af = STDIN->autoflush (1);
@@ -156,10 +162,10 @@ if ($v eq $version) {
     }
     $dv = $_;
 }
-$tf = "$debdir/tx-$$.in";
-open TX, ">$tf" or
+my $tf = "$debdir/tx-$$.in";
+open *TX, '>', $tf or
     die "$prog: attempt to prepare editing failed - $!\n";
-$etext = <<EOT;
+my $etext = <<EOT;
 
 ##DELETE from here
 # Please enter a text describing the new version. This text is later inserted
@@ -175,9 +181,9 @@ EOT
 print TX $etext;
 close TX;
 
-$rc = edit ($tf);
+my $rc = edit ($tf);
 unless (defined $rc) {
-    $err = "$!"; unlink $tf;
+    my $err = "$!"; unlink $tf;
     die "$prog: editing '$tf' failed - $err\n";
 }
 
@@ -185,11 +191,11 @@ if ($rc) {
     print STDERR "$prog: WARNING! The editor returned a non-zero exit code\n";
 }
 
-open TX, "<$tf" or
+open *TX, '<', $tf or
     die "$prog: attempt to read the description failed - $!\n";
 
-@e = ("$pn ($version@{[$dv ? '-' : '']}$dv) $pxd", ""); @t = ();
-$e = '';
+@e = ("$pn ($version@{[$dv ? '-' : '']}$dv) $pxd", ""); my @t = ();
+my $e = '';
 while (<TX>) {
     chomp; s/\r$//;
 last if (/^##DELETE/);
@@ -211,11 +217,11 @@ unless (@t) {
     exit 0;
 }
 
-for $t (@t) {
-    @w = split /\s+/, $t;
-    $l = '  *';
+for my $t (@t) {
+    my @w = split /\s+/, $t;
+    my $l = '  *';
     while (@w) {
-	$w = shift @w;
+	my $w = shift @w;
 	if (length ("$l $w") < $MAXCLL) {
 	    $l .= " $w";
 	} else {
@@ -225,21 +231,21 @@ for $t (@t) {
     if (length ($l) > 3) { push @e, $l; }
 }
 
-$ts = nl_strftime ('%a, %e %b %Y %H:%M:%S %z', (localtime (time ())));
+my $ts = nl_strftime ('%a, %e %b %Y %H:%M:%S %z', (localtime (time ())));
 push @e, "", " -- $maintainer  $ts", "";
 unshift @CL, [ @e ];
 
 unlink "$clpath.OLD";
 rename $clpath, "$clpath.OLD" or
     die "$prog: attempt to save current '$clpath' failed - $!\n";
-unless (open CL, ">$clpath") {
-    $ec = "$!\n";
+unless (open *CL, '>', $clpath) {
+    my $ec = "$!\n";
     unlink "$clpath";
     rename "$clpath.OLD", $clpath;
     die "$prog: attempt to write new '$clpath' failed - $!\n";
 }
-for $e (@CL) {
-    for $_ (@{$e}) { print CL "$_\n"; }
+for my $e (@CL) {
+    foreach (@{$e}) { print CL "$_\n"; }
 }
 close CL;
 
@@ -247,7 +253,7 @@ unlink "$clpath.OLD";
 
 exit 0;
 
-sub ppsplit ($;$) {
+sub ppsplit :prototype($;$) {
     use Cwd;
     my ($pp, $pdel) = @_;
     $pdel = '/' unless ($pdel);
@@ -270,7 +276,7 @@ sub ppsplit ($;$) {
     ($pn, join ($pdel, @res))
 }
 
-sub check_prog ($) {
+sub check_prog :prototype($) {
     my $p = shift;
     for my $path (qw(/bin /usr/bin /usr/local/bin)) {
 	my $pp = "$path/$p";
@@ -279,7 +285,7 @@ sub check_prog ($) {
     undef
 }
 
-sub edit ($) {
+sub edit :prototype($) {
     my ($file) = @_;
     my $editor;
     if (exists $ENV{EDITOR} && -f $ENV{EDITOR} && -x $ENV{EDITOR}) {
@@ -298,7 +304,7 @@ sub edit ($) {
     }
 }
 
-sub nl_strftime (@) {
+sub nl_strftime :prototype(@) {
     my @args = @_;
     die "$prog: Not enough arguments for main::nl_strftime\n" if (@args < 7);
     while (@args < 10) { push @args, -1; }
@@ -308,7 +314,7 @@ sub nl_strftime (@) {
     $res
 }
 
-sub read_control ($) {
+sub read_control :prototype($) {
     my ($control) = @_;
     my ($lastitem, $line, $lc, @FILE, %SECTION, %FILE, $err, $section);
     my ($secname, $item);
@@ -367,7 +373,7 @@ sub read_control ($) {
     }
     if (%SECTION) { ++$section; push @FILE, { %SECTION }; }
     %FILE = (); $item = 'source'; $lc = 0;
-    for $section (@FILE) {
+    for my $section (@FILE) {
 	++$lc; $secname = $section->{$item};
 	unless (defined ($secname)) {
 	    print STDERR "ERROR: Section #$lc contains no identification!\n";
@@ -388,7 +394,37 @@ sub read_control ($) {
     +(0, { %FILE })
 }
 
-# sub print_r (*$;$) {
+sub prompt :prototype($;\&)
+{
+    my ($prompt, $check_answer) = @_;
+    unless (defined $check_answer) {
+	$check_answer = sub {
+	    local $_ = shift;
+	    s/^\s+//; s/\s+$//;
+	    if (/^no?$/) {
+		0
+	    } elsif (/^(?:y(?:es)?|ok)$/) {
+		1
+	    } else {
+		print STDERR
+		      "** Please answer with one of n, no, y, yes, ok !\n";
+		+()
+	    }
+	};
+    }
+    my $buffered = $|; $| = 0;
+    my $res;
+    for (;;) {
+	print "$prompt ";
+	my $ans = <stdin>;
+	unless (defined $ans) { print "<eof>\n"; last; }
+	$res = &$check_answer ($ans);
+	last if (defined $res);
+    }
+    $res
+}
+
+# sub print_r :prototype(*$;$) {
 #     local (*FH) = (shift @_);
 #     my ($data, $sw) = @_;
 #     my ($k, $v);
