@@ -30,8 +30,10 @@ sub ppsplit :prototype($;$);
 sub edit :prototype($);
 sub nl_strftime :prototype(@);
 sub read_control :prototype($);
-sub prompt :prototype($;\&);
-# sub print_r :prototype(*$;$);
+sub prompt :prototype($;&);
+sub check_debrelease :prototype($);
+sub empty :prototype(\[$@%]);
+sub check_eof :prototype(;$_);
 
 my ($prog, $ppath) = ppsplit ($0);
 (my $top = $ppath) =~ s(/admin$)();
@@ -129,39 +131,49 @@ if ($get_maintainer_only) {
     print "$maintainer\n"; exit 0;
 }
 
-open *VERSION, '<', "$top/VERSION" or
-    die "$prog: attempt to get the version number failed - $!\n";
-$_ = <VERSION>; chomp; s/\r$//; close VERSION;
-my $version = $_;
+my $version = do {
+    open my $ver_fh, '<', "$top/VERSION" or
+	die "$prog: attempt to get the version number failed - $!\n";
+    chomp ($_ = <$ver_fh>); chomp; s/\r$//; close $ver_fh;
+    $_;
+};
 
-my ($v, $dv) = ($pv =~ /^(.+)(?:-([^-]+))?$/);
+my ($v, $dv) = ($pv =~ /^(.+?)(?:-(.+))?$/);
+
+print "\nThe current debian version number (<version>-<release>) is: $v-$dv\n";
 if ($v eq $version) {
-    if ((length $dv) == 0) { exit 0; }
+    if (empty $dv) { exit 0; }
     my $af = STDIN->autoflush (1);
-    for (;;) {
-	print "The program version and the last entry in the debian changelog".
-	      " match.\nDo you want to change the debian release number".
-	      " (current = $dv) instead ? ";
-	$_ = <STDIN>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
-    last if (/^y(es)?$/ || /^no?$/);
-	print "Please answer only with y[es] or n[o]!\n\n";
-    }
-    if (/^no?$/) { print "Ok ... bye\n"; exit 0; }
-    for (;;) {
-	print "Please enter the debian release number: ";
-	$_ = <STDIN>; chomp; s/\r$//; s/^\s+//; s/\s+$//;
-    last if (/^[^\s-]+$/);
-	print "Wrong format. Please retry!\n\n";
-    }
+    my $tf = print "The program version and the last entry in the debian".
+		   " changelog match.\n";
+    my $tf = prompt "Do you want to change the debian release number ($dv)".
+		    " instead?";
+    unless ($tf) { print "Nothing to do ... bye.\n"; exit 0; }
+    print "\n";
+    $_ = prompt "Debian release number ($dv) [ENTER for no change]:",
+		\&check_debrelease;
+    check_eof;
+    $_ = $dv if (empty $_);
     if ($dv eq $_) {
-	print STDERR "$prog: The debian release number equals that of the".
-		     " last entry in the\n".(' ' x length $prog)."  $changelog".
-		     " file. I assume you don't really want to change the\n".
-		     (' ' x length $prog)."  $clpath.\n";
+	print "\nThe debian release remains unchanged, so no change on the".
+	      " `debian/changelog`\nfile is necessary. Bye.\n";
 	exit 0;
     }
     $dv = $_;
+} else {
+    print "\nThe new version number is: $version. It was extracted from the".
+	  " `VERSION` file.\nNow, you may change the debian release number.".
+	  "\n\n";
+    $_ = prompt 'Debian release number ($dv) [ENTER for no change]:',
+		\&check_debrelease;
+    check_eof;
+    if (empty $_) {
+	print "OK, the debian release number remains unchanged. It is: $dv\n";
+    } else {
+	$dv = $_;
+    }
 }
+
 my $tf = "$debdir/tx-$$.in";
 open *TX, '>', $tf or
     die "$prog: attempt to prepare editing failed - $!\n";
@@ -259,7 +271,7 @@ sub ppsplit :prototype($;$) {
     $pdel = '/' unless ($pdel);
     my @pp = split /$pdel/, $pp;
     my $pn = pop @pp;
-    unless (@pp && (length $pp[$[]) == 0) {
+    unless (@pp && empty $pp[$[]) {
 	my $cwd = cwd ();
 #	my $cwd = `pwd`; chomp $cwd; $cwd =~ s/\r$//;
 	unshift @pp, (split /$pdel/, $cwd);
@@ -394,7 +406,7 @@ sub read_control :prototype($) {
     +(0, { %FILE })
 }
 
-sub prompt :prototype($;\&)
+sub prompt :prototype($;&)
 {
     my ($prompt, $check_answer) = @_;
     unless (defined $check_answer) {
@@ -407,7 +419,7 @@ sub prompt :prototype($;\&)
 		1
 	    } else {
 		print STDERR
-		      "** Please answer with one of n, no, y, yes, ok !\n";
+		      "** Please answer with one of n, no, y, yes, ok !\n\n";
 		+()
 	    }
 	};
@@ -416,7 +428,7 @@ sub prompt :prototype($;\&)
     my $res;
     for (;;) {
 	print "$prompt ";
-	my $ans = <stdin>;
+	chomp (my $ans = <stdin>); $ans =~ s/\r$//;
 	unless (defined $ans) { print "<eof>\n"; last; }
 	$res = &$check_answer ($ans);
 	last if (defined $res);
@@ -424,44 +436,32 @@ sub prompt :prototype($;\&)
     $res
 }
 
-# sub print_r :prototype(*$;$) {
-#     local (*FH) = (shift @_);
-#     my ($data, $sw) = @_;
-#     my ($k, $v);
-#     $sw = 0 unless (defined $sw);
-#     if ((ref $data) eq '') {
-# 	print FH "$data\n";
-#     } elsif ((ref $data) eq 'HASH') {
-# 	print FH "{\n";
-# 	for $k (keys %{$data}) {
-# 	    print FH ' ' x ($sw + 4), "$k => ";
-# 	    print_r (FH, $data->{$k}, $sw + 4);
-# 	}
-# 	print FH ' ' x $sw, "}\n";
-#     } elsif ((ref $data) eq 'ARRAY') {
-# 	print FH "[\n";
-# 	for $k (0 .. $#{$data}) {
-# 	    print FH ' ' x ($sw + 4), "[$k] => ";
-# 	    print_r (FH, $data->[$k], $sw + 4);
-# 	}
-# 	print FH ' ' x $sw, "]\n";
-#     } elsif ((ref $data) eq 'SCALAR') {
-# 	print FH '\ '.${$data}."\n";
-#     } elsif (UNIVERSAL::isa ($data, 'HASH')) {
-# 	print FH (ref $data)." = {\n";
-# 	for $k (keys %{$data}) {
-# 	    print FH ' ' x ($sw + 4), "$k => ";
-# 	    print_r (FH, $data->{$k}, $sw + 4);
-# 	}
-# 	print FH ' ' x $sw, "}\n";
-#     } elsif (UNIVERSAL::isa ($data, 'ARRAY')) {
-# 	print FH (ref $data)." = [\n";
-# 	for $k (0 .. $#{$data}) {
-# 	    print FH ' ' x ($sw + 4), "[$k] => ";
-# 	    print_r (FH, $data->[$k], $sw + 4);
-# 	}
-# 	print FH ' ' x $sw, "]\n";
-#     } else {
-# 	print FH "$data\n";
-#     }
-# }
+sub check_debrelease :prototype($) {
+    (local $_) = @_;
+    return $_ if (empty $_);
+    unless (/^\d+(?:\.\d+)?(?:[+~][0-9A-Fa-f]+)?$/ or /^[0-9A-Fa-f]+$/) {
+	print STDERR "** Wrong format. Please retry!\n\n";
+	return;
+    }
+    $_
+}
+
+sub empty :prototype(\[$@%]) {
+    (local $_) = @_;
+    if (defined $_) {
+	if (ref $_ eq 'HASH') {
+	    return unless (%$_ == 0);
+	} elsif (ref $_ eq 'ARRAY') {
+	    return unless (@$_ == 0);
+	} else { # ref $_ eq 'SCALAR' !!
+	    return unless (length ($$_ // '') == 0);
+	}
+    }
+    1
+}
+
+sub check_eof :prototype(;$_) {
+    local $_ = (@_ > 0 ? $_[$[] : $_);
+    return if (defined $_);
+    print "End of file found in input ... bye.\n"; exit 0;
+}
