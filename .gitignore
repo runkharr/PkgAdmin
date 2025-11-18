@@ -53,3 +53,6 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# My local additions (*.bin files are generated and so _must_ be ignored)
+*.bin
